@@ -1,0 +1,53 @@
+%ifndef ASM32_DISPLAY
+%define ASM32_DISPLAY
+
+[BITS 32]
+;section .text
+; To be called from 32 bits code.
+; ebx has to contain the address of the string.
+
+jmp asm32_display_string_vars
+	asm32_display_string_scpos dd 0xB8A00 ; Screen pos
+
+asm32_display_string_vars:
+
+
+asm32_display_string:
+;	push eax
+	xor ebx, ebx
+	mov ebx, 0xB8A00
+
+;    mov byte [0xB8B10], 'K'
+;    mov byte [0xB8B11], 0x57
+
+.start:
+	xor eax, eax
+	lodsb
+
+    cmp al, 0     ; end of string ?
+    jz .end
+
+	shl ax, 8
+	mov al, 0x07 ; color code.
+
+	; Now ax is made of the byte for the char and the byte for the color.
+
+;	mov byte [0xB8C00], al
+;	mov byte [0xB8C01], 0x57
+
+
+	mov byte [ebx], ah
+	inc ebx
+	mov byte [ebx], al
+	inc ebx
+
+;	mov word [asm32_display_string_scpos], asm32_display_string_scpos + 2
+;	inc esi
+    jmp .start
+
+.end:
+;	pop eax
+    ret
+
+
+%endif

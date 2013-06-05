@@ -1,0 +1,183 @@
+
+
+EXTERN monitor_write, monitor_clear, monitor_write_hex, monitor_write_bin, init_gdt
+
+GLOBAL kmain
+kmain:
+
+
+;call init_gdt
+
+
+call monitor_clear
+
+push dword starting_kernel
+call monitor_write
+
+
+push 0x12E4AB80
+call monitor_write_bin
+
+push linefeed
+call monitor_write
+
+xor eax, eax
+mov ax, ds
+push eax
+call monitor_write_hex
+
+
+;Init gdt pointer
+;    mov eax, gdtend    ; calc of GDT size
+;    mov ebx, gdt
+;    sub eax, ebx
+;    mov word [gdtptr], ax
+
+;    xor eax, eax      ; calc linear address of GDT
+;    xor ebx, ebx
+;    mov ax, ds
+;    mov ecx, eax
+;    shl ecx, 4
+;    mov ebx, gdt
+;    add ecx, ebx
+;    mov dword [gdtptr+2], ecx
+
+
+    lgdt [gdtptr]    ; load GDT
+
+
+
+;xor eax, eax
+;mov ax,0x10
+;mov ds, ax
+;mov es, ax
+;mov fs, ax
+;mov gs, ax
+;mov ss, ax
+;mov esp,8000h
+
+
+
+
+
+
+
+
+
+
+
+;    jmp next
+;next:
+;	xor eax, eax
+;    mov ax, 0x10 ; 0x10 -> gdt ds
+;    mov ds, eax
+;    mov fs, eax
+;    mov gs, eax
+;    mov es, eax
+;    mov ss, eax
+;    mov esp, 0x9F000
+
+;	db 0xea
+;	dw .jmp_code_segment, 0x0008
+
+;    jmp dword 0x8:.jmp_code_segment    ; reinit code seg
+
+;.jmp_code_segment:
+
+
+
+
+
+
+
+;push dword gdt_reloaded
+;call monitor_write
+
+
+
+;end:
+;jmp end
+
+
+
+
+[SECTION .data]
+
+starting_kernel db 'Kernel v. 0.1', 10, 13, 0
+gdt_reloaded db 'Reloaded GDT', 10, 13, 0
+linefeed db 10, 13, 0
+
+
+
+
+gdt:
+;    db 0, 0, 0, 0, 0, 0, 0, 0
+;------------------------------------------------------------------------------
+; GDT[1] = Code Descriptor
+; Limit: FFFFF                          Base: 0
+; Acessed: 0                            Read-Write: 1
+; Stack: 0                              Code: 1
+; Desc. Privelage Level: 0              Present: 1
+; User Definable: 0                     Reserved Bit: 0
+; 32 bit: 1                             Granularity: 1 (4k)
+; 
+;------------------------------------------------------------------------------
+
+gdt_cs:
+        dw      0FFFFh                  ; Limit 15-0
+        dw      00000h                  ; Base 15-0
+        db      00h                     ; Base 23-16
+        db      10011010b               ; Flags
+        db      11001111b               ; Limit 19-16 + Flags
+        db      00h                     ; Base 31-24
+
+;------------------------------------------------------------------------------
+; GDT[2] = Data Descriptor 
+; Limit: FFFFF                          Base: 0
+; Acessed: 0                            Read-Write: 1
+; Stack: 0                              Code: 0 
+; Desc. Privelage Level: 0              Present: 1
+; User Definable: 0                     Reserved Bit: 0
+; 32 bit: 1                             Granularity: 1 (4k)
+; 
+;------------------------------------------------------------------------------
+
+gdt_ds:
+        dw      0FFFFh                  ; Limit 15-0
+        dw      00000h                  ; Base 15-0
+        db      00h                     ; Base 23-16
+        db      10010010b               ; Flags
+        db      11001111b               ; Limit 19-16 + Flags
+        db      00h                     ; Base 31-24
+
+gdtsize: equ $ - gdt
+
+gdtend:
+
+;--------------------------------------------------------------------
+;gdt:
+;    db 0, 0, 0, 0, 0, 0, 0, 0
+;gdt_cs:
+;    db 0xFF, 0xFF, 0x0, 0x0, 0x0, 10011011b, 11011111b, 0x0
+;gdt_ds:
+;    db 0xFF, 0xFF, 0x0, 0x0, 0x0, 10010011b, 11011111b, 0x0
+;gdtend:
+;--------------------------------------------------------------------
+;gdtptr:
+;        dw      gdtsize - 1
+;        dd      gdt
+
+;    dw 0  ; limit
+;    dd 0  ; base
+;--------------------------------------------------------------------
+
+
+
+
+
+
+;====================================================================
+;====================================================================
+
+
+

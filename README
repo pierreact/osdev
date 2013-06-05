@@ -1,0 +1,4 @@
+To compile and run the kernel, run compile_qemu.sh
+It certainly will complain at first you don't have the right tools to run it... just install them :)
+
+
