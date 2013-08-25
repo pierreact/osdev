@@ -145,7 +145,7 @@ setup_64_bits_paging_structures:
                                                         ; PML4E flags:
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
                                                         ;
-mov ecx, 'PML4'
+;mov ecx, 'PML4'
 ;mov ecx, 'E   '
         mov [ebx+4], ecx                                ; Writing the entry in memory
         mov [ebx], edx                                  ; Bis repetita
@@ -246,7 +246,7 @@ create_pdpt:                                            ;
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
                                                         ;
                                                         ; Now that our 64 bits PDPE is built, let's write it in the PDPT
-mov ecx, 'PDPE'
+;mov ecx, 'PDPE'
 ;mov ecx, 'XXXX'
                                                         ;
         mov [ebx+4], ecx                                ; Write the last part of the PDPE
@@ -338,7 +338,7 @@ create_pdt:                                            ;
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
                                                         ;
                                                         ; Now that our 64 bits PDE is built, let's write it in the PDT
-mov ecx, 'PDEX'
+;mov ecx, 'PDEX'
 ;mov ecx, 'XXXX'
                                                         ;
         mov [ebx+4], ecx                                ; Write the last part of the PDE
@@ -355,7 +355,7 @@ mov ecx, 'PDEX'
         add ebx, 8                                     ;  Add 8 bytes to base address, each PDE is 64 bits wide
         inc edx                                         ;
 
-call display_current_page_base_addr
+;call display_current_page_base_addr
 
 
 
@@ -438,7 +438,7 @@ create_ptt:                                            ;
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
 
                                                         ; Now that our 64 bits PTE is built, let's write it in the PTT
-mov ecx, 'PTEX'
+;mov ecx, 'PTEX'
 ;mov ecx, 'XXXX'
                                                         ;
         mov [ebx+4], ecx                                ; Write the last part of the PTE

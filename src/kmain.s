@@ -1,3 +1,25 @@
+
+;
+; O.S. Still without a name... This file has the kernel code...
+; Copyright (C) 2012 Pierre ANCELOT
+; 
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation; either version 2
+; of the License, or (at your option) any later version.
+; 
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+; 
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+;
+; You can reach the author by sending a mail to pierreact at gmail dot com
+; Thanks :P
+
 ; QEMU DEBUG:
 ; stop
 ; pmemsave 0 134217728 qemu_mem_dump.bin
@@ -428,13 +450,16 @@ call asm32_display_writestring                          ;
 
 
 cli
-hlt
+;hlt
 ; For now, enabling paging leads to a triple fault.
 	; Enable paging now!
-;	mov eax, cr0
-;	bts eax, 31
-;	mov cr0, eax
+	mov eax, cr0
+	bts eax, 31
+	mov cr0, eax
 
+
+;cli
+;hlt
  	mov esi, msg_enable_paging
 	call asm32_display_writestring
 
@@ -447,38 +472,38 @@ hlt
                                                         ;
 [BITS 64]                                               ; Now we're talking...
                                                         ;
-;EXTERN monitor_write                                    ; Some C functions.
-;EXTERN monitor_clear                                    ;
-;EXTERN monitor_write_hex                                ;
-;EXTERN monitor_write_dec                                ;
-;EXTERN monitor_write_bin                                ;
-;EXTERN monitor_write_linefeed                           ;
-;                                                        ;
+EXTERN monitor_write                                    ; Some C functions.
+EXTERN monitor_clear                                    ;
+EXTERN monitor_write_hex                                ;
+EXTERN monitor_write_dec                                ;
+EXTERN monitor_write_bin                                ;
+EXTERN monitor_write_linefeed                           ;
+                                                        ;
 ;jmp include_64bits_functions                            ; include
 ;	%include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
 ;include_64bits_functions:                               ; /include
                                                         ;
 
 Realm64:
-    cli                           ; Clear the interrupt flag.
+;    cli                           ; Clear the interrupt flag.
     mov ax, GDT64.Data            ; Set the A-register to the data descriptor.
     mov ds, ax                    ; Set the data segment to the A-register.
     mov es, ax                    ; Set the extra segment to the A-register.
     mov fs, ax                    ; Set the F-segment to the A-register.
     mov gs, ax                    ; Set the G-segment to the A-register.
-    mov edi, 0xB8000              ; Set the destination index to 0xB8000.
-    mov rax, 0x1F201F201F201F20   ; Set the A-register to 0x1F201F201F201F20.
-    mov ecx, 500                  ; Set the C-register to 500.
-    rep movsq                     ; Clear the screen.
-    hlt                           ; Halt the processor.
+;    mov edi, 0xB8000              ; Set the destination index to 0xB8000.
+;    mov rax, 0x1F201F201F201F20   ; Set the A-register to 0x1F201F201F201F20.
+;    mov ecx, 500                  ; Set the C-register to 500.
+;    rep movsq                     ; Clear the screen.
+;    hlt                           ; Halt the processor.
 
 
 ;call monitor_write_linefeed
-
+;call monitor_clear
 ;push msg_64_bits
 ;call monitor_write ; calling 64 bits C written and compiled function
-;cli
-;hlt
+cli
+hlt
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
 
@@ -487,182 +512,10 @@ Realm64:
                                                         ;
                                                         ;
                                                         ;
-;cli
-;hlt
-;push msg_64_bits
-;call monitor_write ; calling 64 bits C written and compiled function
-
-;call monitor_write_linefeed
-
-;hlt
 
 
 ;call asm64_display_emptyline ; scroll one line
 
-
-
-;mov ebx, kernelEnd
-;shl ebx, 4
-;call asm64_display_make_string_from_hex
-;mov esi, ebx
-;call asm64_display_writestring_noscrollfirst
-
-
-
-
-
-;cli
-;hlt
-
-
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
-                                                        ; Enable paging.
-                                                        ;
-                                                    	; Page directory will be placed right after the kernel end and will be paging aligned.
-;	cld
-;	xor al, al
-;	mov rcx, 4096		; 1024 dwords, Page Directory
-;	mov rdi, kernelEnd
-
-
-;juump:
-;jmp juump
-
-
-; Stop the O.S.
-;cli
-;hlt
-
-
-;loop_pagedir_zeroing:
-;	stosb
-;	loop loop_pagedir_zeroing
-
-
-;mov ebx, kernelEnd
-;call asm32_display_make_string_from_hex
-;mov esi, ebx
-;call asm32_display_writestring
- 	
-
-; Preparing paging:
-;	%define PDPE_ADDRESS (kernelEnd + 8)
-;cli
-;hlt
-
-
-
-
-
-
-;mov rbx, kernelEnd
-;shl rbx, 12
-;call asm64_display_make_string_from_hex
-;mov rsi, rbx
-;call asm64_display_writestring
-
-;cli 
-;hlt
-
-
-
-
-
-
-	; CR3 now points to address kernelEnd.
-
-
-	; At CR3 address, we expect PML4E:
-;	mov rax, 0
-;	mov rax, PDPE_ADDRESS
-;	shl rax, 12
-
-
-;mov ebx, PDPE_ADDRESS
-;call asm64_display_make_string_from_hex
-;mov esi, ebx
-;call asm64_display_writestring
-
-
-
-
-
-
-
-
-
-
-;[BITS 32]
-;mov ebx, eax
-;call asm32_display_make_string_from_hex
-;mov esi, ebx
-;call asm32_display_writestring
-
-
-
-
-
-; STOP KERNEL
-;cli
-;hlt
-
-
-
-
-
-
-;push msg_64_bits
-;call monitor_write ; calling 64 bits C written and compiled function
-
-
-
-
-
-
-
-
-
-
-
-
-
-cli
-;hlt
-
-
-	; Enable paging now!
-;	mov eax, cr0
-;	bts eax, 31
-;	mov cr0, eax
-
-
-
-;jmp in64
-;in64:
-
-;cli
-hlt
-
-
-
-
-; Jump to 64 bits long mode world!
-;	jmp 0x18:s64_bits
-;s64_bits:
-
-;[BITS 64]
-
-
-
-; If this message appears and the OS doesn't crash, you're in for an other bit of coolness buddy :P
-;push msg_64_bits
-;call monitor_write ; calling 64 bits C written and compiled function
-
-
-
-mov rax, 4
 
 cli
 hlt

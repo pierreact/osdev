@@ -29,6 +29,8 @@ cat src/bootsector.bin src/kernel /dev/zero | dd iflag=fullblock of=$OBJ bs=512 
 #qemu-system-x86_64 -s -monitor stdio -boot order=c -hda $OBJ
 
 qemu-system-x86_64 -s -monitor stdio -boot order=c -drive file=$OBJ,if=ide,index=2
+#qemu-system-x86_64 -s -monitor stdio -boot menu=on -drive file=$OBJ,if=scsi,bus=0,unit=2
+
 #qemu-system-x86_64 -m 128M -boot order=c -drive file=$OBJ,if=ide,index=2 #-d cpu_reset
 
 
