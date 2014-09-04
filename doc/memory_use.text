@@ -1,0 +1,12 @@
+
+Long mode:
+
+0x1000 - 0x4FFF Kernel .text
+0x5000 - ?      Kernel .data followed by kernel .bss
+0x7000 - 0x8000 IDT
+0x8000 - ?      Memory map.
+
+
+
+
+
