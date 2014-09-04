@@ -1,5 +1,5 @@
 %define BASE    0x100  ; 0x100:0x0 = 0x1000
-%define KSIZE   50     ; number of sectors to load.
+%define KSIZE   53     ; number of sectors to load.
 
 [BITS 16]
 ; QEMU DEBUG:
@@ -20,7 +20,7 @@ call asm16_display_clear                                ; I want a nice and clea
     mov ds, ax                                          ; Data seg
     mov es, ax                                          ; Extra
     mov ax, 0x8000                                      ; stack at 0x17000
-    mov ss, ax                                          ; 
+    mov ss, ax                                          ;
     mov sp, 0xf000                                      ;
                                                         ;
                                                         ;
@@ -38,7 +38,7 @@ call asm16_display_clear                                ; I want a nice and clea
                                                         ;
                                                         ;--------------------------------------------------------------------------------
                                                         ; Read the kernel from disk
-    mov ax, BASE                                        ; 
+    mov ax, BASE                                        ;
     mov es, ax                                          ; Segment where the kernel will be loaded.
     mov bx, 0                                           ; Offset where the kernel will be loaded.
     mov ah, 2                                           ; Read
