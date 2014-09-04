@@ -24,13 +24,16 @@ cd $start_dir
 
 #ld --oformat binary -m i386linux -b elf32-i386 -Ttext=1000 kern.o -o kernel
 
-cat src/bootsector.bin src/kernel /dev/zero | dd iflag=fullblock of=$OBJ bs=512 count=204800
+#cat src/bootsector.bin src/kernel /dev/zero | dd iflag=fullblock of=$OBJ bs=512 count=204800
+
+cat src/bootsector.bin src/kernel /dev/zero | dd of=$OBJ bs=512 count=204624
 
 #qemu-system-x86_64 -s -monitor stdio -boot order=c -hda $OBJ
-
-qemu-system-x86_64 -s -monitor stdio -boot order=c -drive file=$OBJ,if=ide,index=2
+rm /tmp/qemu.log
+qemu-system-x86_64 -s -monitor stdio -boot order=c -drive file=$OBJ,if=ide,index=2 -D /home/pierre/Projects/Code/OS/kernel/qemu.log  #-enable-kvm #-no-shutdown -no-reboot
 #qemu-system-x86_64 -s -monitor stdio -boot menu=on -drive file=$OBJ,if=scsi,bus=0,unit=2
 
 #qemu-system-x86_64 -m 128M -boot order=c -drive file=$OBJ,if=ide,index=2 #-d cpu_reset
 
 
+#/home/pierre/Projects/Code/OS/kernel
