@@ -1,9 +1,0 @@
-TODO list:
-
-D - Find the end of kernel.
-T - Clear the page directory
-T - Create first page table.
-T - Add page table in page directory
-T - Enable paging.
-
-http://www.acm.uiuc.edu/sigops/roll_your_own/5.a.html
