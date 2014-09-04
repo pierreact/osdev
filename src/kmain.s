@@ -61,6 +61,23 @@ mov sp, 0xf000                                          ;
 sti                                                     ; Enabling Interrupts
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+                                                        ; In order for the firmware built into the system to optimize itself
+                                                        ; for running in Long Mode, AMD recommends that the OS notify the BIOS 
+                                                        ; about the intended target environment that the OS will be running in: 
+                                                        ; - 32-bit mode
+                                                        ; - 64-bit mode
+mov si, msg16_tellbios64                                ; - A mixture of both modes
+call asm16_display_writestring                          ;
+                                                        ; This can be done by calling the BIOS interrupt 15h from Real Mode with 
+mov ax, 0xEC00                                          ; AX set to 0xEC00
+mov bl, 2                                               ; BL set to:
+                                                        ; - 1 for 32-bit Protected Mode
+                                                        ; - 2 for 64-bit Long Mode
+                                                        ; - 3 if both modes will be used.
+int 0x15                                                ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+
 
 mov ax, MEMMAP_START
 shr ax, 4
@@ -334,13 +351,11 @@ call asm32_get_last_mem_address                         ; Test VM reports us at 
                                                         ; PDE: 000000000
                                                         ; PTE: 000000000
                                                         ; PHYSICAL_PAGE_OFFSET: 000000000000
-
-
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Initializing 64 bits data structures before jumping there.
-
+                                                        ;
                                                         ; Now we calc the Descriptors of the address of the last paging entry for the pmem
                                                         ;--------------------------------------------------------------------------------
                                                         ; PML4E
@@ -349,7 +364,7 @@ call asm32_get_last_mem_address                         ; Test VM reports us at 
                                                         ; - Bits 63–48 are a sign extension of bit 47, as required for canonical-address forms.
                                                         ; - Bits 47–39 index into the 512-entry page-map level-4 table.
                                                         ; - Bits 38–30 index into the 512-entry page-directory pointer table.
-                                                        ; - Bits 29–21 index into the 512-entry page-directory table.
+call setup_64_bits_paging_structures                    ; - Bits 29–21 index into the 512-entry page-directory table.
                                                         ; - Bits 20–12 index into the 512-entry page table.
                                                         ; - Bits 11–0 provide the byte offset into the physical page.
                                                         ;
@@ -360,22 +375,6 @@ call asm32_get_last_mem_address                         ; Test VM reports us at 
                                                         ; Each PTE point to a physical 4KB page, which when complete to the offset make the address.
                                                         ; A virtual address is therefore made of:
                                                         ; Sign extend + PML4E + PDPE + PDE + PTE + Offset.
-
-
-
-call setup_64_bits_paging_structures
-
-
-
-
-
-
-
-
-
-
-
-
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -422,12 +421,12 @@ mov cr0, eax                                            ;
 mov esi, msg_ensure_paging_off                          ; Informs paging is now disabled.
 call asm32_display_writestring                          ;
                                                         ;
-
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Set PAE enable bit in CR4 (Physical Address Extensions)
                                                         ;
 	mov eax, cr4                                        ;
 	bts eax, 5                                          ; Enable bit 5 of CR4 (Enable PAE)
+    btr eax, 7                                          ; Disable bit 7 of CR4 (Disable PGE)
 	mov cr4, eax                                        ;
                                                         ;
 	mov esi, msg_enable_pae                             ; Tell PAE is now enabled.
@@ -440,8 +439,8 @@ call asm32_display_writestring                          ;
 	bts eax, 8			                                ; Set "Long Mode Enable Bit" to 1
 	wrmsr				                                ; Write EFER MSR
                                                         ;
-	mov esi, msg_enable_lme
-	call asm32_display_writestring
+	mov esi, msg_enable_lme                             ;
+	call asm32_display_writestring                      ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
     ; Set CR3
 	xor eax, eax
@@ -449,22 +448,17 @@ call asm32_display_writestring                          ;
 	mov cr3, eax
 
 
-cli
-;hlt
-; For now, enabling paging leads to a triple fault.
+;cli
+
 	; Enable paging now!
 	mov eax, cr0
 	bts eax, 31
 	mov cr0, eax
 
-
-;cli
-;hlt
  	mov esi, msg_enable_paging
 	call asm32_display_writestring
 
    ; We are now in compat mode.
-
     lgdt [GDT64.Pointer]         ; Load the 64-bit global descriptor table.
     jmp GDT64.Code:Realm64       ; Set the code segment and enter 64-bit long mode.
 
@@ -472,53 +466,39 @@ cli
                                                         ;
 [BITS 64]                                               ; Now we're talking...
                                                         ;
-EXTERN monitor_write                                    ; Some C functions.
-EXTERN monitor_clear                                    ;
-EXTERN monitor_write_hex                                ;
-EXTERN monitor_write_dec                                ;
-EXTERN monitor_write_bin                                ;
-EXTERN monitor_write_linefeed                           ;
-                                                        ;
-;jmp include_64bits_functions                            ; include
-;	%include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
-;include_64bits_functions:                               ; /include
-                                                        ;
+;EXTERN monitor_write                                    ; Some C functions.
+;EXTERN monitor_clear                                    ;
+;EXTERN monitor_write_hex                                ;
+;EXTERN monitor_write_dec                                ;
+;EXTERN monitor_write_bin                                ;
+;EXTERN monitor_write_linefeed                           ;
+;EXTERN kprint
+;EXTERN testprint
 
 Realm64:
-;    cli                           ; Clear the interrupt flag.
+
+jmp include_64bits_functions                            ; include
+	%include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
+	%include 'asm64/asm64_setup_idt.inc'                ; ASM64 IDT functions.
+include_64bits_functions:                               ; /include
+                                                        ;
     mov ax, GDT64.Data            ; Set the A-register to the data descriptor.
     mov ds, ax                    ; Set the data segment to the A-register.
     mov es, ax                    ; Set the extra segment to the A-register.
     mov fs, ax                    ; Set the F-segment to the A-register.
     mov gs, ax                    ; Set the G-segment to the A-register.
-;    mov edi, 0xB8000              ; Set the destination index to 0xB8000.
-;    mov rax, 0x1F201F201F201F20   ; Set the A-register to 0x1F201F201F201F20.
-;    mov ecx, 500                  ; Set the C-register to 500.
-;    rep movsq                     ; Clear the screen.
-;    hlt                           ; Halt the processor.
+    mov ss, ax                                          ;
+    mov rsp, stack_end ; 0x9FFFF                                     ; Stack pointer
+
+    call asm64_setup_idt
 
 
-;call monitor_write_linefeed
-;call monitor_clear
-;push msg_64_bits
-;call monitor_write ; calling 64 bits C written and compiled function
-cli
+die:
 hlt
-;----------------------------------------------------------------------------------------------------------------------------------------
-                                                        ;
+jmp die
 
-                                                        ;
-                                                        ;
-                                                        ;
-                                                        ;
-                                                        ;
-
-
-;call asm64_display_emptyline ; scroll one line
-
-
-cli
-hlt
+;cli
+;hlt
 ; Die here.
 
 
@@ -533,27 +513,15 @@ hlt
 ;data_counter_mmap_entries:   dd  0
 msg16_nommap:           db 'K16 - No memory map, dying here.', 0
 msg16_mmap_ok:          db 'K16 - Memory map found, continuing.', 0
+msg16_tellbios64:       db 'K16 - Telling the BIOS we will run a 64 bit OS.', 0
 msg32gdt:				db 'K16 - Loading 32 bits GDT.', 0
 msgprot:				db 'K16 - Switching to protected mode.', 0
 
 
 
-;[BITS 32]
-;[SECTION .data]
+[BITS 32]
+[SECTION .data]
 ;ALIGN 4
-
-
-;gdtptr:               ; Global Descriptors Table Register
-;    dw 4*8-1            ; limit of GDT (size minus one)
-;    dd gdt            ; linear address of GDT
-
-;gdtptr64:               ; Global Descriptors Table Register
-;    dw 4*8-1            ; limit of GDT (size minus one)
-;    dq gdt            ; linear address of GDT
-
-
-
-
 
 gdtptr:
     dw 0  ; limit
@@ -567,52 +535,33 @@ gdt:
 gdtend:
 
 
-;gdt64:
-;	dw 0,0,0,0
-;
-;	;  BaseaddrGDLVslimPDP11CRAbaseaddr  V is for AVL, slim for segment limit, DP is for DPL
-;	;           ||     |||  |            A pipe is set on significant bits for 64 bits code seg descriptor
-;	dd 00000000001000000001100000000000b ; 64 bits code descriptor
-;	dd 00000000000000001000000000000000b ; 64 bits data descriptor
-
-
-
-;--------------------------------------------------------------------
-;gdt:
-;	db 0, 0, 0, 0, 0, 0, 0, 0
-;	dw 0FFFFh,0,9A00h,0CFh      ; 32-bit code desciptor (0x8)
-;	dw 0FFFFh,0,9200h,08Fh      ; flat data desciptor   (0x10)
-;gdtend:
-;--------------------------------------------------------------------
-;--------------------------------------------------------------------
-
-
-
 ;starting_kernel:		db 'K32 - Starting Kernel v. 0.1', 0
 
-msg_32_kernel_code		db '           - Kernel code section (.text) start', 0
-msg_32_kernel_data		db '           - Kernel data section (.data) start', 0
-msg_32_kernel_bss		db '           - Kernel bss section  (.bss) start', 0
-msg_32_kernel_end		db '           - Kernel ends', 0
+msg_32_kernel_code:		db '           - Kernel code section (.text) start', 0
+msg_32_kernel_data:		db '           - Kernel data section (.data) start', 0
+msg_32_kernel_bss:		db '           - Kernel bss section  (.bss) start', 0
+msg_32_kernel_end:		db '           - Kernel ends', 0
 
-msg_32_noapic           db 'K32 - APIC Not supported by this CPU, we die here.', 0
-msg_32_apic             db 'K32 - APIC detected on this CPU, continuing.', 0
+msg_32_noapic:          db 'K32 - APIC Not supported by this CPU, we die here.', 0
+msg_32_apic:            db 'K32 - APIC detected on this CPU, continuing.', 0
 msg_32_bits:			db 'K32 - Kernel 32 bits space starting.', 0
 ;reloaded_gdt_32:		db 'K32 - Reloaded GDT on 32 bits space.', 0
-msg_a20_enabled			db 'K32 - A20 Gate enabled, now accessing the whole memory!', 0
-msg_check_cpu_64_yes	db 'K32 - CPU is 64 bits capable, continuing...', 0
-msg_check_cpu_64_no		db 'K32 - CPU is not 64 bits capable, dying here.', 0
-msg_ensure_paging_off	db 'K32 - Did ensure paging is disabled.', 0
-msg_enable_pae			db 'K32 - PAE Enabled, now accessing more than 4GB of memory', 0
+msg_a20_enabled:		db 'K32 - A20 Gate enabled, now accessing the whole memory!', 0
+msg_check_cpu_64_yes:   db 'K32 - CPU is 64 bits capable, continuing...', 0
+msg_check_cpu_64_no:	db 'K32 - CPU is not 64 bits capable, dying here.', 0
+msg_ensure_paging_off:	db 'K32 - Did ensure paging is disabled.', 0
+msg_enable_pae:			db 'K32 - PAE Enabled, now accessing more than 4GB of memory', 0
 
 [BITS 64]
 [SECTION .data]
 
-msg_enable_lme			db 'K64 - Long mode enabled, CPU now accepts 64 bits instructions.', 0
-msg_enable_paging		db 'K64 - Paging enabled about to jump in true 64 bits code', 0
-msg_64_bits				db 'K64 - Kernel 64 bits enabled and active.', 0
+msg_enable_lme:		    db 'K64 - Long mode enabled, CPU now accepts 64 bits instructions.', 0
+msg_enable_paging:	    db 'K64 - Paging enabled about to jump in true 64 bits code', 0
+msg_64_bits:            db 'K64 - Kernel 64 bits enabled and active.', 0
 
 
+align 64
+; AMD volume 2, section 4.8
 GDT64:                           ; Global Descriptor Table (64-bit).
     .Null: equ $ - GDT64         ; The null descriptor.
     dw 0                         ; Limit (low).
@@ -622,19 +571,20 @@ GDT64:                           ; Global Descriptor Table (64-bit).
     db 0                         ; Granularity.
     db 0                         ; Base (high).
     .Code: equ $ - GDT64         ; The code descriptor.
-    dw 0                         ; Limit (low).
+    dw 0xFFFF                    ; Limit (low).
     dw 0                         ; Base (low).
     db 0                         ; Base (middle)
     db 10011000b                 ; Access.
-    db 00100000b                 ; Granularity.
+    db 00101111b                 ; Granularity.
     db 0                         ; Base (high).
     .Data: equ $ - GDT64         ; The data descriptor.
-    dw 0                         ; Limit (low).
+    dw 0xFFFF                    ; Limit (low).
     dw 0                         ; Base (low).
     db 0                         ; Base (middle)
-    db 10010000b                 ; Access.
-    db 00000000b                 ; Granularity.
+    db 10010010b                 ; Access.
+    db 00001111b                 ; Granularity.
     db 0                         ; Base (high).
+
     .Pointer:                    ; The GDT-pointer.
     dw $ - GDT64 - 1             ; Limit.
     dq GDT64                     ; Base.
@@ -644,78 +594,4 @@ stack_begin:
 RESB 4096 ; Reserve 4KB for the stack.
 stack_end:
 
-
-
-
-;push dword msg_32_bits
-;call monitor_write
-;
-;push dword reloaded_gdt_32
-;call monitor_write
-;
-;push dword gdt
-;call monitor_write_bin
-;
-;call monitor_write_linefeed
-;
-;push dword gdt
-;call monitor_write_hex
-;
-;call monitor_write_linefeed
-
-
-
-
-
-;hlt
-
-
-;	;======================================================================================
-;	init_gdt:
-;
-;	;Init gdt pointer
-;			mov eax, gdtend    ; calc of GDT size (address of gdtend - address of gdt - 1)
-;			mov ebx, gdt
-;			sub eax, ebx
-;			dec eax
-;			mov word [gdtptr], ax
-;			mov dword [gdtptr+2], gdt
-;
-;			lgdt [gdtptr]    ; load GDT
-;
-;			jmp dword 0x8:jmp_code_segment    ; reinit code seg
-;		jmp_code_segment:
-;
-;
-;			xor eax, eax
-;			mov ax,0x10
-;			mov ds, ax	; Reinit data segment with gdt_ds
-;			mov es, ax
-;			mov fs, ax
-;			mov gs, ax
-;			mov ss, ax
-;			mov esp,8000h
-;			jmp end_init_gdt
-;
-;	;======================================================================================
-
-
-
-
-
-
-
-;jmp init_gdt
-;end_init_gdt:
-
-
-;mov esi, reloaded_gdt_32
-;call asm32_display_writestring
-
-
-; Ensure paging is disabled.
-	; Clear page translation enable.
-    ;mov eax, cr0                                   ; Set the A-register to control register 0.
-    ;and eax, 01111111111111111111111111111111b     ; Clear the PG-bit, which is bit 31.
-    ;mov cr0, eax                                   ; Set control register 0 to the A-register.
 

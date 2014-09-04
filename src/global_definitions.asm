@@ -13,7 +13,7 @@ highest_mmap_entry:             dd 0 ; entry with the highest address
 data_counter_mmap_entries:      dd 0 ; How many entries in the memmap?
 mem_amount:                     dq 0 ; How much memory the system has?
 
-db 'DEADBABA'
+GLOBAL_OS_COUNTER:              dq 0 ; See timer IRQ handling
 
 LAST_PHY_MEM_ADDR_SIGN_EXTENT:  dd 0
 LAST_PHY_MEM_ADDR_PML4E:        dd 0
@@ -44,15 +44,6 @@ CURRENTLY_PAGED_ADDRESS dq 0 ; Used as a "counter" on which page base address th
 ;current_LAST_PHY_MEM_ADDR_PDE:          dd 0
 ;current_LAST_PHY_MEM_ADDR_PTE:          dd 0
 ;current_LAST_PHY_MEM_ADDR_PAGE_OFFSET:  dd 0
-
-
-db 'DEADBABE'
-
-
-
-
-
-
 
 
 %endif
