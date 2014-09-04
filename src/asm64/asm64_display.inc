@@ -13,89 +13,42 @@
 %define FIRST_BYTE_OF_LAST_LINE (LENGTH * HEIGHT * 2 - (LENGTH*2)) + video_address
 
 ;========================================
-; dl should contain the line number to be blanked
-; Line number SHALL start at 0.
+; rdx should contain the line number to be blanked, from 0 to 24
 
 asm64_display_emptyline:
-		push rax
-		push rbx
+	push rax
+	push rbx
 
-		xor rbx, rbx
+;	xor rbx, rbx
 
+	; Get to first byte of the line to be cleared up.
+	mov rax, rdx			; mov line number to al for multiplication
+	mov rbx, (LENGTH*2)
+	mul rbx				; multiply line number per number of bytes in a line, result is placed in ax.
 
+	mov rbx, rax			; rax now being the offset of the first byte to wipe, placing it in bx.
+	add rbx, video_address
 
+	; We now have to wipe 80 characters.
+	xor rax, rax
 
+.erase:
+	cmp rax, LENGTH
+	jae .line_empty
 
+	
+	mov byte [rbx], space_char
 
-		; Get to first byte of the line to be cleared up.
-		;xor rax, rax
-		mov rax, rdx			; mov line number to al for multiplication
+	add rbx, 2
+	inc rax
+	jmp .erase
 
-bts rbx, 63
-mov [rbx], byte 4
+.line_empty:
 
-;mov rbx, rax
-;call asm64_display_make_string_from_hex
-;mov rsi, rbx
-;call asm64_display_writestring_noscrollfirst
+	pop rbx
+	pop rax
 
-
-
-
-
-
-		mov rbx, (LENGTH*2)
-		mul rbx				; multiply line number per number of bytes in a line, result is placed in ax.
-
-		mov rbx, rax			; ax now beeing the offset of the first byte to wipe, placing it in bx.
-
-		inc rbx
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-		add rbx, video_address
-
-		; We now have to wipe 80 characters.
-		xor rax, rax
-
-;		mov rbx, 0xB8F00
-;		mov byte [rbx], 'Q'
-
-	.erase:
-		cmp rax, LENGTH
-		jae .line_empty
-
-		
-		mov byte [rbx], space_char
-
-
-
-
-
-
-		add rbx, 2
-		inc rax
-		jmp .erase
-
-	.line_empty:
-
-		pop rbx
-		pop rax
-
-		ret
+	ret
 
 
 
@@ -137,7 +90,7 @@ asm64_display_scroll:
 		jae .screen_scrolled
 
 		mov al, [rbx + (LENGTH*2)]
-		mov [rbx], al
+		mov [rbx], byte al
 
 		add rbx, 2
 		jmp .scroll
@@ -164,7 +117,7 @@ asm64_display_writestring_noscrollfirst:
 		push rbx
 
 		mov rbx, FIRST_BYTE_OF_LAST_LINE
-mov byte [rbx], 'Q'
+;mov byte [rbx], 'Q'
 	.start:
 		lodsb         ; ds:si -> al
 		cmp al, 0     ; end of string?
