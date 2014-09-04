@@ -1,0 +1,23 @@
+megs: 32
+romimage:file=$BXSHARE/BIOS-bochs-latest, address=0xfffe0000
+vgaromimage: file=/usr/share/bochs/VGABIOS-lgpl-latest
+#floppya: 1_44="bin/os.bin", status=inserted
+
+display_library: sdl #, options="gui_debug"
+#boot: floppy
+
+
+ata0-master: type=disk, path=bin/os.bin, mode=flat, cylinders=203, heads=16, spt=63
+#debug: action=report
+panic: action=report
+error: action=report
+info: action=report
+boot: disk
+log: bochsout.txt
+mouse: enabled=0
+clock: sync=realtime
+#cpu: ips=500000
+cpu: ips=20000000
+
+
+
