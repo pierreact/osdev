@@ -3,7 +3,7 @@
 *.o
 *.so
 *.bin
-
+src/kernel
 
 # Packages #
 ############
@@ -18,8 +18,7 @@
 *.tar
 *.zip
 
-src/kernel
-
-
+# Others #
 *~
-
+bochsout.txt
+snapshot.txt
