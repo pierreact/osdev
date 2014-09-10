@@ -18,6 +18,6 @@ mouse: enabled=0
 clock: sync=realtime
 #cpu: ips=500000
 cpu: ips=20000000
-
+magic_break: enable=1
 
 
