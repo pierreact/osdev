@@ -5,15 +5,12 @@
 ; dh -> Number of columns (up to 80-1)
 ; dl -> Number of line    (up to 25-1)
 
-%define LENGTH 80
-%define HEIGHT 25
-%define video_address 0xB8000
-%define space_char 0x20
-
-%define FIRST_BYTE_OF_LAST_LINE (LENGTH * HEIGHT * 2 - (LENGTH*2)) + video_address
+%ifndef GLOBAL_DEFS
+    %include "global_definitions.asm"
+%endif
 
 ;========================================
-; rdx should contain the line number to be blanked, from 0 to 24
+                        ; rdx should contain the line number to be blanked, from 0 to 24
 
 asm64_display_emptyline:
 	push rax
@@ -89,8 +86,8 @@ asm64_display_scroll:
 		cmp rbx, FIRST_BYTE_OF_LAST_LINE
 		jae .screen_scrolled
 
-		mov al, [rbx + (LENGTH*2)]
-		mov [rbx], byte al
+		mov ax, [rbx + (LENGTH*2)]
+		mov [rbx], byte ax
 
 		add rbx, 2
 		jmp .scroll
@@ -124,6 +121,7 @@ asm64_display_writestring_noscrollfirst:
 		jz .end
 
 		mov byte [rbx], al
+        mov byte [rbx+1], 0x0A ; Just decided 64 bits would have a different color.
 		add rbx, 2
 
 		jmp .start
@@ -147,9 +145,6 @@ asm64_display_make_string_from_hex:
 		mov rdi, string_display_hex64 + 17
 		std                       		; set the direction flag
 
-		; DEBUG
-		;mov [cs:edi -1], byte '0'
-
 ; convert ebx
 		mov rcx, 16			; 8 hexits per 32 bit register
 
@@ -165,9 +160,6 @@ asm64_display_make_string_from_hex:
 		add al, 48			; ASCII 0 character
 		jmp .done_hex
 
-		; DEBUG
-		;mov [string_display_hex+1], byte 'W'
-
 	.char:
 		add al, 55 ;'A' - 10			; ASCII A character - 10
 
@@ -176,12 +168,9 @@ asm64_display_make_string_from_hex:
 		ror rbx, 4			; rotate bits of ebx down, happens 16 times so ebx is restored
 		loop .startloop
 
-		; repeat for si, note that there is no need to reinit di
-;mov [cs:edi], byte 'T'
 		cld					; Clear the dir flag
 		mov rbx, string_display_hex64
 
-		;popfq
 		pop rcx
 		pop rax
 		pop rdi
@@ -192,8 +181,7 @@ asm64_display_make_string_from_hex:
 
 [BITS 64]
 [SECTION .data]
-;db 'CAFFEEBABECAFFEEBABE'
-string_display_hex64 db '0x                ', 0
+string_display_hex64: db '0x                ', 0
 
 
 

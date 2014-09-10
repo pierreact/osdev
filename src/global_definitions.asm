@@ -2,9 +2,39 @@
 %ifndef GLOBAL_DEFS
 %define GLOBAL_DEFS
 
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; Screen definitions.
+%define LENGTH 80
+%define HEIGHT 25
+%define video_address 0xB8000
+%define space_char 0x20
+
+%define FIRST_BYTE_OF_LAST_LINE (LENGTH * HEIGHT * 2 - (LENGTH*2)) + video_address
 
 
-%define MEMMAP_START 0x8000 ; Where the memory map is stored in phy mem
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; PIC Definitions.
+                                                        ; 
+%define PIC1_COMMAND 0x20                               ; Command port of the first PIC
+%define PIC1_DATA    0x21                               ; Data/IMR (Interrupt Mask Register) port of the first PIC
+                                                        ;
+%define PIC2_COMMAND 0xA0                               ; Command port of the second PIC
+%define PIC2_DATA    0xA1                               ; Data/IMR (Interrupt Mask Register) port of the second PIC
+                                                        ;
+%define PIC_EOI 0x20                                    ; End-of-interrupt command code
+                                                        ;
+                                                        ;
+%define ICW1 00010001b                                  ; (0x11) Enables initialization mode and says we'll set ICW4
+%define IRQ0 0x20                                       ; IRQ0 to be mapped to interrupt vector 0x20
+%define IRQ8 0x28                                       ; IRQ8 to be mapped to interrupt vector 0x28
+                                                        ;              
+%define IDT32_BASE      0x7000                          ; IDT Location for 32 and 64 bits
+%define IDT64_BASE      0x7000                          ; in 64 bits, the IDT will go to 0x7FFF
+                                                        ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+%define MEMMAP_START    0x9000                          ; Where the memory map is stored in phy mem
 
 
 [SECTION .data]

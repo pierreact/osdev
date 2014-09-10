@@ -1,11 +1,6 @@
 [BITS 64]
 [SECTION .text]
 
-%define IDT64_BASE      0x7000                          ;
-
-;%define PIC1_COMMAND PIC1                               ; Command port of the first PIC
-;%define PIC2_COMMAND PIC2                               ; Command port of the second PIC
-
 
 asm64_pic_send_eoi:                                      ; Send End of interrupt to the PIC, THIS HAS TO BE RUN AT THE END OF EACH ISR.
     push rax
@@ -17,13 +12,194 @@ asm64_pic_send_eoi:                                      ; Send End of interrupt
 
 
 asm64_setup_idt:
-                                                        ;
-	mov rbx, IDT64_BASE                                 ; from 0x7000 to 0x8000 in memory,
-    mov [idtptr64.idtptr64_base], qword rbx                      ; 
-	cli                                                 ; Disable interrupts
-                                                        ;
-	.write:                                             ; Loop it up!
-                                                        ;
+                                                        
+	mov rbx, IDT64_BASE                                     ; from 0x7000 to 0x8000 in memory,
+    mov [idtptr64.idtptr64_base], qword rbx                 ; 
+	cli                                                     ; Disable interrupts
+
+
+    mov rax, asm64_divide_zero_handler                      ; ISR Vector 0x00 Divide by zero
+    call asm64_creategate_fault                             ; Create fault gate.
+
+    mov rax, asm64_debug_handler                            ; ISR Vector 0x01 Debug
+    call asm64_creategate_fault                             ; Create fault gate.
+
+    mov rax, asm64_nmi_handler                              ; ISR Vector 0x02 NMI
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x03
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x04
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x05
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x06
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x07
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x08
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x09
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0a
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0b
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0c
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0d
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0e
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x0f
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x10
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x11
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x12
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x13
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x14
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x15
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x16
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x17
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x18
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x19
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1a
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1b
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1c
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1d
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1e
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x1f
+    call asm64_creategate_interrupt                         ; Create fault gate.
+
+    mov rax, asm64_isr_timer_handler                        ; ISR Vector 0x20 (IRQ0) PIT
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_isr_keyboard_handler                     ; ISR Vector 0x21 (IRQ1) Keyboard
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x23 (IRQ3) COM2
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x23 (IRQ3) COM2
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x24 (IRQ4) COM1
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x25 (IRQ5) LPT2
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x26 (IRQ6) Floppy
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x27 (IRQ7) LPT1 / Unreliable "spurious" interrupt (usually)
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x28 (IRQ8) Clock
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x29 (IRQ9) Free for peripherals / legacy SCSI / NIC
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2A (IRQ10) Free for peripherals / SCSI / NIC
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2B (IRQ11) Free for peripherals / SCSI / NIC
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2C (IRQ12) PS2 Mouse
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2D (IRQ13) FPU
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2E (IRQ14) Primary ATA disk
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x2F (IRQ15) Secondary ATA disk
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_softwareint_handler                      ; ISR Vector 0x30 Software interrupt
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x31 Software interrupt
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+    mov rax, asm64_default_int_handler                      ; ISR Vector 0x32 Software interrupt
+    call asm64_creategate_interrupt                         ; Create Interrupt gate.
+
+
+
+
+    sub rbx, IDT64_BASE
+	mov [idtptr64.idtptr64_limit], word bx                   ; Writes the size to the limit of idtptr
+
+    lidt [idtptr64]
+
+	sti
+
+
+    push rsi	
+
+    mov rsi, msg_idt64_set
+    call asm64_display_writestring 
+    pop rsi
+
+
+	ret
+
+
+
+asm64_creategate_fault:
+asm64_creategate_interrupt:
+asm64_creategate_abort:
+asm64_creategate_trap:
+
+
+
                                                         ; In 64 bits, the structure of an IDT descriptor, 
                                                         ; pointing to the ISR is a bit different.
                                                         ;
@@ -35,7 +211,7 @@ asm64_setup_idt:
 		                                                ; Byte 8 to 11  Offset high bits (32..63) of ISR
                                                         ; Byte 12 to 15 Reserved, at 0
                                                         ;
-		mov rax, asm64_default_int_handler              ; Address of the default int handler.
+		;mov rax, asm64_default_int_handler              ; Address of the default int handler.
                                                         ;
 		mov [rbx], word ax                              ; offset 0 to 15 of handler
                                                         ;
@@ -56,40 +232,42 @@ asm64_setup_idt:
         mov [rbx +12], dword eax                        ; Reserved, at 0
 
 		add rbx, 16                                     ; 16 bytes per interrupt.
-		cmp rbx, 0x1000 + IDT64_BASE                    ; 256 x 16 = 0x1000. 
-                                                        ; Last vector for which an address going to handler will be defined
-		jb .write                                       ; Did we reach the last gate? If not, write the next one
-                                                        ;
-        sub rbx, IDT64_BASE
-		mov [idtptr64.idtptr64_limit], word bx                   ; Writes the size to the limit of idtptr
 
-        lidt [idtptr64]
-
-	sti
+        ret
 
 
-    push rsi	
 
-    mov rsi, msg_idt64_set                              ; Load message informing IDT is set
-    call asm64_display_writestring 
-
-    pop rsi
-
-	ret
-
-align 16
+;align 16
 asm64_default_int_handler:
 
+    mov rsi, msg_default_64handler                                    ; Load message informing an interrupt was called.
+    call asm64_display_writestring 
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+
+	iretq
+
+asm64_divide_zero_handler:
 	cli
 
-	push rbx
-    push rsi
 
-;    mov rsi, msg_default_64handler                                    ; Load message informing an interrupt was called.
-;    call asm64_display_writestring 
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
 
-    pop rsi
-	pop rbx
+	sti
+	iretq
+
+asm64_debug_handler:
+	cli
+
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+
+	sti
+	iretq
+
+asm64_nmi_handler:
+	cli
+
 
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
 
@@ -99,25 +277,83 @@ asm64_default_int_handler:
 
 asm64_isr_timer_handler:
 
-	cli
-
-    push rax
+;    push rax
 
     mov rax, [GLOBAL_OS_COUNTER]
     inc rax
     mov [GLOBAL_OS_COUNTER], rax
 
-    pop rax
+;    pop rax
 
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
 
-	sti
 	iretq
+
+asm64_isr_keyboard_handler:
+;	cli
+;    push rax
+;	push rbx
+;    push rsi
+
+
+	in	al, 0x64		; read controller status
+	mov	[kbstatus], al		; save controller status
+
+	test al, 0x01		; output-buffer empty?
+	jz	.ignore			; yes, nothing to read
+
+	in	al, 0x60		; read the new scancode
+	mov	[kbscancode], al		; save the new scancode
+
+	test byte [kbstatus], 0xC0		; parity/timeout errors?
+	jnz	.resend			; yes, a retry is needed
+	jmp	.end			; else ready to process
+
+.resend:	; TODO: our error-recovery routine will go here
+
+.ignore:
+    mov byte [kbscancode], 0x00		; substitute a null byte
+    .end:					; return to do handling
+
+
+int 0x30
+
+;    pop rsi
+;	pop rbx
+;    pop rax
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+
+;	sti
+	iretq
+
+asm64_softwareint_handler:
+;	cli
+
+;	push rbx
+;    push rsi
+    call asm64_display_scroll
+    mov rbx, [GLOBAL_OS_COUNTER]                                      ; Load kernel end address.
+    call asm64_display_make_string_from_hex                 ; Make is hex string
+    mov rsi, rbx                                            ;
+    call asm64_display_writestring_noscrollfirst            ;
+
+;    pop rsi
+;	pop rbx
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+
+;	sti
+	iretq
+
 
 [SECTION .data]
 
-msg_idt64_set         db 'K64 - IDT64 set.', 0
-msg_default_64handler db 'K64 - Unknown Interrupt called!', 0
+msg_idt64_set:          db 'K64 - IDT64 set.', 0
+msg_default_64handler:  db 'K64 - Unknown Interrupt called!', 0
+msg_numtimercalls:      db 'Number of calls to timer interrupt :', 0
+
+kbstatus:	            db	0			; keyboard controller status
+kbscancode:	            db	0			; scancode
 
 align 16
 idtptr64:

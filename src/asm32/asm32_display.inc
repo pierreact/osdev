@@ -8,13 +8,10 @@
 section .text
 ; dh -> Number of columns (up to 80-1)
 ; dl -> Number of line    (up to 25-1)
+%ifndef GLOBAL_DEFS
+    %include "global_definitions.asm"
+%endif
 
-%define LENGTH 80
-%define HEIGHT 25
-%define video_address 0xB8000
-%define space_char 0x20
-
-%define FIRST_BYTE_OF_LAST_LINE (LENGTH * HEIGHT * 2 - (LENGTH*2)) + video_address
 
 ;========================================
 ; dl should contain the line number to be blanked

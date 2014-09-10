@@ -5,10 +5,10 @@ section .text
 
 %define LENGTH 80
 %define HEIGHT 25
-%define video_address 0xB800
 %define space_char 0x20
 
-%define FIRST_BYTE_OF_LAST_LINE (LENGTH * HEIGHT * 2 - (LENGTH*2))
+%define video_address_16 0xB800
+%define FIRST_BYTE_OF_LAST_LINE_16 (LENGTH * HEIGHT * 2 - (LENGTH*2))
 
 ;========================================
 ; dl should contain the line number to be blanked
@@ -19,7 +19,7 @@ asm16_display_emptyline:
 		push bx
 		push es
 
-		mov ax, video_address
+		mov ax, video_address_16
 		mov es, ax
 
 		xor bx, bx
@@ -40,7 +40,6 @@ asm16_display_emptyline:
 		cmp al, LENGTH
 		jae .line_empty
 
-		
 		mov byte [es:bx], space_char
 
 		add bx, 2
@@ -55,8 +54,6 @@ asm16_display_emptyline:
 
 		ret
 
-
-
 ;========================================
 asm16_display_clear:
 		push ax
@@ -64,12 +61,10 @@ asm16_display_clear:
 		push es
 		push dx
 
-		mov ax, video_address
+		mov ax, video_address_16
 		mov es, ax
 
 		xor bx, bx
-
-
 
 	.clear:
 		cmp bx, LENGTH * HEIGHT * 2
@@ -95,16 +90,14 @@ asm16_display_scroll:
 		push es
 		push dx
 
-		mov ax, video_address
+		mov ax, video_address_16
 		mov es, ax
 
 		xor bx, bx
 
 	.scroll:
-		cmp bx, FIRST_BYTE_OF_LAST_LINE
+		cmp bx, FIRST_BYTE_OF_LAST_LINE_16
 		jae .screen_scrolled
-
-
 
 		mov word ax, [es:bx + (LENGTH*2)]
 		mov word [es:bx], ax
@@ -121,9 +114,7 @@ asm16_display_scroll:
 		pop bx
 		pop ax
 
-
 		ret
-
 
 ;========================================
 asm16_display_writestring:
@@ -134,12 +125,11 @@ asm16_display_writestring:
 
 		call asm16_display_scroll ; scroll one line
 
-		mov ax, video_address
+		mov ax, video_address_16
 		mov es, ax
 
-
 		xor bx, bx
-		mov bx, FIRST_BYTE_OF_LAST_LINE
+		mov bx, FIRST_BYTE_OF_LAST_LINE_16
 
 	.start:
 		lodsb         ; ds:si -> al
@@ -151,13 +141,6 @@ asm16_display_writestring:
 
 		jmp .start
 	.end:
-
-
-	;mov ax, 0xB800
-	;mov es, ax
-	;xor bx, bx
-	;mov [0xb8000], byte 'Q'
-
 
 		pop bx
 		pop ax

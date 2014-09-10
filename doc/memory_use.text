@@ -2,10 +2,12 @@
 Long mode:
 
 0x1000 - 0x4FFF Kernel .text
-0x5000 - ?      Kernel .data followed by kernel .bss
-0x7000 - 0x8000 IDT
-0x8000 - ?      Memory map.
-
+0x5000 - 0x5FFF Kernel .data
+0x6000 - 0x7FFF Kernel .bss
+0x8000 
+0x8000 - 0x9000 IDT 32/64
+0x9000 - ?      Memory map.
+0x100000 - ?    Paging structures (Depends on the free areas the BIOS reports)
 
 
 

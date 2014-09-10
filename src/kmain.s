@@ -1,7 +1,7 @@
 
 ;
 ; O.S. Still without a name... This file has the kernel code...
-; Copyright (C) 2012 Pierre ANCELOT
+; Copyright (C) 2012 - 2014 Pierre ANCELOT
 ; 
 ; This program is free software; you can redistribute it and/or
 ; modify it under the terms of the GNU General Public License
@@ -26,21 +26,20 @@
 ; info registers 
 ; info mem
 
-
-;%define MEMMAP_START 0x8000
-
-%include "global_definitions.asm"
-
-
-[BITS 16]
-[SECTION .text]
-
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+%include "global_definitions.asm"                       ; Definitions
+                                                        ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+[BITS 16]                                               ;
+[SECTION .text]                                         ;
                                                         ;
 GLOBAL kmain                                            ;--------------------------------------------------------------------------------
-kmain:                                                  ; Starting point of the kernel
+kmain:                                                  ; Starting point of the kernel called by the bootsector
                                                         ;
 EXTERN kernelEnd, __code, __data, __bss                 ; External symbols.
-                                                        ;
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -76,33 +75,34 @@ mov bl, 2                                               ; BL set to:
                                                         ; - 2 for 64-bit Long Mode
                                                         ; - 3 if both modes will be used.
 int 0x15                                                ;
+                                                        ; Right, this OS will only run 64 bits applications, no 32 bits.
+                                                        ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-
-
+                                                        ;
 mov ax, MEMMAP_START
 shr ax, 4
 mov es, ax
 mov di, 0
                                                         ;
-call do_e820                                            ; Detect the amount of memory in the system.
+call do_e820                                            ; Detect the amount of memory in the system and unusable memory zones.
                                                         ;
 jnc memmap_ok                                           ; No error? 
-
-mov si, msg16_nommap                                    ; Load message address in si
+                                                        ;
+mov si, msg16_nommap                                    ; We rely on the memory map, if it's not supported by the BIOS, we die.
 call asm16_display_writestring                          ; Call display function
 cli ;LEAVE THIS                                         ; Disable interrupts
 hlt ;LEAVE THIS                                         ; Die.
 ;################                                       ;
-
+                                                        ;
 memmap_ok:                                              ;
 mov [data_counter_mmap_entries], ax                     ; Now the memory map is stored at 0x8000 (linear, not seg:offset) and has $data_counter_mmap_entries of 24 bytes each
-
+                                                        ;
 mov si, msg16_mmap_ok                                   ; Memory map is loaded.
 call asm16_display_writestring                          ; Call display function
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-;cli                                                        ;
-;hlt                                                        ; All interrupts, software or hardware point to the same function.
+                                                        ;
+                                                        ; All interrupts, software or hardware point to the same function.
                                                         ; The function halts the O.S. and panics.
                                                         ;
 call asm16_IVT_setup                                    ; Setting up the interrupt vector table, 16 bits equivalent of the IDT.
@@ -151,10 +151,8 @@ lgdt [gdtptr]                                           ; Loads GDT
                                                         ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Switching to protected mode.
-                                                        ; We will not however setup paging as it's only a step for us to enable long mode.
+                                                        ; We will not however setup 32 bits paging as it's only a step for us to enable long mode.
                                                         ; This O.S. doesn't work on 32 bits! :)
                                                         ;
 mov si, msgprot                                         ; show msg
@@ -244,7 +242,7 @@ mov esi, msg_32_bits                                    ; Now 32 bits
 call asm32_display_writestring                          ;
                                                         ;
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_code                             ; .text location
 call asm32_display_writestring                          ;
                                                         ;
@@ -253,7 +251,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ; ...and...
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_data                             ; .data location
 call asm32_display_writestring                          ;
                                                         ;
@@ -262,7 +260,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ;
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_bss                              ; .bss location
 call asm32_display_writestring                          ;
                                                         ;
@@ -271,7 +269,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ;
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_end                              ; Location of where the kernel ends
 call asm32_display_writestring                          ;
                                                         ;
@@ -317,8 +315,6 @@ pop edx                                                 ; Restore registers
 pop eax                                                 ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; 
                                                         ; Display memory map the map is made of a number of 24 bytes entries
 push dword MEMMAP_START                                 ; 0x8000
@@ -326,7 +322,6 @@ push dword [data_counter_mmap_entries]                  ;
                                                         ; Display memory map the map is made of a number of 24 bytes entries
 call asm32_display_memmap                               ;
                                                         ;
-
 push dword MEMMAP_START                                 ; 0x8000
 push dword [data_counter_mmap_entries]                  ; 
 
@@ -352,8 +347,6 @@ call asm32_get_last_mem_address                         ; Test VM reports us at 
                                                         ; PTE: 000000000
                                                         ; PHYSICAL_PAGE_OFFSET: 000000000000
 ;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Initializing 64 bits data structures before jumping there.
                                                         ;
                                                         ; Now we calc the Descriptors of the address of the last paging entry for the pmem
@@ -375,8 +368,6 @@ call setup_64_bits_paging_structures                    ; - Bits 29–21 index i
                                                         ; Each PTE point to a physical 4KB page, which when complete to the offset make the address.
                                                         ; A virtual address is therefore made of:
                                                         ; Sign extend + PML4E + PDPE + PDE + PTE + Offset.
-;----------------------------------------------------------------------------------------------------------------------------------------
-;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
                                                         ; ====================
@@ -421,48 +412,50 @@ mov cr0, eax                                            ;
 mov esi, msg_ensure_paging_off                          ; Informs paging is now disabled.
 call asm32_display_writestring                          ;
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
                                                         ; Set PAE enable bit in CR4 (Physical Address Extensions)
                                                         ;
-	mov eax, cr4                                        ;
-	bts eax, 5                                          ; Enable bit 5 of CR4 (Enable PAE)
-    btr eax, 7                                          ; Disable bit 7 of CR4 (Disable PGE)
-	mov cr4, eax                                        ;
+mov eax, cr4                                            ;
+bts eax, 5                                              ; Enable bit 5 of CR4 (Enable PAE)
+btr eax, 7                                              ; Disable bit 7 of CR4 (Disable PGE)
+mov cr4, eax                                            ;
                                                         ;
-	mov esi, msg_enable_pae                             ; Tell PAE is now enabled.
-	call asm32_display_writestring                      ;
+mov esi, msg_enable_pae                                 ; Tell PAE is now enabled.
+call asm32_display_writestring                          ;
                                                         ;
-;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;--------------------------------------------------------------------------------
                                                         ; Set EFER.LME=1
-	mov	ecx, 0xC0000080                                 ; EFER
-	rdmsr				                                ; Read EFER MSR
-	bts eax, 8			                                ; Set "Long Mode Enable Bit" to 1
-	wrmsr				                                ; Write EFER MSR
+mov	ecx, 0xC0000080                                     ; EFER
+rdmsr				                                    ; Read EFER MSR
+bts eax, 8			                                    ; Set "Long Mode Enable Bit" to 1
+wrmsr				                                    ; Write EFER MSR
                                                         ;
-	mov esi, msg_enable_lme                             ;
-	call asm32_display_writestring                      ;
+mov esi, msg_enable_lme                                 ;
+call asm32_display_writestring                          ;
+                                                        ;
+                                                        ;--------------------------------------------------------------------------------
+                                                        ;
+                                                        ; Enable paging
+                                                        ; Set CR3 to our PML4T location
+xor eax, eax                                            ;
+mov eax, [PML4T_LOCATION]                               ;
+mov cr3, eax                                            ;
+                                                        ;
+                                                        ; Enable paging now!
+mov eax, cr0                                            ;
+bts eax, 31                                             ;
+mov cr0, eax                                            ;
+                                                        ;
+mov esi, msg_enable_paging                              ; Tell we did it!
+call asm32_display_writestring                          ;
+                                                        ;
+                                                        ;--------------------------------------------------------------------------------
+                                                        ; Jump to 64 bits code.
+                                                        ; We are now in compat mode.
+lgdt [GDT64.Pointer]                                    ; Load the 64-bit global descriptor table.
+jmp GDT64.Code:Realm64                                  ; Set the code segment and enter 64-bit long mode.
+                                                        ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-    ; Set CR3
-	xor eax, eax
-	mov eax, [PML4T_LOCATION]
-	mov cr3, eax
-
-
-;cli
-
-	; Enable paging now!
-	mov eax, cr0
-	bts eax, 31
-	mov cr0, eax
-
- 	mov esi, msg_enable_paging
-	call asm32_display_writestring
-
-   ; We are now in compat mode.
-    lgdt [GDT64.Pointer]         ; Load the 64-bit global descriptor table.
-    jmp GDT64.Code:Realm64       ; Set the code segment and enter 64-bit long mode.
-
-
                                                         ;
 [BITS 64]                                               ; Now we're talking...
                                                         ;
@@ -472,70 +465,65 @@ call asm32_display_writestring                          ;
 ;EXTERN monitor_write_dec                                ;
 ;EXTERN monitor_write_bin                                ;
 ;EXTERN monitor_write_linefeed                           ;
-;EXTERN kprint
-;EXTERN testprint
-
-Realm64:
-
+EXTERN kprint                                           ;
+;EXTERN testprint                                        ;
+                                                        ;
+Realm64:                                                ; Arrivals
+                                                        ;
 jmp include_64bits_functions                            ; include
 	%include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
 	%include 'asm64/asm64_setup_idt.inc'                ; ASM64 IDT functions.
 include_64bits_functions:                               ; /include
                                                         ;
-    mov ax, GDT64.Data            ; Set the A-register to the data descriptor.
-    mov ds, ax                    ; Set the data segment to the A-register.
-    mov es, ax                    ; Set the extra segment to the A-register.
-    mov fs, ax                    ; Set the F-segment to the A-register.
-    mov gs, ax                    ; Set the G-segment to the A-register.
+    mov ax, GDT64.Data                                  ; Set the A-register to the data descriptor.
+    mov ds, ax                                          ; Set the data segment to the A-register.
+    mov es, ax                                          ; Set the extra segment to the A-register.
+    mov fs, ax                                          ; Set the F-segment to the A-register.
+    mov gs, ax                                          ; Set the G-segment to the A-register.
     mov ss, ax                                          ;
-    mov rsp, stack_end ; 0x9FFFF                                     ; Stack pointer
+    mov rsp, stack_end ; 0x9FFFF                        ; Stack pointer
+                                                        ;
+    mov rsi, msg_64_bits                                ; Tell user we're in 64 bits
+    call asm64_display_writestring                      ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+                                                        ; Unmask all interrupts
+    mov al, 0x00                                        ;
+    out PIC1_DATA, al                                   ; PIC1
+                                                        ;
+    mov al, 0x00                                        ;
+    out PIC2_DATA, al                                   ; PIC2
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+                                                        ;
+                                                        ;
+    call asm64_setup_idt                                ; Sets up the IDT and the ISRs
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
 
-    call asm64_setup_idt
-
-
-die:
-hlt
-jmp die
-
-;cli
-;hlt
-; Die here.
-
-
-
-
-
-
-
-[BITS 16]
+push msg_c64_function
+call kprint
+                                                        ;
+;xchg bx, bx ; Bochs magic
+;----------------------------------------------------------------------------------------------------------------------------------------
+die:                                                    ; End of kernel initialization
+    hlt                                                 ;
+    jmp die                                             ; TODO Why on earth is this needed? 
+                                                        ; This code shouldn't get after hlt!?
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]
 
-;data_counter_mmap_entries:   dd  0
+
+
 msg16_nommap:           db 'K16 - No memory map, dying here.', 0
 msg16_mmap_ok:          db 'K16 - Memory map found, continuing.', 0
 msg16_tellbios64:       db 'K16 - Telling the BIOS we will run a 64 bit OS.', 0
 msg32gdt:				db 'K16 - Loading 32 bits GDT.', 0
 msgprot:				db 'K16 - Switching to protected mode.', 0
-
-
-
-[BITS 32]
-[SECTION .data]
-;ALIGN 4
-
-gdtptr:
-    dw 0  ; limit
-    dd 0  ; base
-
-gdt:
-    dw 0,0,0,0           ; null desciptor
-    dw 0FFFFh,0,9A00h,0CFh      ; 32-bit code desciptor (0x8)
-    dw 0FFFFh,0,9200h,08Fh      ; flat data desciptor   (0x10)
-    dw 0FFFFh,0,9A00h,0AFh      ; 64-bit code desciptor (0x18)
-gdtend:
-
-
-;starting_kernel:		db 'K32 - Starting Kernel v. 0.1', 0
 
 msg_32_kernel_code:		db '           - Kernel code section (.text) start', 0
 msg_32_kernel_data:		db '           - Kernel data section (.data) start', 0
@@ -545,53 +533,65 @@ msg_32_kernel_end:		db '           - Kernel ends', 0
 msg_32_noapic:          db 'K32 - APIC Not supported by this CPU, we die here.', 0
 msg_32_apic:            db 'K32 - APIC detected on this CPU, continuing.', 0
 msg_32_bits:			db 'K32 - Kernel 32 bits space starting.', 0
-;reloaded_gdt_32:		db 'K32 - Reloaded GDT on 32 bits space.', 0
 msg_a20_enabled:		db 'K32 - A20 Gate enabled, now accessing the whole memory!', 0
 msg_check_cpu_64_yes:   db 'K32 - CPU is 64 bits capable, continuing...', 0
 msg_check_cpu_64_no:	db 'K32 - CPU is not 64 bits capable, dying here.', 0
 msg_ensure_paging_off:	db 'K32 - Did ensure paging is disabled.', 0
 msg_enable_pae:			db 'K32 - PAE Enabled, now accessing more than 4GB of memory', 0
+msg_enable_lme:		    db 'K32 - Long mode enabled, CPU now accepts 64 bits instructions.', 0
+msg_enable_paging:	    db 'K32 - Paging enabled about to jump in true 64 bits code', 0
 
-[BITS 64]
-[SECTION .data]
-
-msg_enable_lme:		    db 'K64 - Long mode enabled, CPU now accepts 64 bits instructions.', 0
-msg_enable_paging:	    db 'K64 - Paging enabled about to jump in true 64 bits code', 0
 msg_64_bits:            db 'K64 - Kernel 64 bits enabled and active.', 0
 
-
-align 64
-; AMD volume 2, section 4.8
-GDT64:                           ; Global Descriptor Table (64-bit).
-    .Null: equ $ - GDT64         ; The null descriptor.
-    dw 0                         ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 0                         ; Access.
-    db 0                         ; Granularity.
-    db 0                         ; Base (high).
-    .Code: equ $ - GDT64         ; The code descriptor.
-    dw 0xFFFF                    ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 10011000b                 ; Access.
-    db 00101111b                 ; Granularity.
-    db 0                         ; Base (high).
-    .Data: equ $ - GDT64         ; The data descriptor.
-    dw 0xFFFF                    ; Limit (low).
-    dw 0                         ; Base (low).
-    db 0                         ; Base (middle)
-    db 10010010b                 ; Access.
-    db 00001111b                 ; Granularity.
-    db 0                         ; Base (high).
-
-    .Pointer:                    ; The GDT-pointer.
-    dw $ - GDT64 - 1             ; Limit.
-    dq GDT64                     ; Base.
-
+msg_c64_function:       db 'K64 - Call of a C written function', 0
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; GDT32
+gdtptr:                                                 ;
+    dw 0                                                ; limit
+    dd 0                                                ; base
+                                                        ;
+gdt:                                                    ;
+    dw 0,0,0,0                                          ; null desciptor
+    dw 0FFFFh,0,9A00h,0CFh                              ; 32-bit code desciptor (0x8)
+    dw 0FFFFh,0,9200h,08Fh                              ; flat data desciptor   (0x10)
+    dw 0FFFFh,0,9A00h,0AFh                              ; 64-bit code desciptor (0x18)
+gdtend:                                                 ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; GDT64
+                                                        ; AMD volume 2, section 4.8
+GDT64:                                                  ; Global Descriptor Table (64-bit).
+    .Null: equ $ - GDT64                                ; The null descriptor.
+    dw 0                                                ; Limit (low).
+    dw 0                                                ; Base (low).
+    db 0                                                ; Base (middle)
+    db 0                                                ; Access.
+    db 0                                                ; Granularity.
+    db 0                                                ; Base (high).
+    .Code: equ $ - GDT64                                ; The code descriptor.
+    dw 0xFFFF                                           ; Limit (low).
+    dw 0                                                ; Base (low).
+    db 0                                                ; Base (middle)
+    db 10011000b                                        ; Access.
+    db 00101111b                                        ; Granularity.
+    db 0                                                ; Base (high).
+    .Data: equ $ - GDT64                                ; The data descriptor.
+    dw 0xFFFF                                           ; Limit (low).
+    dw 0                                                ; Base (low).
+    db 0                                                ; Base (middle)
+    db 10010010b                                        ; Access.
+    db 00001111b                                        ; Granularity.
+    db 0                                                ; Base (high).
+                                                        ;
+    .Pointer:                                           ; The GDT-pointer.
+    dw $ - GDT64 - 1                                    ; Limit.
+    dq GDT64                                            ; Base.
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .bss]
 stack_begin:
 RESB 4096 ; Reserve 4KB for the stack.
 stack_end:
-
+;----------------------------------------------------------------------------------------------------------------------------------------
+; /K
 
