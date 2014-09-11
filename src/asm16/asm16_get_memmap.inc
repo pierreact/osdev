@@ -9,8 +9,6 @@
                                                         ;
                                                         ;
 do_e820:                                                ;
-    
-
     xor ebx, ebx                                        ; ebx must be 0 to start
     xor bp, bp                                          ; keep an entry count in bp
     mov edx, SMAP_MAGIC                                 ; Place "SMAP" into edx
@@ -34,45 +32,40 @@ do_e820:                                                ;
     mov [es:di + 20], dword 1                           ; force a valid ACPI 3.X entry
     mov ecx, 24                                         ; ask for 24 bytes again
     int 0x15                                            ;
-
+                                                        ;
     jc short .e820f                                     ; carry set means "end of list already reached"
     mov edx, SMAP_MAGIC                                 ; repair potentially trashed register
-
-.jmpin:
+                                                        ;
+.jmpin:                                                 ;
     jcxz .skipent                                       ; skip any 0 length entries
     cmp cl, 20                                          ; got a 24 byte ACPI 3.X response?
-    jbe short .notext
+    jbe short .notext                                   ;
     test byte [es:di + 20], 1                           ; if so: is the "ignore this data" bit clear?
-    je short .skipent
-
-.notext:
+    je short .skipent                                   ;
+                                                        ;
+.notext:                                                ;
     mov ecx, [es:di + 8]                                ; get lower dword of memory region length
     or ecx, [es:di + 12]                                ; "or" it with upper dword to test for zero
     jz .skipent                                         ; if length qword is 0, skip entry
     inc bp                                              ; got a good entry: ++count, move to next storage spot
-    add di, 24
-
-.skipent:
+    add di, 24                                          ;
+                                                        ;
+.skipent:                                               ;
     test ebx, ebx                                       ; if ebx resets to 0, list is complete
-    jne short .e820lp
-
-.e820f:
-;    push bp                                  ; store the entry count
-    mov ax, bp
-;    push ax
+    jne short .e820lp                                   ;
+                                                        ;
+.e820f:                                                 ;
+;    push bp                                             ; store the entry count
+    mov ax, bp                                          ;
+;    push ax                                             ;
     clc                                                 ; there is "jc" on end of list to this point, so the carry must be cleared
-    ret
-
-.failed:
+    ret                                                 ;
+                                                        ;
+.failed:                                                ;
     stc                                                 ; "function unsupported" error exit
-    ret
-
-[SECTION .data]
-
-mmap_ent: dw 0
-
-
-
-
-
-
+    ret                                                 ;
+                                                        ;
+[SECTION .data]                                         ;
+                                                        ;
+mmap_ent: dw 0                                          ;
+                                                        ;

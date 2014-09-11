@@ -2,7 +2,7 @@
 [BITS 32]                                               ;
 [SECTION .text]                                         ;
                                                         ;
-%include "global_definitions.asm"
+%include "global_definitions.asm"                       ;
 %include 'asm32/asm32_display.inc'                      ; Display functions
                                                         ;
                                                         ;
@@ -19,9 +19,8 @@
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
-    %define MSG_MMAP_BASE_OFFSET 40                     ; Points to the location of 'X':  K32 MMAP - Not free:  |0x000000000000000X - 0x0000000000000000|
-    %define MSG_MMAP_LENG_OFFSET 37                     ; Delta from Z to go to Y:  K32 MMAP - Not free:  |0xZ00000000000000X - 0x000000000000000Y|
-
+%define MSG_MMAP_BASE_OFFSET 40                         ; Points to the location of 'X':  K32 MMAP - Not free:  |0x000000000000000X - 0x0000000000000000|
+%define MSG_MMAP_LENG_OFFSET 37                         ; Delta from Z to go to Y:        K32 MMAP - Not free:  |0xZ00000000000000X - 0x000000000000000Y|
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------

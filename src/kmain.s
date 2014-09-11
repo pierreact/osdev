@@ -206,14 +206,14 @@ je asm32_apic_supported                                 ; If so, jump to APIC in
                                                         ;
                                                         ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 mov esi, msg_32_noapic                                  ; Load message informing apic ain't supported
 call asm32_display_writestring                          ; Print it
 cli ;LEAVE THIS                                         ; Disable interrupts
 hlt ;LEAVE THIS                                         ; Die.
 ;################                                       ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 asm32_apic_supported:                                   ; APIC is supported, we can init it.
                                                         ;
 mov esi, msg_32_apic                                    ; Load message informing apic is supported
@@ -242,7 +242,7 @@ mov esi, msg_32_bits                                    ; Now 32 bits
 call asm32_display_writestring                          ;
                                                         ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_code                             ; .text location
 call asm32_display_writestring                          ;
                                                         ;
@@ -251,7 +251,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ; ...and...
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_data                             ; .data location
 call asm32_display_writestring                          ;
                                                         ;
@@ -260,7 +260,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ;
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_bss                              ; .bss location
 call asm32_display_writestring                          ;
                                                         ;
@@ -269,7 +269,7 @@ call asm32_display_make_string_from_hex                 ; Make it an hex string
 mov esi, ebx                                            ;
 call asm32_display_writestring_noscrollfirst            ; Print it.
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
 mov esi, msg_32_kernel_end                              ; Location of where the kernel ends
 call asm32_display_writestring                          ;
                                                         ;
@@ -412,7 +412,7 @@ mov cr0, eax                                            ;
 mov esi, msg_ensure_paging_off                          ; Informs paging is now disabled.
 call asm32_display_writestring                          ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Set PAE enable bit in CR4 (Physical Address Extensions)
                                                         ;
 mov eax, cr4                                            ;
@@ -423,7 +423,7 @@ mov cr4, eax                                            ;
 mov esi, msg_enable_pae                                 ; Tell PAE is now enabled.
 call asm32_display_writestring                          ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Set EFER.LME=1
 mov	ecx, 0xC0000080                                     ; EFER
 rdmsr				                                    ; Read EFER MSR
@@ -433,7 +433,7 @@ wrmsr				                                    ; Write EFER MSR
 mov esi, msg_enable_lme                                 ;
 call asm32_display_writestring                          ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ;
                                                         ; Enable paging
                                                         ; Set CR3 to our PML4T location
@@ -449,7 +449,7 @@ mov cr0, eax                                            ;
 mov esi, msg_enable_paging                              ; Tell we did it!
 call asm32_display_writestring                          ;
                                                         ;
-                                                        ;--------------------------------------------------------------------------------
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Jump to 64 bits code.
                                                         ; We are now in compat mode.
 lgdt [GDT64.Pointer]                                    ; Load the 64-bit global descriptor table.

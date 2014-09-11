@@ -45,25 +45,22 @@ asm32_setup_pic:                                        ;
     ret                                                 ; Bye!
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-
-
-asm32_pic_send_eoi:                                      ; Send End of interrupt to the PIC, THIS HAS TO BE RUN AT THE END OF EACH ISR.
-    push eax
-    mov al,0x20
-    out PIC2_COMMAND, al
-    out PIC1_COMMAND, al 
-    pop eax
-    ret
-
-
-;----------------------------------------------------------------------------------------------------------------------------------------
-
-
-                                                        ; 00000000  00 00 8e 00 08 00 9c 12  00 00 8e 00 08 00 9c 12  |................|
-
-asm32_setup_idt:
                                                         ;
-	mov ebx, IDT32_BASE                                     ; from 0x7000 to 0x7800 in memory,
+                                                        ;
+asm32_pic_send_eoi:                                     ; Send End of interrupt to the PIC, THIS HAS TO BE RUN AT THE END OF EACH ISR.
+    push eax                                            ;
+    mov al,0x20                                         ;
+    out PIC2_COMMAND, al                                ;
+    out PIC1_COMMAND, al                                ;
+    pop eax                                             ;
+    ret                                                 ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+                                                        ; 00000000  00 00 8e 00 08 00 9c 12  00 00 8e 00 08 00 9c 12  |................|
+asm32_setup_idt:                                        ;
+                                                        ;
+	mov ebx, IDT32_BASE                                 ; from 0x7000 to 0x7800 in memory,
     mov [idtptr32_base], dword ebx                      ; Base of IDT is.... 0!
 	cli                                                 ; Disable interrupts
                                                         ;
@@ -77,8 +74,8 @@ asm32_setup_idt:
                                                         ;
 		mov eax, asm32_default_int_handler              ; Address of the default int handler.
                                                         ;
-		mov [ebx], word ax                           ; offset 0 to 15 of handler
-                                                       ;
+		mov [ebx], word ax                              ; offset 0 to 15 of handler
+                                                        ;
 		mov [ebx +2], word 0x0008                       ; Segment selector to reach the handler
                                                         ;
 		mov [ebx +4], byte 0                            ; Reserved
@@ -86,37 +83,39 @@ asm32_setup_idt:
                                                         ;
                                                         ;
 		shr eax, 16                                     ; Shifts the high part of the address to ax.
-		mov [ebx +6], word ax                              ; offset 16..31 of handler
-
+		mov [ebx +6], word ax                           ; offset 16..31 of handler
+                                                        ;
 		add ebx, 8                                      ; 8 bytes per interrupt.
-		cmp ebx, 0x800 + IDT32_BASE                                  ; 256 x 8 = 0x800. 
+		cmp ebx, 0x800 + IDT32_BASE                     ; 256 x 8 = 0x800. 
                                                         ; Last vector for which an address going to handler will be defined
 		jb .write                                       ; Did we reach the last gate? If not, write the next one
                                                         ;
 		mov [idtptr32_limit], word bx                   ; Writes the size to the limit of idtptr
-
-        lidt [idtptr32]
-
-	sti
-
-    push esi	
-
+                                                        ;
+        lidt [idtptr32]                                 ;
+                                                        ;
+	sti                                                 ;
+                                                        ;
+    push esi                                            ;
+                                                        ;
     mov esi, msg_idt32_set                              ; Load message informing IDT is set
-    call asm32_display_writestring 
-
-    pop esi
-
-	ret
-
-
-asm32_default_int_handler:
-
-	cli
+    call asm32_display_writestring                      ;
+                                                        ;
+    pop esi                                             ;
+                                                        ;
+	ret                                                 ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ;
+                                                        ;
+asm32_default_int_handler:                              ;
+                                                        ;
+	cli                                                 ;
     call asm32_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
-	sti
-	iret
-
-
+	sti                                                 ;
+	iret                                                ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
 
 [SECTION .data]
 
@@ -124,8 +123,8 @@ msg_idt32_set       db 'K32 - IDT32 set.', 0
 msg_default_handler db 'K32 - Default Interrupt handler and IDT32 set (Interrupt called.).', 0
 
 idtptr32:
-	idtptr32_limit: dw 0	; limit
-	idtptr32_base:  dd 0	; base
+	idtptr32_limit: dw 0	                            ; limit
+	idtptr32_base:  dd 0	                            ; base
 
 
 
