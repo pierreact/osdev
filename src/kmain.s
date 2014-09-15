@@ -425,10 +425,10 @@ call asm32_display_writestring                          ;
                                                         ;
     ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Set EFER.LME=1
-mov	ecx, 0xC0000080                                     ; EFER
-rdmsr				                                    ; Read EFER MSR
-bts eax, 8			                                    ; Set "Long Mode Enable Bit" to 1
-wrmsr				                                    ; Write EFER MSR
+mov ecx, 0xC0000080                                     ; EFER
+rdmsr                                                   ; Read EFER MSR
+bts eax, 8                                              ; Set "Long Mode Enable Bit" to 1
+wrmsr                                                   ; Write EFER MSR
                                                         ;
 mov esi, msg_enable_lme                                 ;
 call asm32_display_writestring                          ;
@@ -468,8 +468,8 @@ EXTERN scroll                                           ;
 Realm64:                                                ; Arrivals
                                                         ;
 jmp include_64bits_functions                            ; include
-	%include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
-	%include 'asm64/asm64_setup_idt.inc'                ; ASM64 IDT functions.
+    %include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
+    %include 'asm64/asm64_setup_idt.inc'                ; ASM64 IDT functions.
 include_64bits_functions:                               ; /include
                                                         ;
     mov ax, GDT64.Data                                  ; Set the A-register to the data descriptor.
@@ -548,7 +548,7 @@ msg_enable_paging:	    db 'K32 - Paging enabled about to jump in true 64 bits co
 
 msg_64_bits:            db 'K64 - Kernel 64 bits enabled and active.', 0
 
-msg_c64_function:       db 'K64 - Call of a', 10, 'C written function  ---> ', 0
+msg_c64_function:       db 'K64 - Processor initialization done.', 10, 0
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; GDT32
 gdtptr:                                                 ;

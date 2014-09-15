@@ -3,10 +3,12 @@
 
 void init_memmgr();
 
-char *cfunc_called = "Initializing memory manager";
+char *cfunc_called = "Initializing memory manager.\n";
 
 void init_memmgr() {
     kprint(cfunc_called);
+
+    
 }
 
 
