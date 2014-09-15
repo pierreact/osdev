@@ -5,12 +5,21 @@
 // These typedefs are written for x86_64.
 // Please note the O.S. here uses like most unixes LP64
 
-typedef unsigned int   uint32;
-typedef          int   int32;
-typedef unsigned short uint16;
-typedef          short int16;
-typedef unsigned char  uint8;
-typedef          char  int8;
+//    Datatype | Bits in LP64
+//    ---------|-----
+//    char     |            8
+//    short    |           16
+//    _int     |           32
+//    int      |           32
+//    long     |           64
+//    pointer  |           64
 
+typedef char             int8;
+typedef short           int16;
+typedef int             int32;
+
+typedef unsigned char   uint8;
+typedef unsigned short uint16;
+typedef unsigned int   uint32;
 
 #endif

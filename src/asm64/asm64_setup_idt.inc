@@ -182,7 +182,6 @@ asm64_setup_idt:                                        ;
                                                         ; Pray it doesn't crash... nah.
                                                         ;
     push rsi                                            ;
-                                                        ;
     mov rsi, msg_idt64_set                              ;
     call asm64_display_writestring                      ;
     pop rsi                                             ;

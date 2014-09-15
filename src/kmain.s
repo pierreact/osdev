@@ -459,14 +459,11 @@ jmp GDT64.Code:Realm64                                  ; Set the code segment a
                                                         ;
 [BITS 64]                                               ; Now we're talking...
                                                         ;
-;EXTERN monitor_write                                    ; Some C functions.
-;EXTERN monitor_clear                                    ;
-;EXTERN monitor_write_hex                                ;
-;EXTERN monitor_write_dec                                ;
-;EXTERN monitor_write_bin                                ;
-;EXTERN monitor_write_linefeed                           ;
-EXTERN kprint                                           ;
-;EXTERN testprint                                        ;
+EXTERN kprint                                           ; C functions
+EXTERN init_memmgr                                      ;
+EXTERN cls                                              ;
+EXTERN update_cursor                                    ;
+EXTERN scroll                                           ;
                                                         ;
 Realm64:                                                ; Arrivals
                                                         ;
@@ -503,10 +500,18 @@ include_64bits_functions:                               ; /include
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
-
-push msg_c64_function
-call kprint
+                                                        ; Display called display functions will now be from the video
+                                                        ; driver written in C from system.monitor.c
+    call scroll                                         ;
+    call update_cursor                                  ;
                                                         ;
+    mov rdi, msg_c64_function                           ; ABI Page 21, Figure 3.4, register usage.
+    call kprint                                         ; www.x86-64.org/documentation/abi.pdf
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+    call init_memmgr                                    ; Call the memory manager initialization.
+
+;----------------------------------------------------------------------------------------------------------------------------------------
 ;xchg bx, bx ; Bochs magic
 ;----------------------------------------------------------------------------------------------------------------------------------------
 die:                                                    ; End of kernel initialization
@@ -543,7 +548,7 @@ msg_enable_paging:	    db 'K32 - Paging enabled about to jump in true 64 bits co
 
 msg_64_bits:            db 'K64 - Kernel 64 bits enabled and active.', 0
 
-msg_c64_function:       db 'K64 - Call of a C written function', 0
+msg_c64_function:       db 'K64 - Call of a', 10, 'C written function  ---> ', 0
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; GDT32
 gdtptr:                                                 ;
