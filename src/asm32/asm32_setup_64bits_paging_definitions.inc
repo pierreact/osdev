@@ -9,6 +9,8 @@
 ;MAX_ADDR        dq 0
 ;MAX_ADDR_LEN    dq 0 
 
+GLOBAL PML4T_LOCATION
+GLOBAL PAGING_LOCATION_END
                                                         ;
 PML4T_LOCATION: dd 0                                     ; Where the PML4T is located. (Begining of paging structures)
 

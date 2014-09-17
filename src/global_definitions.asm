@@ -34,13 +34,14 @@
                                                         ;
                                                         ;
 %define MEMMAP_START    0x9000                          ; Where the memory map is stored in phy mem
-                                                        ;
+; If you change this, change it also in system.mem.c    ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]                                         ;
                                                         ;
                                                         ;
 highest_mmap_entry:             dd 0                    ; entry with the highest address
+GLOBAL data_counter_mmap_entries
 data_counter_mmap_entries:      dd 0                    ; How many entries in the memmap?
 mem_amount:                     dq 0                    ; How much memory the system has?
                                                         ;

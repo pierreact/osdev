@@ -1,0 +1,17 @@
+
+Order in which stuff will happen
+--------------------------------
+
+T - Long to hex in C.
+T - Find last address of paging structure.
+T - Map remaining free addresses.
+T - Memory manager(/On screen Memory map?)
+T - Context switching.
+T - Scheduler.
+T - Disk Driver.
+T - FS driver.
+T - Kernel module loader/unloader at run time.
+T - KB driver.
+T - Keymap loader from FS.
+
+
