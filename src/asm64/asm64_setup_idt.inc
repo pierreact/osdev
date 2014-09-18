@@ -18,102 +18,108 @@ asm64_setup_idt:                                        ;
     mov [idtptr64.idtptr64_base], qword rbx             ; 
 	cli                                                 ; Disable interrupts
                                                         ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; Exceptions
+                                                        ; http://wiki.osdev.org/Exceptions
                                                         ;
     mov rax, asm64_divide_zero_handler                  ; ISR Vector 0x00 Divide by zero
     call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
     mov rax, asm64_debug_handler                        ; ISR Vector 0x01 Debug
-    call asm64_creategate_fault                         ; Create fault gate.
+    call asm64_creategate_trap                          ; Create trap gate.
                                                         ;
     mov rax, asm64_nmi_handler                          ; ISR Vector 0x02 NMI
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    call asm64_creategate_interrupt                     ; Create interrupt gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x03
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_breakpoint_int_handler               ; ISR Vector 0x03 Breakpoint
+    call asm64_creategate_trap                          ; Create trap gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x04
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_overflow_int_handler                 ; ISR Vector 0x04 Overflow
+    call asm64_creategate_trap                          ; Create trap gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x05
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_brange_int_handler                   ; ISR Vector 0x05 Bound range exceeded
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x06
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_invopcd_int_handler                  ; ISR Vector 0x06 Invalid Opcode
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x07
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_devna_int_handler                    ; ISR Vector 0x07 Device not available
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x08
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_doublef_int_handler                  ; ISR Vector 0x08 Double fault
+    call asm64_creategate_abort                         ; Create abort gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x09
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_cso_int_handler                      ; ISR Vector 0x09 Coprocessor Segment Overrun
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0a
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_invtss_int_handler                   ; ISR Vector 0x0a Invalid TSS
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0b
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_snp_int_handler                      ; ISR Vector 0x0b Segment not present
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0c
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_ssf_int_handler                      ; ISR Vector 0x0c Stack segment fault.
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0d
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_gpf_int_handler                      ; ISR Vector 0x0d General protection fault
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0e
-    call asm64_creategate_interrupt                     ; Create fault gate.
+    mov rax, asm64_pf_int_handler                       ; ISR Vector 0x0e Page fault
+    call asm64_creategate_fault                         ; Create fault gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x0f
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x10
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x11
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x12
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x13
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x14
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x15
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x16
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x17
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x18
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x19
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1a
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1b
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1c
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1d
-    call asm64_creategate_interrupt                     ; Create fault gate.
-                                                        ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1e
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x0f Reserved
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x1f
+    mov rax, asm64_fpu_int_handler                      ; ISR Vector 0x10 x87 Floating-Point Exception
+    call asm64_creategate_fault                         ; Create fault gate.
+                                                        ;
+    mov rax, asm64_achk_int_handler                     ; ISR Vector 0x11 Alignement check
+    call asm64_creategate_fault                         ; Create fault gate.
+                                                        ;
+    mov rax, asm64_mce_int_handler                      ; ISR Vector 0x12 Machine Check
+    call asm64_creategate_abort                         ; Create abort gate.
+                                                        ;
+    mov rax, asm64_simd_int_handler                     ; ISR Vector 0x13 SIMD Floating-Point Exception
+    call asm64_creategate_fault                         ; Create fault gate.
+                                                        ;
+    mov rax, asm64_virt_int_handler                     ; ISR Vector 0x14 Virtualization Exception
+    call asm64_creategate_fault                         ; Create fault gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x15 Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x16 Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x17 Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x18 Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x19 Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x1a Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x1b Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x1c Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x1d Reserved
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_sec_int_handler                      ; ISR Vector 0x1e Security Exception
+    call asm64_creategate_interrupt                     ; Create Interrupt gate.
+                                                        ;
+    mov rax, asm64_rsv_int_handler                      ; ISR Vector 0x1f Reserved
     call asm64_creategate_interrupt                     ; Create fault gate.
+                                                        ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; IRQs
                                                         ;
     mov rax, asm64_isr_timer_handler                    ; ISR Vector 0x20 (IRQ0) PIT
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
@@ -163,6 +169,9 @@ asm64_setup_idt:                                        ;
     mov rax, asm64_default_int_handler                  ; ISR Vector 0x2F (IRQ15) Secondary ATA disk
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; Software Interupts
+                                                        ;
     mov rax, asm64_softwareint_handler                  ; ISR Vector 0x30 Software interrupt
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
@@ -193,8 +202,13 @@ asm64_setup_idt:                                        ;
 asm64_creategate_fault:                                 ;
 asm64_creategate_interrupt:                             ;
 asm64_creategate_abort:                                 ;
+    mov dl, 10001110b                                   ; Attributes
+    jmp asm64_idt_entry
+
 asm64_creategate_trap:                                  ;
+    mov dl, 10001111b                                   ; Attributes
                                                         ;
+asm64_idt_entry:
                                                         ; In 64 bits, the structure of an IDT descriptor, 
                                                         ; pointing to the ISR is a bit different.
                                                         ;
@@ -206,14 +220,14 @@ asm64_creategate_trap:                                  ;
 		                                                ; Byte 8 to 11  Offset high bits (32..63) of ISR
                                                         ; Byte 12 to 15 Reserved, at 0
                                                         ;
-		;mov rax, asm64_default_int_handler             ; Address of the default int handler.
+                                                        ; rax has the address of the default int handler.
                                                         ;
 		mov [rbx], word ax                              ; offset 0 to 15 of handler
                                                         ;
 		mov [rbx +2], word cs                           ; Segment selector to reach the handler
                                                         ;
 		mov [rbx +4], byte 00000000b                    ; Reserved, 3 least bits  are IST (disabled now)
-		mov [rbx +5], byte 10001110b                    ; Attributes
+		mov [rbx +5], dl                                ; Attributes
                                                         ; This is a 64 bits interrupt gate as per intel manual 3a part 1
                                                         ; section 3.5 SYSTEM DESCRIPTOR TYPES
                                                         ;
@@ -237,14 +251,21 @@ asm64_default_int_handler:                              ;
     mov rsi, msg_default_64handler                      ; Load message informing an interrupt was called.
     call asm64_display_writestring                      ;
                                                         ;
+cli
+hlt
+
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
 	iretq                                               ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-asm64_divide_zero_handler:                              ;
+asm64_divide_zero_handler:                              ; 0x0
 	cli                                                 ;
+    mov rsi, msg_divide_zero_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
                                                         ;
+cli
+hlt
                                                         ;
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
@@ -252,9 +273,13 @@ asm64_divide_zero_handler:                              ;
 	iretq                                               ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-asm64_debug_handler:                                    ;
+asm64_debug_handler:                                    ; 0x1
 	cli                                                 ;
                                                         ;
+    mov rsi, msg_debug_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+cli
+hlt
                                                         ;
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
@@ -262,15 +287,227 @@ asm64_debug_handler:                                    ;
 	iretq                                               ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-asm64_nmi_handler:                                      ;
+asm64_nmi_handler:                                      ; 0x2
 	cli                                                 ;
                                                         ;
+    mov rsi, msg_nmi_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+cli
+hlt
                                                         ;
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
 	sti                                                 ;
 	iretq                                               ;
                                                         ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_breakpoint_int_handler:                           ; 0x3
+    mov rsi, msg_breakpoint_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_overflow_int_handler:                                  ; 0x4
+    mov rsi, msg_overflow_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_brange_int_handler:                           ; 0x5
+    mov rsi, msg_brange_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_invopcd_int_handler:                           ; 0x6
+    mov rsi, msg_invopcd_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_devna_int_handler:                           ; 0x7
+    mov rsi, msg_devna_64handler                   ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_doublef_int_handler:                              ; 0x8
+    mov rsi, msg_doublef_64handler                      ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_cso_int_handler:                              ; 0x9
+    mov rsi, msg_cso_64handler                      ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_invtss_int_handler:                              ; 0xA
+    mov rsi, msg_invtss_64handler                      ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_snp_int_handler:                              ; 0xb
+    mov rsi, msg_cnp_64handler                      ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_ssf_int_handler:                              ; 0xc
+    mov rsi, msg_ssf_64handler                      ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_gpf_int_handler:                                  ; 0xD
+    mov rsi, msg_gpf_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_pf_int_handler:                                  ; 0xE
+    mov rsi, msg_pf_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_fpu_int_handler:                                  ; 0x10
+    mov rsi, msg_fpu_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_achk_int_handler:                                  ; 0x11
+    mov rsi, msg_achk_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_mce_int_handler:                                  ; 0x12
+    mov rsi, msg_mce_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_simd_int_handler:                                  ; 0x13
+    mov rsi, msg_simd_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_virt_int_handler:                                  ; 0x14
+    mov rsi, msg_virt_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_sec_int_handler:                                  ; 0x1E
+    mov rsi, msg_sec_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_rsv_int_handler:                                  ; All reserved exceptions
+    mov rsi, msg_rsv_64handler                          ; Load message informing an interrupt was called.
+    call asm64_display_writestring                      ;
+                                                        ;
+    cli
+    hlt
+
+    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    iretq
+;----------------------------------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
 asm64_isr_timer_handler:                                ;
                                                         ;
@@ -329,9 +566,31 @@ asm64_softwareint_handler:                              ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]
 
-msg_idt64_set:          db 'K64 - IDT64 set.', 0
-msg_default_64handler:  db 'K64 - Unknown Interrupt called!', 0
-msg_numtimercalls:      db 'Number of calls to timer interrupt :', 0
+msg_idt64_set:              db 'K64 - IDT64 set.', 0
+msg_default_64handler:      db 'K64 - Unknown Interrupt called!      PANIC [Call Mickey Mouse!] Stopping the OS.', 0
+msg_divide_zero_64handler:  db 'K64 - Divide by Zero!                    PANIC Exception (0x00) Stopping the OS.', 0
+msg_debug_64handler:        db 'K64 - Debug!                             PANIC Exception (0x01) Stopping the OS.', 0
+msg_nmi_64handler:          db 'K64 - NMI!                               PANIC Exception (0x02) Stopping the OS.', 0
+msg_breakpoint_64handler:   db 'K64 - Breakpoint!                        PANIC Exception (0x03) Stopping the OS.', 0
+msg_overflow_64handler:     db 'K64 - Overflow!                          PANIC Exception (0x04) Stopping the OS.', 0
+msg_brange_64handler:       db 'K64 - Bound Range Exceeded!              PANIC Exception (0x05) Stopping the OS.', 0
+msg_invopcd_64handler:      db 'K64 - Invalid Opcode!                    PANIC Exception (0x06) Stopping the OS.', 0
+msg_devna_64handler:        db 'K64 - Device not available!              PANIC Exception (0x07) Stopping the OS.', 0
+msg_doublef_64handler:      db 'K64 - Double fault!                      PANIC Exception (0x08) Stopping the OS.', 0
+msg_cso_64handler:          db 'K64 - Coproc Segment Overrun!            PANIC Exception (0x09) Stopping the OS.', 0
+msg_invtss_64handler:       db 'K64 - Invalid TSS!                       PANIC Exception (0x0A) Stopping the OS.', 0
+msg_cnp_64handler:          db 'K64 - Segment not present!               PANIC Exception (0x0B) Stopping the OS.', 0
+msg_ssf_64handler:          db 'K64 - Stack Segment Fault!               PANIC Exception (0x0C) Stopping the OS.', 0
+msg_gpf_64handler:          db 'K64 - General protection fault!          PANIC Exception (0x0D) Stopping the OS.', 0
+msg_pf_64handler:           db 'K64 - Page Fault!                        PANIC Exception (0x0E) Stopping the OS.', 0
+msg_fpu_64handler:          db 'K64 - Floating Point Exception!          PANIC Exception (0x10) Stopping the OS.', 0
+msg_achk_64handler:         db 'K64 - Alignement Check Exception!        PANIC Exception (0x11) Stopping the OS.', 0
+msg_mce_64handler:          db 'K64 - Machine Check Exception!           PANIC Exception (0x12) Stopping the OS.', 0
+msg_simd_64handler:         db 'K64 - SIMD Floating-Point Exception!     PANIC Exception (0x13) Stopping the OS.', 0
+msg_virt_64handler:         db 'K64 - Virtualization Exception!          PANIC Exception (0x14) Stopping the OS.', 0
+msg_sec_64handler:          db 'K64 - Machine Check Exception!           PANIC Exception (0x1E) Stopping the OS.', 0
+msg_rsv_64handler:          db 'K64 - RESERVED EXEPTION!                 PANIC Exception (0x??) Stopping the OS.', 0
+msg_numtimercalls:          db 'Number of calls to timer interrupt :', 0
 
 kbstatus:	            db	0			                ; keyboard controller status
 kbscancode:	            db	0			                ; scancode
