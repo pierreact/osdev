@@ -36,6 +36,7 @@
 [BITS 16]                                               ;
 [SECTION .text]                                         ;
                                                         ;
+GLOBAL MEMMAP_START
 GLOBAL kmain                                            ;--------------------------------------------------------------------------------
 kmain:                                                  ; Starting point of the kernel called by the bootsector
                                                         ;
@@ -594,9 +595,17 @@ GDT64:                                                  ; Global Descriptor Tabl
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .bss]
+MEMMAP_START:
+RESB 1024
+MEMMAP_END:
+
+IDT32_BASE:
+IDT64_BASE:
+RESB 0x1000
 stack_begin:
-RESB 4096 ; Reserve 4KB for the stack.
+RESB 0x1000 ; Reserve 4KB for the stack.
 stack_end:
+
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ; /K
 

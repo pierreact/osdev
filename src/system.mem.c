@@ -2,9 +2,10 @@
 #include <system.monitor.h>
 #include <system.mem.h>
 
-#define MEMMAP_START    0x9000 // Memory map returned by BIOS
+// MEMMAP
 extern uint8 data_counter_mmap_entries;
-//extern uint32 LAST_PHY_MEM_ADDR_PAGE_OFFSET; // Address of last page offset
+extern uint32 MEMMAP_START;
+// /MEMMAP
 
 // Paging structures start
 extern uint32 PML4T_LOCATION;
@@ -35,9 +36,10 @@ typedef struct _MEMINFO {
 
 void init_memmgr() {
     kprint(cfunc_called);
-    kprint_long2hex(data_counter_mmap_entries, "MMAP Entries\n");
-    kprint_long2hex(PML4T_LOCATION, "\n");
-    kprint_long2hex(PAGING_LOCATION_END, "\n");
+    kprint_long2hex(data_counter_mmap_entries,  "MMAP Entries\n");
+    kprint_long2hex((long) &MEMMAP_START,       "MEMMAP_START\n");
+    kprint_long2hex(PML4T_LOCATION,             "PML4T_LOCATION\n");
+    kprint_long2hex(PAGING_LOCATION_END,        "PAGING_LOCATION_END\n");
 
 }
 

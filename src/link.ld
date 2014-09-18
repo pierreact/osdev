@@ -19,8 +19,8 @@ SECTIONS
 		. = ALIGN(4096); 
 
 	}
-	.data 0x5000 : 
-	AT (0x5000)
+	.data : /*0x5000 :*/ 
+	/* AT (0x5000) */
 	{
 		data = .; _data = .; __data = .;
 		*(.data)

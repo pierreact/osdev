@@ -2,7 +2,10 @@
 Order in which stuff will happen
 --------------------------------
 
-T - Long to hex in C.
+D - Long to hex in C.
+D - Rework IDT and ISRs, some trap and fault IDT entries have to be set properly.
+T - Relocate some data structures in memory. The kernel is growing and getting over those.
+T - If still present, fix the page fault bug.
 T - Find last address of paging structure.
 T - Map remaining free addresses.
 T - Memory manager(/On screen Memory map?)

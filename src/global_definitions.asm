@@ -28,12 +28,12 @@
 %define IRQ0 0x20                                       ; IRQ0 to be mapped to interrupt vector 0x20
 %define IRQ8 0x28                                       ; IRQ8 to be mapped to interrupt vector 0x28
                                                         ;              
-%define IDT32_BASE      0x7000                          ; IDT Location for 32 and 64 bits
-%define IDT64_BASE      0x7000                          ; in 64 bits, the IDT will go to 0x7FFF
+;%define IDT32_BASE      0x20000                          ; IDT Location for 32 and 64 bits
+;%define IDT64_BASE      0x20000                          ; in 64 bits, the IDT will go to 0x7FFF
                                                         ;
                                                         ;
                                                         ;
-%define MEMMAP_START    0x9000                          ; Where the memory map is stored in phy mem
+;%define MEMMAP_START    0x9000                          ; Where the memory map is stored in phy mem
 ; If you change this, change it also in system.mem.c    ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
