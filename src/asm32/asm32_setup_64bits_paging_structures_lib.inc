@@ -11,22 +11,15 @@ setup_64_bits_paging_structures_pml4:
     ret
 
 
-create_empty_table:
+create_empty_table:                                     ; Basically a memset 0 on 4KB at address pushed on stack.
     pushad                                              ; = push eax, ecx, edx, ebx, esp, ebp, esi, edi (8 x 4 = 0x20)
     pushfd                                              ; = push EFLAGS ; 0x4 bytes (EFLAGS is 32 bits)
 
-    mov edi, [esp+0x4+0x4+0x20] ; [PML4T_LOCATION]                              ; Clear the whole PML4 table
-
-
-;    call paging_clean_entry
-
-
-
+    mov edi, [esp+0x4+0x4+0x20]                         ; Get the table address to clear it.
     xor eax, eax
     mov ecx, 1024                                       ; PML4T is made of 512 (0x1FF) PML4E of 64 bits at max.
                                                         ; for a total of 4KB, 0x1000 bytes 
     rep stosd                                           ; Write the empty PML4T
-
 
     mov eax, [PAGING_LOCATION_END]
     add eax, 4096
@@ -38,21 +31,6 @@ create_empty_table:
     ret 4
 
 
-
-;paging_clean_entry:
-;    pushad                                              ; = push eax, ecx, edx, ebx, esp, ebp, esi, edi (8 x 4 = 0x20)
-;    pushfd                                              ; = push EFLAGS ; 0x4 bytes (EFLAGS is 32 bits)
-;
-;    mov ebx, paging_entry
-;    mov eax, 0
-;
-;    mov [ebx], eax
-;    mov [ebx+4], eax
-;
-;    popfd
-;    popad
-;
-;    ret
 
 display_current_page_base_addr:
     push ebx
@@ -192,16 +170,6 @@ reached_last_pte:
         or eax, REACHED_LAST_PTE                       ; Check global definitions.asm,  (Bit 3: Last PDPE)
         mov [REACHED_PHY_MEM_ADDR_PAGINGTYPES], eax     ; Write down the result
     ret
-
-
-
-
-[SECTION .data]
-
-;paging_entry: dq 0
-;pml4t: dd 0 ; PML4 Table location (this is just a place holder. Please define it in asm32_setup_64bits_paging_structures.inc)
-
-
 
 
 

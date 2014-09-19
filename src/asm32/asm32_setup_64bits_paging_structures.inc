@@ -338,8 +338,6 @@ create_pdt:                                            ;
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
                                                         ;
                                                         ; Now that our 64 bits PDE is built, let's write it in the PDT
-;mov ecx, 'PDEX'
-;mov ecx, 'XXXX'
                                                         ;
         mov [ebx+4], ecx                                ; Write the last part of the PDE
         mov [ebx], edx                                  ; Write the first part of the PDE
@@ -438,8 +436,6 @@ create_ptt:                                            ;
         or edx, PAGE_PRESENT | PAGE_WRITEABLE | PAGE_NOT_PROTECTED | PAGE_WRITETHROUGH_CACHING
 
                                                         ; Now that our 64 bits PTE is built, let's write it in the PTT
-;mov ecx, 'PTEX'
-;mov ecx, 'XXXX'
                                                         ;
         mov [ebx+4], ecx                                ; Write the last part of the PTE
         mov [ebx], edx                                  ; Write the first part of the PTE

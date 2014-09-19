@@ -4,11 +4,6 @@
 
 [SECTION .data]
 
-
-
-;MAX_ADDR        dq 0
-;MAX_ADDR_LEN    dq 0 
-
 GLOBAL PML4T_LOCATION
 GLOBAL PAGING_LOCATION_END
                                                         ;
