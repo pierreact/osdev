@@ -426,6 +426,12 @@ asm64_pf_int_handler:                                  ; 0xE
     mov rsi, msg_pf_64handler                          ; Load message informing an interrupt was called.
     call asm64_display_writestring                      ;
                                                         ;
+
+    mov rbx, cr2
+    call asm64_display_make_string_from_hex             ; Make is hex string
+    mov rsi, rbx                                        ;
+    call asm64_display_writestring                      ;
+
     cli
     hlt
 
@@ -511,10 +517,11 @@ asm64_rsv_int_handler:                                  ; All reserved exception
 ;----------------------------------------------------------------------------------------------------------------------------------------
 asm64_isr_timer_handler:                                ;
                                                         ;
+    push rax
     mov rax, [GLOBAL_OS_COUNTER]                        ;
     inc rax                                             ;
     mov [GLOBAL_OS_COUNTER], rax                        ;
-                                                        ;
+    pop rax                                                    ;
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
 	iretq                                               ;
@@ -582,7 +589,7 @@ msg_invtss_64handler:       db 'K64 - Invalid TSS!                       PANIC E
 msg_cnp_64handler:          db 'K64 - Segment not present!               PANIC Exception (0x0B) Stopping the OS.', 0
 msg_ssf_64handler:          db 'K64 - Stack Segment Fault!               PANIC Exception (0x0C) Stopping the OS.', 0
 msg_gpf_64handler:          db 'K64 - General protection fault!          PANIC Exception (0x0D) Stopping the OS.', 0
-msg_pf_64handler:           db 'K64 - Page Fault!                        PANIC Exception (0x0E) Stopping the OS.', 0
+msg_pf_64handler:           db 'K64 - Page Fault!  [Below is CR2 value]  PANIC Exception (0x0E) Stopping the OS.', 0
 msg_fpu_64handler:          db 'K64 - Floating Point Exception!          PANIC Exception (0x10) Stopping the OS.', 0
 msg_achk_64handler:         db 'K64 - Alignement Check Exception!        PANIC Exception (0x11) Stopping the OS.', 0
 msg_mce_64handler:          db 'K64 - Machine Check Exception!           PANIC Exception (0x12) Stopping the OS.', 0
