@@ -536,20 +536,20 @@ msg_32_kernel_data:     db '           - Kernel data section (.data) start', 0
 msg_32_kernel_bss:      db '           - Kernel bss section  (.bss) start', 0
 msg_32_kernel_end:      db '           - Kernel ends', 0
 
-msg_32_noapic:          db 'K32 - APIC Not supported by this CPU, we die here.', 0
-msg_32_apic:            db 'K32 - APIC detected on this CPU, continuing.', 0
-msg_32_bits:            db 'K32 - Kernel 32 bits space starting.', 0
-msg_a20_enabled:        db 'K32 - A20 Gate enabled, now accessing the whole memory!', 0
-msg_check_cpu_64_yes:   db 'K32 - CPU is 64 bits capable, continuing...', 0
-msg_check_cpu_64_no:    db 'K32 - CPU is not 64 bits capable, dying here.', 0
-msg_ensure_paging_off:  db 'K32 - Did ensure paging is disabled.', 0
-msg_enable_pae:         db 'K32 - PAE Enabled, now accessing more than 4GB of memory', 0
-msg_enable_lme:         db 'K32 - Long mode enabled, CPU now accepts 64 bits instructions.', 0
-msg_enable_paging:      db 'K32 - Paging enabled about to jump in true 64 bits code', 0
+msg_32_noapic:          db 'K32 ', 0x1A, ' APIC Not supported by this CPU, we die here.', 0
+msg_32_apic:            db 'K32 ', 0x1A, ' APIC detected on this CPU, continuing.', 0
+msg_32_bits:            db 'K32 ', 0x1A, ' Kernel 32 bits space starting.', 0
+msg_a20_enabled:        db 'K32 ', 0x1A, ' A20 Gate enabled, now accessing the whole memory!', 0
+msg_check_cpu_64_yes:   db 'K32 ', 0x1A, ' CPU is 64 bits capable, continuing...', 0
+msg_check_cpu_64_no:    db 'K32 ', 0x1A, ' CPU is not 64 bits capable, dying here.', 0
+msg_ensure_paging_off:  db 'K32 ', 0x1A, ' Did ensure paging is disabled.', 0
+msg_enable_pae:         db 'K32 ', 0x1A, ' PAE Enabled, now accessing more than 4GB of memory', 0
+msg_enable_lme:         db 'K32 ', 0x1A, ' Long mode enabled, CPU now accepts 64 bits instructions.', 0
+msg_enable_paging:      db 'K32 ', 0x1A, ' Paging enabled about to jump in true 64 bits code', 0
 
-msg_64_bits:            db 'K64 - Kernel 64 bits enabled and active.', 0
+msg_64_bits:            db 'K64 ', 0x1A, ' Kernel 64 bits enabled and active.', 0
 
-msg_c64_function:       db 'K64 - Processor initialization done.', 10, 0
+msg_c64_function:       db 'K64 ', 0x1A, ' Processor initialization done.', 10, 0
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; GDT32
 gdtptr:                                                 ;

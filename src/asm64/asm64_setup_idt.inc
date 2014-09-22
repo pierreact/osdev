@@ -1,6 +1,8 @@
 [BITS 64]
 [SECTION .text]
 
+EXTERN keyboard_driver
+
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
 asm64_pic_send_eoi:                                     ; Send End of interrupt to the PIC, THIS HAS TO BE RUN AT THE END OF EACH ISR.
@@ -549,7 +551,8 @@ asm64_isr_keyboard_handler:                             ;
     .end:					                            ; return to do handling
                                                         ;
                                                         ;
-    int 0x30                                            ;
+;    int 0x30                                            ;
+    call keyboard_driver
                                                         ;
     call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
                                                         ;
@@ -573,7 +576,7 @@ asm64_softwareint_handler:                              ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]
 
-msg_idt64_set:              db 'K64 - IDT64 set.', 0
+msg_idt64_set:              db 'K64 ', 0x1A, ' IDT64 set.', 0
 msg_default_64handler:      db 'K64 - Unknown Interrupt called!      PANIC [Call Mickey Mouse!] Stopping the OS.', 0
 msg_divide_zero_64handler:  db 'K64 - Divide by Zero!                    PANIC Exception (0x00) Stopping the OS.', 0
 msg_debug_64handler:        db 'K64 - Debug!                             PANIC Exception (0x01) Stopping the OS.', 0
@@ -598,6 +601,8 @@ msg_virt_64handler:         db 'K64 - Virtualization Exception!          PANIC E
 msg_sec_64handler:          db 'K64 - Machine Check Exception!           PANIC Exception (0x1E) Stopping the OS.', 0
 msg_rsv_64handler:          db 'K64 - RESERVED EXEPTION!                 PANIC Exception (0x??) Stopping the OS.', 0
 msg_numtimercalls:          db 'Number of calls to timer interrupt :', 0
+
+GLOBAL kbscancode
 
 kbstatus:	            db	0			                ; keyboard controller status
 kbscancode:	            db	0			                ; scancode

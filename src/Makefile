@@ -8,6 +8,7 @@ LD=ld
 SOURCES=    kmain.o \
             system.ports.o \
             system.monitor.o \
+            system.keyboard.o \
             system.mem.o
 
 CFLAGS=     -m64 \
