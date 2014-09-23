@@ -7,24 +7,27 @@ void keyboard_driver();
 extern uint8 kbscancode;
 
 
-#define SHIFT 0b01
-#define ALTGR 0b10
+#define SHIFT 0b0001
+#define ALTGR 0b0010
+#define CTRL  0b0100
+#define ALT   0b1000
 
 
 //bool shift = false;
 #define RELEASE 0x80
-uint8 cmds = 0;
+uint8 kb_flags = 0;
 
 
 void keyboard_driver() {
    
     char character = 0x00;
-    if(kbscancode == 0x2A) cmds |= SHIFT; // Left Shift
-    if(kbscancode == 0x36) cmds |= SHIFT; // Right Shift
-    if(kbscancode == 0xAA) cmds &= ~SHIFT; // Release Left Shift
-    if(kbscancode == 0xB6) cmds &= ~SHIFT; // Release Right Shift
+    if(kbscancode == 0x2A) kb_flags |= SHIFT; // Left Shift
+    if(kbscancode == 0x36) kb_flags |= SHIFT; // Right Shift
+    if(kbscancode == 0xAA) kb_flags &= ~SHIFT; // Release Left Shift
+    if(kbscancode == 0xB6) kb_flags &= ~SHIFT; // Release Right Shift
 
-    if((cmds & SHIFT) == SHIFT) {
+    if((kb_flags & SHIFT) == SHIFT) {
+        if(kbscancode == 0x3A) kb_flags &= ~SHIFT; // Remove caps lock
         if(kbscancode == 0x02) character = '!';
         if(kbscancode == 0x03) character = '"';
         if(kbscancode == 0x04) character = 0x9C;
@@ -73,8 +76,13 @@ void keyboard_driver() {
         if(kbscancode == 0x30) character = 'B';
         if(kbscancode == 0x31) character = 'N';
         if(kbscancode == 0x32) character = 'M';
+        if(kbscancode == 0x33) character = '<';
+        if(kbscancode == 0x34) character = '>';
+        if(kbscancode == 0x35) character = '?';
+
 
     } else {
+        if(kbscancode == 0x3A) kb_flags |= SHIFT; // Caps lock
 
         if(kbscancode == 0x02) character = '1';
         if(kbscancode == 0x03) character = '2';
@@ -124,6 +132,9 @@ void keyboard_driver() {
         if(kbscancode == 0x30) character = 'b';
         if(kbscancode == 0x31) character = 'n';
         if(kbscancode == 0x32) character = 'm';
+        if(kbscancode == 0x33) character = ',';
+        if(kbscancode == 0x34) character = '.';
+        if(kbscancode == 0x35) character = '/';
 
         if(kbscancode == 0x39) character = ' ';
         if(kbscancode == 0x1C) character = 0x0A; // New line, return key.
