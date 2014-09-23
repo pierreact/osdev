@@ -176,7 +176,7 @@ asm32_memmap_find_highest_entry:
     
     xor ecx, ecx
 
-;    dec ebx                                             ; We start from 0
+    dec ebx                                             ; We start from 0
 
 
     .loop_highest:
