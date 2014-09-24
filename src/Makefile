@@ -23,6 +23,7 @@ CFLAGS=     -m64 \
             -mno-3dnow \
             -I include \
             -Wall \
+            -Wno-packed-bitfield-compat \
             -O \
             -fstrength-reduce \
             -fomit-frame-pointer \

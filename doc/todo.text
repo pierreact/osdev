@@ -6,8 +6,9 @@ D - Long to hex in C.
 D - Rework IDT and ISRs, some trap and fault IDT entries have to be set properly.
 D - Relocate some data structures in memory. The kernel is growing and getting over those.
 D - If still present, fix the page fault bug.
-T - Find last address of paging structure.
-T - Map remaining free addresses.
+D - Find last address of paging structure.
+T - Check paging structures from C.
+T - Map remaining free addresses (Over 4GB).
 T - Memory manager(/On screen Memory map?)
 T - Context switching.
 T - Scheduler.
