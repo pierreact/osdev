@@ -19,7 +19,7 @@
 ;
 ; You can reach the author by sending a mail to pierreact at gmail dot com
 ; Thanks :P
-
+;
 ; QEMU DEBUG:
 ; stop
 ; pmemsave 0 134217728 qemu_mem_dump.bin
@@ -595,6 +595,7 @@ GDT64:                                                  ; Global Descriptor Tabl
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .bss]
+align 16
 MEMMAP_START:
 RESB 1024
 MEMMAP_END:
