@@ -1,0 +1,5 @@
+
+This is what you need to set up a dev environment on a debian wheezy:
+
+apt-get install nasm gcc make bochs bochs-sdl qemu git
+

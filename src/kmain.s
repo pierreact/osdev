@@ -61,6 +61,11 @@ mov sp, 0xf000                                          ;
 sti                                                     ; Enabling Interrupts
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; Setting up cursor blinking frequency.
+mov ah, 1                                               ; 
+mov cx, 00010000b                                       ; 
+int 0x10                                                ; 
+;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
                                                         ; In order for the firmware built into the system to optimize itself
                                                         ; for running in Long Mode, AMD recommends that the OS notify the BIOS 
