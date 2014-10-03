@@ -7,6 +7,7 @@ D - Rework IDT and ISRs, some trap and fault IDT entries have to be set properly
 D - Relocate some data structures in memory. The kernel is growing and getting over those.
 D - If still present, fix the page fault bug.
 D - Find last address of paging structure.
+T - Find last address reachable.
 T - Check paging structures from C.
 T - Map remaining free addresses (Over 4GB).
 T - Memory manager(/On screen Memory map?)
@@ -14,6 +15,7 @@ T - Context switching.
 T - Scheduler.
 T - Disk Driver.
 T - FS driver.
+T - Take out all discardable init from the kernel and create a stage 2 bootloader.
 T - Kernel module loader/unloader at run time.
 T - KB driver.
 T - Keymap loader from FS.
