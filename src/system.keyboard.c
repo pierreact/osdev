@@ -1,5 +1,6 @@
 
 #include <system.monitor.h>
+#include <system.shell.h>
 #include <types.h>
 
 void keyboard_driver();
@@ -136,9 +137,10 @@ void keyboard_driver() {
         if(kbscancode == 0x34) character = '.';
         if(kbscancode == 0x35) character = '/';
 
+        if(kbscancode == 0x0E) character = 0x08; // Backspace
         if(kbscancode == 0x39) character = ' ';
         if(kbscancode == 0x1C) character = 0x0A; // New line, return key.
     }
-    if(character != 0x0) putc(character);
+    if(character != 0x0) shell_handle_char(character);
 }
 

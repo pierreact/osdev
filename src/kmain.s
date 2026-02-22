@@ -41,6 +41,7 @@ GLOBAL kmain                                            ;-----------------------
 kmain:                                                  ; Starting point of the kernel called by the bootsector
                                                         ;
 EXTERN kernelEnd, __code, __data, __bss                 ; External symbols.
+EXTERN shell_init                                       ; Shell initialization function.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -58,7 +59,7 @@ mov es, ax                                              ;
 mov ax, 0x8000		                                    ; stack at 0xFFFF
 mov ss, ax                                              ;
 mov sp, 0xf000                                          ;
-sti                                                     ; Enabling Interrupts
+                                                        ; NOTE: Keep interrupts disabled until IVT is set up
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Setting up cursor blinking frequency.
@@ -113,6 +114,10 @@ call asm16_display_writestring                          ; Call display function
                                                         ;
 call asm16_IVT_setup                                    ; Setting up the interrupt vector table, 16 bits equivalent of the IDT.
                                                         ;
+                                                        ; NOTE: We DON'T enable interrupts here because:
+                                                        ; 1. Hardware interrupts (timer, keyboard) would trigger our panic handler
+                                                        ; 2. Software interrupts (int 0xFF below) work even with interrupts disabled
+                                                        ; 3. We'll properly handle interrupts in 32/64-bit mode with the PIC/APIC
 ;int 0x30                                               ; This is a test, Kills the O.S., triggers an interrupt, and we don't accept them in this mode (other than 0xFF).
                                                         ;
 int 0xFF                                                ; Used as a test for 16 bits IVT init. 
@@ -419,6 +424,16 @@ mov esi, msg_ensure_paging_off                          ; Informs paging is now 
 call asm32_display_writestring                          ;
                                                         ;
     ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; Load CR3 with PML4 address BEFORE enabling PAE
+                                                        ; (PAE enabling validates paging structures immediately!)
+xor eax, eax                                            ;
+mov eax, [PML4T_LOCATION]                               ;
+mov cr3, eax                                            ;
+                                                        ;
+mov esi, msg_cr3_loaded                                 ; Tell CR3 is loaded
+call asm32_display_writestring                          ;
+                                                        ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Set PAE enable bit in CR4 (Physical Address Extensions)
                                                         ;
 mov eax, cr4                                            ;
@@ -442,15 +457,22 @@ call asm32_display_writestring                          ;
     ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ;
                                                         ; Enable paging
-                                                        ; Set CR3 to our PML4T location
-xor eax, eax                                            ;
-mov eax, [PML4T_LOCATION]                               ;
-mov cr3, eax                                            ;
+                                                        ; (CR3 already loaded earlier, before PAE was enabled)
+                                                        ;
+mov esi, msg_about_to_enable_paging                     ; About to enable paging
+call asm32_display_writestring                          ;
+                                                        ;
+cli                                                     ; CRITICAL: Disable interrupts before enabling paging
+                                                        ; Hardware interrupts can fire and cause triple fault if handlers aren't mapped
                                                         ;
                                                         ; Enable paging now!
 mov eax, cr0                                            ;
 bts eax, 31                                             ;
 mov cr0, eax                                            ;
+                                                        ;
+                                                        ; Immediately after enabling paging, do a short jump to flush pipeline
+jmp .paging_enabled                                     ;
+.paging_enabled:                                        ;
                                                         ;
 mov esi, msg_enable_paging                              ; Tell we did it!
 call asm32_display_writestring                          ;
@@ -508,7 +530,6 @@ include_64bits_functions:                               ; /include
                                                         ;
                                                         ; Display called display functions will now be from the video
                                                         ; driver written in C from system.monitor.c
-    call scroll                                         ;
     call update_cursor                                  ;
                                                         ;
     mov rdi, msg_c64_function                           ; ABI Page 21, Figure 3.4, register usage.
@@ -520,10 +541,15 @@ include_64bits_functions:                               ; /include
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;xchg bx, bx ; Bochs magic
 ;----------------------------------------------------------------------------------------------------------------------------------------
-die:                                                    ; End of kernel initialization
-    hlt                                                 ;
-    jmp die                                             ; TODO Why on earth is this needed? 
-                                                        ; This code shouldn't get after hlt!?
+                                                        ;
+    sti                                                 ; Enable interrupts (for keyboard, timer, etc.)
+                                                        ; Initialize the shell
+    call shell_init                                     ; Display welcome message and prompt
+                                                        ;
+                                                        ;
+event_loop:                                             ; Main event loop - wait for interrupts
+    hlt                                                 ; Halt until interrupt (keyboard, timer, etc.)
+    jmp event_loop                                      ; Loop forever
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]
@@ -547,10 +573,12 @@ msg_32_bits:            db 'K32 ', 0x1A, ' Kernel 32 bits space starting.', 0
 msg_a20_enabled:        db 'K32 ', 0x1A, ' A20 Gate enabled, now accessing the whole memory!', 0
 msg_check_cpu_64_yes:   db 'K32 ', 0x1A, ' CPU is 64 bits capable, continuing...', 0
 msg_check_cpu_64_no:    db 'K32 ', 0x1A, ' CPU is not 64 bits capable, dying here.', 0
-msg_ensure_paging_off:  db 'K32 ', 0x1A, ' Did ensure paging is disabled.', 0
-msg_enable_pae:         db 'K32 ', 0x1A, ' PAE Enabled, now accessing more than 4GB of memory', 0
-msg_enable_lme:         db 'K32 ', 0x1A, ' Long mode enabled, CPU now accepts 64 bits instructions.', 0
-msg_enable_paging:      db 'K32 ', 0x1A, ' Paging enabled about to jump in true 64 bits code', 0
+msg_ensure_paging_off:     db 'K32 ', 0x1A, ' Did ensure paging is disabled.', 0
+msg_cr3_loaded:            db 'K32 ', 0x1A, ' CR3 loaded with PML4 address.', 0
+msg_enable_pae:            db 'K32 ', 0x1A, ' PAE Enabled, now accessing more than 4GB of memory', 0
+msg_enable_lme:            db 'K32 ', 0x1A, ' Long mode enabled, CPU now accepts 64 bits instructions.', 0
+msg_about_to_enable_paging: db 'K32 ', 0x1A, ' About to enable paging...', 0
+msg_enable_paging:         db 'K32 ', 0x1A, ' Paging enabled about to jump in true 64 bits code', 0
 
 msg_64_bits:            db 'K64 ', 0x1A, ' Kernel 64 bits enabled and active.', 0
 

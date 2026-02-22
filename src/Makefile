@@ -9,7 +9,8 @@ SOURCES=    kmain.o \
             system.ports.o \
             system.monitor.o \
             system.keyboard.o \
-            system.mem.o
+            system.mem.o \
+            system.shell.o
 
 CFLAGS=     -m64 \
             -ffreestanding \
@@ -28,10 +29,10 @@ CFLAGS=     -m64 \
             -fstrength-reduce \
             -fomit-frame-pointer \
             -finline-functions \
+            -fno-PIC \
     		-nostdinc
 
 LDFLAGS=    -nostdlib \
-            -nodefaultlibs \
             -Tlink.ld
 
 ASFLAGS=    -felf64

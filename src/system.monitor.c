@@ -54,6 +54,16 @@ void putc(char c) {
         return;
     }
 
+    if(c == 0x08) {  // Backspace
+        if(cursor_x > 0) {
+            cursor_x--;
+            uint16 position = (cursor_y * VIDEO_WIDTH) + cursor_x;
+            video_memory[position] = ' ' | (VIDEO_ATTR << 8);
+            update_cursor();
+        }
+        return;
+    }
+
     uint16 position = (cursor_y * VIDEO_WIDTH) + cursor_x;
     video_memory[position] = c | (VIDEO_ATTR << 8);
 
