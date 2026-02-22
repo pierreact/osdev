@@ -17,16 +17,16 @@ cli                                                     ;
                                                         ;
 .write:                                                 ;
     mov [es:bx], 	word asm16_isr_handler              ; Points all interrupts to the function _isr_handler.
-    mov [es:bx +2], word 0                              ;
+    mov [es:bx +2], word 0                              ; Segment 0 (labels are absolute linear addresses)
                                                         ;
     add bx, 4                                           ; 4 bytes per interrupt.
     cmp bx, 0x400 - 4                                   ; 256 x 4 = 0x400. Last vector for which an address 
     jb .write                                           ; going to asm16_isr_handler will be defined
                                                         ;
     mov [es:bx], 	word asm16_isr_intFFh               ; Points interrupt 0xFF to the function _isr_intFFh.
-    mov [es:bx +2], word 0                              ;
+    mov [es:bx +2], word 0                              ; Segment 0 (labels are absolute linear addresses)
                                                         ;
-sti                                                     ;
+                                                        ; Don't enable interrupts here - let caller control that
 ret                                                     ;
                                                         ;
                                                         ;

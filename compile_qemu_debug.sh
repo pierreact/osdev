@@ -1,10 +1,13 @@
 #!/bin/bash
+# Debug version - prevents automatic reboots on crashes/triple faults
+
 OBJ=bin/os.bin
 ./compile.sh
 
 rm -f /tmp/qemu.log
 echo "========================================" 
-echo "QEMU Running - logs in /tmp/qemu.log"
+echo "QEMU DEBUG Mode - logs in /tmp/qemu.log"
+echo "Reboot disabled for debugging"
 echo "Press Ctrl+C to exit"
 echo "========================================"
 qemu-system-x86_64 \
@@ -14,5 +17,7 @@ qemu-system-x86_64 \
     -boot order=c \
     -drive file=$OBJ,if=ide,index=2 \
     -D /tmp/qemu.log \
-    -d int,cpu_reset,guest_errors
+    -d int,cpu_reset,guest_errors \
+    -no-reboot \
+    -no-shutdown
 
