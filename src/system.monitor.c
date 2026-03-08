@@ -96,6 +96,25 @@ void kprint_long2hex(long number, char* postString) {
     kprint(postString);
 }
 
+void kprint_dec(uint64 number) {
+    if(number == 0) {
+        putc('0');
+        return;
+    }
+    
+    char buffer[21];
+    int i = 20;
+    buffer[i] = '\0';
+    
+    while(number > 0 && i > 0) {
+        i--;
+        buffer[i] = '0' + (number % 10);
+        number /= 10;
+    }
+    
+    kprint(&buffer[i]);
+}
+
 
 
 

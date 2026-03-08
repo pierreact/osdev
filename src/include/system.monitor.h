@@ -8,6 +8,7 @@ void putc(char c);	// Write one char to the screen
 
 void kprint(char *string);
 void kprint_long2hex(long number, char* postString);
+void kprint_dec(uint64 number);
 
 #endif // MONITOR_H
 
