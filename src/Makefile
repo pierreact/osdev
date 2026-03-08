@@ -11,7 +11,8 @@ SOURCES=    kmain.o \
             system.keyboard.o \
             system.mem.o \
             system.shell.o \
-            system.ide.o
+            system.ide.o \
+            system.fat32.o
 
 CFLAGS=     -m64 \
             -ffreestanding \

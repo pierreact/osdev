@@ -3,6 +3,7 @@
 #include <system.ports.h>
 #include <system.mem.h>
 #include <system.ide.h>
+#include <system.fat32.h>
 
 // Command buffer
 #define CMD_BUFFER_SIZE 80
@@ -105,6 +106,8 @@ void cmd_help() {
     kprint("  diskinfo  - Show disk information\n");
     kprint("  diskread  - Read disk sectors\n");
     kprint("  diskwrite - Write disk sectors\n");
+    kprint("  ls        - List files on FAT32 disk\n");
+    kprint("  cat <file>- Print file contents\n");
     kprint("  echo      - Echo text to screen\n");
     kprint("  reboot    - Reboot the system\n");
 }
@@ -409,6 +412,18 @@ void shell_execute_command() {
     }
     else if (starts_with(cmd_buffer, "diskwrite")) {
         cmd_diskwrite();
+    }
+    else if (strcmp(cmd_buffer, "ls") == 0) {
+        fat32_list_root();
+    }
+    else if (starts_with(cmd_buffer, "cat ")) {
+        char *args = cmd_buffer + 4;
+        while (*args == ' ') args++;
+        if (*args) {
+            fat32_cat_file(args);
+        } else {
+            kprint("Usage: cat <filename>\n");
+        }
     }
     else if (starts_with(cmd_buffer, "echo")) {
         cmd_echo();

@@ -107,26 +107,30 @@ void ide_init() {
     kprint(" sectors\n");
 }
 
-int ide_read_sector(uint32 lba, uint8 *buffer) {
+static int ide_read_sector_drive(uint8 drive, uint32 lba, uint8 *buffer) {
     if(ide_wait_ready() != 0) {
         return -1;
     }
-    
-    outb(IDE_DRIVE_HEAD, 0xE0 | ((lba >> 24) & 0x0F));
+
+    outb(IDE_DRIVE_HEAD, 0xE0 | ((drive & 1) << 4) | ((lba >> 24) & 0x0F));
     outb(IDE_SECTOR_CNT, 1);
     outb(IDE_LBA_LOW, lba & 0xFF);
     outb(IDE_LBA_MID, (lba >> 8) & 0xFF);
     outb(IDE_LBA_HIGH, (lba >> 16) & 0xFF);
     outb(IDE_COMMAND, IDE_CMD_READ_PIO);
-    
+
     ide_wait_drq();
-    
+
     uint16 *buf16 = (uint16*)buffer;
     for(int i = 0; i < 256; i++) {
         buf16[i] = inw(IDE_DATA);
     }
-    
+
     return 0;
+}
+
+int ide_read_sector(uint32 lba, uint8 *buffer) {
+    return ide_read_sector_drive(0, lba, buffer);
 }
 
 int ide_write_sector(uint32 lba, uint8 *buffer) {
@@ -154,8 +158,12 @@ int ide_write_sector(uint32 lba, uint8 *buffer) {
 }
 
 int ide_read_sectors(uint32 lba, uint8 count, uint8 *buffer) {
+    return ide_read_sectors_drive(0, lba, count, buffer);
+}
+
+int ide_read_sectors_drive(uint8 drive, uint32 lba, uint8 count, uint8 *buffer) {
     for(uint8 i = 0; i < count; i++) {
-        if(ide_read_sector(lba + i, buffer + (i * 512)) != 0) {
+        if(ide_read_sector_drive(drive, lba + i, buffer + (i * 512)) != 0) {
             return -1;
         }
     }

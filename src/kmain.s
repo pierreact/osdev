@@ -44,6 +44,7 @@ EXTERN kernelEnd, __code, __data, __bss                 ; External symbols.
 EXTERN shell_init                                       ; Shell initialization function.
 EXTERN heap_init                                        ; Heap initialization.
 EXTERN ide_init                                         ; IDE initialization.
+EXTERN fat32_init                                       ; FAT32 initialization.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -541,6 +542,7 @@ include_64bits_functions:                               ; /include
     call init_memmgr                                    ; Call the memory manager initialization.
     call heap_init                                      ; Initialize heap allocator.
     call ide_init                                       ; Initialize IDE controller.
+    call fat32_init                                     ; Initialize FAT32 filesystem.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;xchg bx, bx ; Bochs magic
