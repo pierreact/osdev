@@ -2,6 +2,7 @@
 #include <system.monitor.h>
 #include <system.ports.h>
 #include <system.mem.h>
+#include <system.ide.h>
 
 // Command buffer
 #define CMD_BUFFER_SIZE 80
@@ -56,8 +57,7 @@ int starts_with(const char *str, const char *prefix) {
 // ============================================================================
 
 void shell_init() {
-    // Note: cls() removed to keep boot messages visible
-    kprint("\n");  // Add spacing after boot messages
+    kprint("\n");
     kprint("Welcome!\n");
     kprint("Type 'help' for available commands.\n\n");
     cmd_index = 0;
@@ -97,11 +97,16 @@ void shell_handle_char(char c) {
 
 void cmd_help() {
     kprint("Available commands:\n");
-    kprint("  help     - Show this help message\n");
-    kprint("  clear    - Clear the screen\n");
-    kprint("  meminfo  - Display memory information\n");
-    kprint("  echo     - Echo text to screen\n");
-    kprint("  reboot   - Reboot the system\n");
+    kprint("  help      - Show this help message\n");
+    kprint("  clear     - Clear the screen\n");
+    kprint("  meminfo   - Display memory information\n");
+    kprint("  memtest   - Test heap allocator\n");
+    kprint("  lsblk     - List block devices\n");
+    kprint("  diskinfo  - Show disk information\n");
+    kprint("  diskread  - Read disk sectors\n");
+    kprint("  diskwrite - Write disk sectors\n");
+    kprint("  echo      - Echo text to screen\n");
+    kprint("  reboot    - Reboot the system\n");
 }
 
 void cmd_clear() {
@@ -114,6 +119,210 @@ void cmd_meminfo() {
     kprint_long2hex((long)&MEMMAP_START, " MEMMAP start address\n");
     kprint_long2hex(PML4T_LOCATION, " PML4T location\n");
     kprint_long2hex(PAGING_LOCATION_END, " Paging structures end\n");
+}
+
+void cmd_memtest() {
+    kprint("Testing heap allocator...\n");
+    
+    void *p1 = kmalloc(100);
+    if(p1) {
+        kprint("Allocated block 1: ");
+        kprint_long2hex((uint64)p1, "\n");
+    } else {
+        kprint("Failed to allocate block 1\n");
+        return;
+    }
+    
+    void *p2 = kmalloc(200);
+    if(p2) {
+        kprint("Allocated block 2: ");
+        kprint_long2hex((uint64)p2, "\n");
+    } else {
+        kprint("Failed to allocate block 2\n");
+        kfree(p1);
+        return;
+    }
+    
+    uint32 *test = (uint32*)p1;
+    *test = 0xDEADBEEF;
+    kprint("Write test: ");
+    kprint_long2hex(*test, "\n");
+    
+    kfree(p1);
+    kprint("Freed block 1\n");
+    
+    void *p3 = kmalloc(50);
+    if(p3) {
+        kprint("Allocated block 3: ");
+        kprint_long2hex((uint64)p3, "\n");
+    }
+    
+    kfree(p2);
+    kfree(p3);
+    kprint("Test complete\n");
+}
+
+void cmd_lsblk() {
+    kprint("NAME  SIZE    TYPE\n");
+    
+    uint32 sectors = ide_get_sector_count();
+    if(sectors == 0) {
+        kprint("No drives detected\n");
+        return;
+    }
+    
+    uint32 size_mb = (sectors / 2048);
+    kprint("hda   ");
+    kprint_dec(size_mb);
+    kprint("MB  disk\n");
+}
+
+void cmd_diskinfo() {
+    kprint("Disk Information:\n");
+    
+    uint32 sectors = ide_get_sector_count();
+    if(sectors == 0) {
+        kprint("No drive detected\n");
+        return;
+    }
+    
+    kprint("Drive: Primary Master\n");
+    kprint("Model: ");
+    kprint(ide_get_model());
+    putc('\n');
+    kprint("Sectors: ");
+    kprint_dec(sectors);
+    putc('\n');
+    
+    uint32 size_mb = (sectors / 2048);
+    kprint("Size: ");
+    kprint_dec(size_mb);
+    kprint(" MB\n");
+}
+
+static uint32 parse_number(const char *str) {
+    uint32 result = 0;
+    
+    if(str[0] == '0' && str[1] == 'x') {
+        str += 2;
+        while(*str) {
+            char c = *str;
+            if(c >= '0' && c <= '9') result = result * 16 + (c - '0');
+            else if(c >= 'a' && c <= 'f') result = result * 16 + (c - 'a' + 10);
+            else if(c >= 'A' && c <= 'F') result = result * 16 + (c - 'A' + 10);
+            else break;
+            str++;
+        }
+    } else {
+        while(*str >= '0' && *str <= '9') {
+            result = result * 10 + (*str - '0');
+            str++;
+        }
+    }
+    
+    return result;
+}
+
+static void hex_dump(uint8 *data, uint32 len) {
+    for(uint32 i = 0; i < len; i++) {
+        if(i % 16 == 0) {
+            if(i != 0) putc('\n');
+            kprint_long2hex(i, ": ");
+        }
+        
+        uint8 b = data[i];
+        char hex[3];
+        hex[0] = "0123456789ABCDEF"[b >> 4];
+        hex[1] = "0123456789ABCDEF"[b & 0xF];
+        hex[2] = ' ';
+        
+        putc(hex[0]);
+        putc(hex[1]);
+        putc(hex[2]);
+    }
+    putc('\n');
+}
+
+void cmd_diskread() {
+    char *args = cmd_buffer + 8;
+    while(*args == ' ') args++;
+    
+    if(*args == '\0') {
+        kprint("Usage: diskread <lba> [count]\n");
+        return;
+    }
+    
+    uint32 lba = parse_number(args);
+    
+    while(*args && *args != ' ') args++;
+    while(*args == ' ') args++;
+    
+    uint32 count = (*args) ? parse_number(args) : 1;
+    if(count > 8) count = 8;
+    
+    uint8 *buffer = (uint8*)kmalloc(count * 512);
+    if(!buffer) {
+        kprint("Failed to allocate buffer\n");
+        return;
+    }
+    
+    kprint("Reading ");
+    kprint_long2hex(count, " sector(s) from LBA ");
+    kprint_long2hex(lba, "\n");
+    
+    if(ide_read_sectors(lba, count, buffer) != 0) {
+        kprint("Read failed\n");
+        kfree(buffer);
+        return;
+    }
+    
+    hex_dump(buffer, count * 512);
+    kfree(buffer);
+}
+
+void cmd_diskwrite() {
+    char *args = cmd_buffer + 9;
+    while(*args == ' ') args++;
+    
+    if(*args == '\0') {
+        kprint("Usage: diskwrite <lba> <data>\n");
+        return;
+    }
+    
+    uint32 lba = parse_number(args);
+    
+    while(*args && *args != ' ') args++;
+    while(*args == ' ') args++;
+    
+    if(*args == '\0') {
+        kprint("No data specified\n");
+        return;
+    }
+    
+    uint8 *buffer = (uint8*)kmalloc(512);
+    if(!buffer) {
+        kprint("Failed to allocate buffer\n");
+        return;
+    }
+    
+    for(int i = 0; i < 512; i++) buffer[i] = 0;
+    
+    int len = 0;
+    while(args[len] && len < 512) {
+        buffer[len] = args[len];
+        len++;
+    }
+    
+    kprint("Writing to LBA ");
+    kprint_long2hex(lba, "\n");
+    
+    if(ide_write_sector(lba, buffer) != 0) {
+        kprint("Write failed\n");
+    } else {
+        kprint("Write complete\n");
+    }
+    
+    kfree(buffer);
 }
 
 void cmd_echo() {
@@ -185,6 +394,21 @@ void shell_execute_command() {
     }
     else if (strcmp(cmd_buffer, "meminfo") == 0) {
         cmd_meminfo();
+    }
+    else if (strcmp(cmd_buffer, "memtest") == 0) {
+        cmd_memtest();
+    }
+    else if (strcmp(cmd_buffer, "lsblk") == 0) {
+        cmd_lsblk();
+    }
+    else if (strcmp(cmd_buffer, "diskinfo") == 0) {
+        cmd_diskinfo();
+    }
+    else if (starts_with(cmd_buffer, "diskread")) {
+        cmd_diskread();
+    }
+    else if (starts_with(cmd_buffer, "diskwrite")) {
+        cmd_diskwrite();
     }
     else if (starts_with(cmd_buffer, "echo")) {
         cmd_echo();

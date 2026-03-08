@@ -12,7 +12,7 @@ qemu-system-x86_64 \
     -s \
     -monitor stdio \
     -boot order=c \
-    -drive file=$OBJ,if=ide,index=2 \
+    -drive file=$OBJ,if=ide,index=0,format=raw \
     -D /tmp/qemu.log \
     -d int,cpu_reset,guest_errors
 

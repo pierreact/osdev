@@ -28,7 +28,7 @@ typedef unsigned long  size_t;
 
 typedef uint8 bool;
 
-#define NULL ((void *)0);
+#define NULL ((void *)0)
 #define true (1==1)
 #define false (!true)
 
