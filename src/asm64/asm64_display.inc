@@ -61,7 +61,7 @@ asm64_display_clear:                                    ;
     jmp .clear                                          ;
                                                         ;
 .screen_cleared:                                        ;
-    mov rdx, 24                                         ;
+    mov rdx, HEIGHT-1                                    ;
     call asm64_display_emptyline                        ;
     pop rdx                                             ;
     pop rbx                                             ;
@@ -88,7 +88,7 @@ asm64_display_scroll:                                   ;
     jmp .scroll                                         ;
                                                         ;
 .screen_scrolled:                                       ;
-    mov rdx, 24						                    ; empty line 25
+    mov rdx, HEIGHT-1					                    ; empty last line
     call asm64_display_emptyline                        ;
                                                         ;
     pop rdx		                                        ;

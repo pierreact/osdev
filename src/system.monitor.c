@@ -2,16 +2,16 @@
 #include <system.monitor.h>
 #include <system.ports.h>
 
+#define VIDEO_WIDTH   80
+#define VIDEO_HEIGHT  28
+#define VIDEO_ATTR  0x0A
+
 // The VGA framebuffer starts at 0xB8000.
 static volatile uint16 *video_memory = (uint16 *)0xB8000;
 
 // Stores the cursor position.
 static uint8 cursor_x = 0;
-static uint8 cursor_y = 24;
-
-#define VIDEO_WIDTH   80
-#define VIDEO_HEIGHT  24
-#define VIDEO_ATTR  0x0A
+static uint8 cursor_y = VIDEO_HEIGHT - 1;
 
 void update_cursor()
 {
@@ -25,7 +25,7 @@ void update_cursor()
 
 void cls() {
     int i;
-    for( i=0; i< VIDEO_HEIGHT * VIDEO_WIDTH; i += 2) {
+    for( i=0; i< VIDEO_HEIGHT * VIDEO_WIDTH; i++) {
         video_memory[i] = 0x20 | (VIDEO_ATTR << 8);
     }
     cursor_x = 0;
@@ -35,7 +35,7 @@ void cls() {
 
 void scroll() {
     uint16 i;
-    uint16 last_line = VIDEO_HEIGHT * VIDEO_WIDTH;
+    uint16 last_line = (VIDEO_HEIGHT - 1) * VIDEO_WIDTH;
 
     for( i=0; i< last_line; i++)
         video_memory[i]   = video_memory[i+VIDEO_WIDTH];
@@ -44,13 +44,19 @@ void scroll() {
         video_memory[i]   = 0x20 | (VIDEO_ATTR << 8);
 
     cursor_x = 0;
-    cursor_y = VIDEO_HEIGHT;
+    cursor_y = VIDEO_HEIGHT - 1;
     update_cursor();
 }
 
 void putc(char c) {
     if(c == 0x0a){
-        scroll();
+        cursor_x = 0;
+        cursor_y++;
+        if(cursor_y >= VIDEO_HEIGHT) {
+            scroll();
+        } else {
+            update_cursor();
+        }
         return;
     }
 
@@ -68,7 +74,7 @@ void putc(char c) {
     video_memory[position] = c | (VIDEO_ATTR << 8);
 
     cursor_x++;
-    if(cursor_x > VIDEO_WIDTH) {
+    if(cursor_x >= VIDEO_WIDTH) {
         cursor_x = 0;
         cursor_y++;
     }
