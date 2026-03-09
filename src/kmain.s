@@ -44,6 +44,7 @@ EXTERN kernelEnd, __code, __data, __bss                 ; External symbols.
 EXTERN shell_init                                       ; Shell initialization function.
 EXTERN heap_init                                        ; Heap initialization.
 EXTERN ide_init                                         ; IDE initialization.
+EXTERN fat32_init                                       ; FAT32 initialization.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -64,10 +65,16 @@ mov sp, 0xf000                                          ;
                                                         ; NOTE: Keep interrupts disabled until IVT is set up
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; Switch to 80x50 text mode (load 8x8 font)
+mov ax, 0x1111                                          ; AH=11h (char gen), AL=11h (load 8x14 font)
+mov bl, 0                                               ; Block 0
+int 0x10                                                ;
+call asm16_display_clear                                ; Clear screen after font change
+;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Setting up cursor blinking frequency.
-mov ah, 1                                               ; 
-mov cx, 00010000b                                       ; 
-int 0x10                                                ; 
+mov ah, 1                                               ;
+mov cx, 00010000b                                       ;
+int 0x10                                                ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
                                                         ; In order for the firmware built into the system to optimize itself
@@ -541,6 +548,7 @@ include_64bits_functions:                               ; /include
     call init_memmgr                                    ; Call the memory manager initialization.
     call heap_init                                      ; Initialize heap allocator.
     call ide_init                                       ; Initialize IDE controller.
+    call fat32_init                                     ; Initialize FAT32 filesystem.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;xchg bx, bx ; Bochs magic

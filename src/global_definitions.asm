@@ -5,7 +5,7 @@
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; Screen definitions.
 %define LENGTH 80
-%define HEIGHT 25
+%define HEIGHT 28
 %define video_address 0xB8000
 %define space_char 0x20
 

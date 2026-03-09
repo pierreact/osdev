@@ -102,7 +102,7 @@ asm32_display_scroll:                                   ;
 		jmp .scroll                                     ;
                                                         ;
 	.screen_scrolled:                                   ;
-		mov dl, 24                                      ; empty line 25
+		mov dl, HEIGHT-1                                ; empty last line
 		call asm32_display_emptyline                    ;
                                                         ;
 		pop edx                                         ;

@@ -4,7 +4,7 @@ section .text
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
 %define LENGTH 80                                       ; Screen is 80 characters wide
-%define HEIGHT 25                                       ; 25 lines
+%define HEIGHT 28                                       ; 28 lines
 %define space_char 0x20                                 ; ASCII code for space is 0x20
                                                         ;
 %define video_address_16 0xB800                         ; In 16 bits mode, text memory is at 0x800
@@ -108,7 +108,7 @@ asm16_display_scroll:                                   ;
 	jmp .scroll                                         ;
                                                         ;
 .screen_scrolled:                                       ;
-	mov dl, 24						                    ; empty line 25
+	mov dl, HEIGHT-1				                    ; empty last line
 	call asm16_display_emptyline                        ;
                                                         ;
 	pop dx		                                        ;
