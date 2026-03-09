@@ -20,3 +20,7 @@ uint16 inw(uint16 port)
    return ret;
 }
 
+void outw(uint16 port, uint16 value)
+{
+    asm volatile ("outw %1, %0" : : "dN" (port), "a" (value));
+}

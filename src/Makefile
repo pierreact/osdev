@@ -10,7 +10,8 @@ SOURCES=    kmain.o \
             system.monitor.o \
             system.keyboard.o \
             system.mem.o \
-            system.shell.o
+            system.shell.o \
+            system.ide.o
 
 CFLAGS=     -m64 \
             -ffreestanding \
