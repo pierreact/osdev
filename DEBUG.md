@@ -1,5 +1,7 @@
 # OS Development - Debugging Guide
 
+**Audience:** Kernel developers. For memory layout details, see `memory_map.md`. For architecture decisions, see `ARCHITECTURE.md`.
+
 ## Quick Start
 
 ### 1. Run Normally (with reboot enabled)
@@ -129,10 +131,4 @@ x /10x 0x100000    # Examine memory
 
 ## Memory Layout
 
-```
-0x00000000 - 0x000003FF : IVT (Interrupt Vector Table)
-0x00000500 - 0x00007BFF : Free
-0x00007C00 - 0x00007DFF : Bootsector (loaded by BIOS)
-0x00001000 - 0x0000FFFF : Kernel code/data (loaded by bootsector)
-0x00100000 - ...        : Paging structures (PML4T, PDPTs, PDTs, PTs)
-```
+See `memory_map.md` for the full memory map.
