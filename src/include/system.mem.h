@@ -5,6 +5,8 @@
 void heap_init();
 void *kmalloc(size_t size);
 void kfree(void* ptr);
+void map_mmio_region(void);
+void heap_stats(uint32 *used_blocks, uint32 *free_blocks, uint32 *total_blocks);
 
 void inc_256(uint8* slot, uint8* write);
 

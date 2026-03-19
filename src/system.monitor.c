@@ -102,6 +102,17 @@ void kprint_long2hex(long number, char* postString) {
     kprint(postString);
 }
 
+// Print decimal number, right-aligned, padded with spaces to width
+void kprint_dec_pad(uint64 num, uint32 width) {
+    char buf[12];
+    int len = 0;
+    uint64 tmp = num;
+    if (tmp == 0) { buf[len++] = '0'; }
+    else { while (tmp) { buf[len++] = '0' + (tmp % 10); tmp /= 10; } }
+    for (uint32 i = len; i < width; i++) putc(' ');
+    for (int i = len - 1; i >= 0; i--) putc(buf[i]);
+}
+
 void kprint_dec(uint64 number) {
     if(number == 0) {
         putc('0');
