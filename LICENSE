@@ -1,0 +1,41 @@
+ZINC (Zero-Interrupt NUMA Cluster) - Dual License
+
+Copyright (C) 2013-2026 Pierre Ancelot
+
+This project is available under a dual license:
+
+
+1. COMMUNITY LICENSE (AGPLv3)
+=============================
+
+For non-commercial use (academic, research, personal, non-profit), this
+software is licensed under the GNU Affero General Public License version 3
+(AGPLv3). See the file LICENSES/AGPL-3.0.txt for the full license text, or
+visit: https://www.gnu.org/licenses/agpl-3.0.html
+
+You are free to use, modify, and distribute this software under the terms
+of the AGPLv3, provided you comply with its conditions (including making
+your modifications available under the same license).
+
+Support is available under this license. If you need assistance, have
+questions, or want to discuss anything related to the project, please
+contact: pierreact at gmail dot com
+
+
+2. COMMERCIAL LICENSE
+=====================
+
+Any commercial use of this software requires a separate commercial license.
+This includes, but is not limited to, use in commercial products, commercial
+services, or by for-profit organizations.
+
+To discuss commercial licensing terms, please contact: pierreact at gmail dot com
+
+
+HEARING FROM YOU
+================
+
+Regardless of which license applies to your use, we would be very happy to
+hear about how you are using this project. If you are using ZINC in any
+capacity, please reach out -- we are always interested in learning about
+new use cases: pierreact at gmail dot com

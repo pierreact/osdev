@@ -45,6 +45,13 @@ EXTERN shell_init                                       ; Shell initialization f
 EXTERN heap_init                                        ; Heap initialization.
 EXTERN ide_init                                         ; IDE initialization.
 EXTERN fat32_init                                       ; FAT32 initialization.
+EXTERN acpi_init                                        ; ACPI RSDP/MADT parsing.
+EXTERN map_mmio_region                                  ; Map APIC MMIO pages.
+EXTERN disable_pic                                      ; Disable 8259A PIC.
+EXTERN lapic_init                                       ; Initialize Local APIC on BSP.
+EXTERN ioapic_init                                      ; Initialize I/O APIC.
+EXTERN cpu_init                                         ; Initialize per-CPU structures.
+EXTERN ap_startup                                       ; Wake Application Processors.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -59,7 +66,7 @@ cli					                                    ; Clear interrupts before changing t
 mov ax, 0                                               ;
 mov ds, ax                                              ; data and extra segments at 0. Labels return the full address already.
 mov es, ax                                              ;
-mov ax, 0x8000		                                    ; stack at 0xFFFF
+mov ax, 0x8000		                                    ; stack at 0x8F000
 mov ss, ax                                              ;
 mov sp, 0xf000                                          ;
                                                         ; NOTE: Keep interrupts disabled until IVT is set up
@@ -193,7 +200,7 @@ next:                                                   ;
     mov gs, ax                                          ;
     mov es, ax                                          ;
     mov ss, ax                                          ;
-    mov ebp, stack_end ; 0x9FFFF                                     ; Stack pointer
+    mov ebp, stack_end                                     ; Stack pointer
     jmp dword 0x8:kernel32                              ; reinit CS, CS = 0x8 (Second entry in GDT.)
                                                         ;
                                                         ;
@@ -374,12 +381,12 @@ call asm32_get_last_mem_address                         ; Test VM reports us at 
                                                         ; PML4E
                                                         ; PDPE
                                                         ; PDE
-                                                        ; - Bits 63–48 are a sign extension of bit 47, as required for canonical-address forms.
-                                                        ; - Bits 47–39 index into the 512-entry page-map level-4 table.
-                                                        ; - Bits 38–30 index into the 512-entry page-directory pointer table.
-call setup_64_bits_paging_structures                    ; - Bits 29–21 index into the 512-entry page-directory table.
-                                                        ; - Bits 20–12 index into the 512-entry page table.
-                                                        ; - Bits 11–0 provide the byte offset into the physical page.
+                                                        ; - Bits 63-48 are a sign extension of bit 47, as required for canonical-address forms.
+                                                        ; - Bits 47-39 index into the 512-entry page-map level-4 table.
+                                                        ; - Bits 38-30 index into the 512-entry page-directory pointer table.
+call setup_64_bits_paging_structures                    ; - Bits 29-21 index into the 512-entry page-directory table.
+                                                        ; - Bits 20-12 index into the 512-entry page table.
+                                                        ; - Bits 11-0 provide the byte offset into the physical page.
                                                         ;
                                                         ; CR3 points to PML4 which has a max of 512 entries of type PML4E(ntries).
                                                         ; Each PML4E point in turn to a PDP, which has a max of 512 PDPE(ntries).
@@ -502,6 +509,9 @@ EXTERN cls                                              ;
 EXTERN update_cursor                                    ;
 EXTERN scroll                                           ;
                                                         ;
+GLOBAL ap_trampoline_start                              ;
+GLOBAL ap_trampoline_end                                ;
+                                                        ;
 Realm64:                                                ; Arrivals
                                                         ;
 jmp include_64bits_functions                            ; include
@@ -515,19 +525,10 @@ include_64bits_functions:                               ; /include
     mov fs, ax                                          ; Set the F-segment to the A-register.
     mov gs, ax                                          ; Set the G-segment to the A-register.
     mov ss, ax                                          ;
-    mov rsp, stack_end ; 0x9FFFF                        ; Stack pointer
+    mov rsp, stack_end                        ; Stack pointer
                                                         ;
     mov rsi, msg_64_bits                                ; Tell user we're in 64 bits
     call asm64_display_writestring                      ;
-                                                        ;
-;----------------------------------------------------------------------------------------------------------------------------------------
-                                                        ;
-                                                        ; Unmask all interrupts
-    mov al, 0x00                                        ;
-    out PIC1_DATA, al                                   ; PIC1
-                                                        ;
-    mov al, 0x00                                        ;
-    out PIC2_DATA, al                                   ; PIC2
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
@@ -547,6 +548,18 @@ include_64bits_functions:                               ; /include
 ;----------------------------------------------------------------------------------------------------------------------------------------
     call init_memmgr                                    ; Call the memory manager initialization.
     call heap_init                                      ; Initialize heap allocator.
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; SMP Bring-Up
+    call acpi_init                                      ; Parse ACPI tables (RSDP/MADT)
+    call map_mmio_region                                ; Map LAPIC/IOAPIC MMIO pages
+    call disable_pic                                    ; Mask all PIC IRQs
+    call lapic_init                                     ; Enable Local APIC on BSP
+    call ioapic_init                                    ; Setup I/O APIC routing
+    call cpu_init                                       ; Initialize per-CPU structures
+    call ap_startup                                     ; Wake APs via INIT-SIPI-SIPI
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
     call ide_init                                       ; Initialize IDE controller.
     call fat32_init                                     ; Initialize FAT32 filesystem.
 
@@ -639,6 +652,11 @@ GDT64:                                                  ; Global Descriptor Tabl
     dq GDT64                                            ; Base.
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; AP Trampoline binary (copied to 0x8000 at runtime)
+ap_trampoline_start:                                    ;
+    incbin "ap_trampoline.bin"                          ;
+ap_trampoline_end:                                      ;
+;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .bss]
 align 16
 MEMMAP_START:
@@ -651,6 +669,12 @@ RESB 0x1000
 stack_begin:
 RESB 0x1000 ; Reserve 4KB for the stack.
 stack_end:
+
+; AP stacks: 16KB per CPU, MAX_CPUS (16) CPUs
+GLOBAL ap_stacks
+align 16
+ap_stacks:
+RESB 16384 * 16
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ; /K

@@ -4,6 +4,8 @@
 #include <system.mem.h>
 #include <system.ide.h>
 #include <system.fat32.h>
+#include <system.acpi.h>
+#include <system.cpu.h>
 
 // Command buffer
 #define CMD_BUFFER_SIZE 80
@@ -15,6 +17,7 @@ extern uint8 data_counter_mmap_entries;
 extern uint32 MEMMAP_START;
 extern uint32 PML4T_LOCATION;
 extern uint32 PAGING_LOCATION_END;
+extern uint32 mem_amount[2]; // [0] = high dword, [1] = low dword
 
 // ============================================================================
 // String utility functions (no stdlib in kernel)
@@ -108,6 +111,9 @@ void cmd_help() {
     kprint("  diskwrite - Write disk sectors\n");
     kprint("  ls        - List files on FAT32 disk\n");
     kprint("  cat <file>- Print file contents\n");
+    kprint("  free      - Show memory usage\n");
+    kprint("  lsacpi    - List ACPI tables\n");
+    kprint("  lscpu     - Show CPU and NUMA topology\n");
     kprint("  echo      - Echo text to screen\n");
     kprint("  reboot    - Reboot the system\n");
 }
@@ -328,6 +334,74 @@ void cmd_diskwrite() {
     kfree(buffer);
 }
 
+// Display memory usage: cluster, node, per-NUMA, and heap breakdown
+void cmd_free() {
+    uint32 used, free_pages, total;
+    heap_stats(&used, &free_pages, &total);
+
+    // mem_amount is stored big-endian: [0]=high dword, [1]=low dword
+    uint64 total_bytes = ((uint64)mem_amount[0] << 32) | (uint64)mem_amount[1];
+    uint64 total_mb = total_bytes / (1024 * 1024);
+    uint32 heap_used_kb = used * 4;       // Each block is 4KB
+    uint32 heap_free_kb = free_pages * 4;
+    uint32 heap_total_kb = total * 4;
+
+    // NUMA: 2 nodes, split evenly (hardcoded until SRAT parsing)
+    uint32 numa_nodes = 2;
+    uint64 per_node_mb = total_mb / numa_nodes;
+
+    // Kernel + paging structures consume low memory on node 0
+    uint64 kernel_kb = (uint64)PAGING_LOCATION_END / 1024;
+    uint64 node0_used_kb = kernel_kb + heap_used_kb;
+    uint64 node0_free_mb = per_node_mb - (node0_used_kb / 1024);
+
+    kprint("              total       used       free\n");
+
+    // Cluster total (single node for now)
+    kprint("Cluster ");
+    kprint_dec_pad(total_mb, 10);
+    kprint(" MB");
+    kprint_dec_pad(node0_used_kb / 1024, 9);
+    kprint(" MB");
+    kprint_dec_pad(total_mb - (node0_used_kb / 1024), 9);
+    kprint(" MB\n");
+
+    // This node
+    kprint("Node    ");
+    kprint_dec_pad(total_mb, 10);
+    kprint(" MB");
+    kprint_dec_pad(node0_used_kb / 1024, 9);
+    kprint(" MB");
+    kprint_dec_pad(total_mb - (node0_used_kb / 1024), 9);
+    kprint(" MB\n");
+
+    // Per-NUMA node
+    kprint("NUMA 0  ");
+    kprint_dec_pad(per_node_mb, 10);
+    kprint(" MB");
+    kprint_dec_pad(node0_used_kb / 1024, 9);
+    kprint(" MB");
+    kprint_dec_pad(node0_free_mb, 9);
+    kprint(" MB\n");
+
+    kprint("NUMA 1  ");
+    kprint_dec_pad(per_node_mb, 10);
+    kprint(" MB");
+    kprint_dec_pad(0, 9);
+    kprint(" MB");
+    kprint_dec_pad(per_node_mb, 9);
+    kprint(" MB\n");
+
+    // Heap detail
+    kprint("Heap    ");
+    kprint_dec_pad(heap_total_kb, 10);
+    kprint(" KB");
+    kprint_dec_pad(heap_used_kb, 9);
+    kprint(" KB");
+    kprint_dec_pad(heap_free_kb, 9);
+    kprint(" KB\n");
+}
+
 void cmd_echo() {
     // Skip "echo" and any spaces
     char *text = cmd_buffer + 4;  // Skip "echo"
@@ -336,6 +410,48 @@ void cmd_echo() {
     if (*text) {
         kprint(text);
         putc('\n');
+    }
+}
+
+// Display CPU topology: count, LAPIC/IOAPIC addresses, NUMA layout, per-CPU status
+void cmd_lscpu() {
+    kprint("CPU(s):             ");
+    kprint_dec(cpu_count);
+    kprint("\n");
+
+    // Count online APs
+    uint32 online = 0;
+    for (uint32 i = 0; i < cpu_count; i++) {
+        if (percpu[i].running) online++;
+    }
+    kprint("Online CPU(s):      ");
+    kprint_dec(online);
+    kprint("\n");
+
+    kprint("LAPIC base:         ");
+    kprint_long2hex(lapic_base_addr, "\n");
+
+    kprint("IOAPIC base:        ");
+    kprint_long2hex(ioapic_base_addr, "\n");
+
+    // Hardcoded until SRAT parsing gives us real topology
+    kprint("\nNUMA node(s):       2\n");
+    kprint("  NUMA node 0:      CPU 0-1\n");
+    kprint("  NUMA node 1:      CPU 2-3\n");
+
+    kprint("\nPer-CPU info:\n");
+    for (uint32 i = 0; i < cpu_count; i++) {
+        kprint("  CPU ");
+        kprint_dec(i);
+        kprint("  LAPIC ");
+        kprint_dec(percpu[i].lapic_id);
+        if (percpu[i].running)
+            kprint("  [online]");
+        else
+            kprint("  [offline]");
+        if (i == 0)
+            kprint("  (BSP)");
+        kprint("\n");
     }
 }
 
@@ -425,8 +541,17 @@ void shell_execute_command() {
             kprint("Usage: cat <filename>\n");
         }
     }
+    else if (strcmp(cmd_buffer, "free") == 0) {
+        cmd_free();
+    }
     else if (starts_with(cmd_buffer, "echo")) {
         cmd_echo();
+    }
+    else if (strcmp(cmd_buffer, "lsacpi") == 0) {
+        acpi_lsacpi();
+    }
+    else if (strcmp(cmd_buffer, "lscpu") == 0) {
+        cmd_lscpu();
     }
     else if (strcmp(cmd_buffer, "reboot") == 0) {
         cmd_reboot();

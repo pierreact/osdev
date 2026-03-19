@@ -14,11 +14,33 @@ asm64_pic_send_eoi:                                     ; Send End of interrupt 
     ret                                                 ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_lapic_send_eoi:                                   ; Send EOI to Local APIC
+    push rax                                            ;
+    push rbx                                            ;
+    mov rbx, 0xFEE000B0                                 ; LAPIC EOI register address
+    xor eax, eax                                        ;
+    mov [rbx], eax                                      ;
+    pop rbx                                             ;
+    pop rax                                             ;
+    ret                                                 ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
 asm64_setup_idt:                                        ;
                                                         ;
 	mov rbx, IDT64_BASE                                 ; from 0x7000 to 0x8000 in memory,
-    mov [idtptr64.idtptr64_base], qword rbx             ; 
+    mov [idtptr64.idtptr64_base], qword rbx             ;
 	cli                                                 ; Disable interrupts
+                                                        ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; First, fill ALL 256 vectors with the default handler
+    mov rcx, 256                                        ;
+.fill_default:                                          ;
+    mov rax, asm64_default_int_handler                  ;
+    call asm64_creategate_interrupt                     ;
+    dec rcx                                             ;
+    jnz .fill_default                                   ;
+                                                        ;
+    mov rbx, IDT64_BASE                                 ; Reset to beginning to overwrite specific entries
                                                         ;
     ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Exceptions
@@ -183,14 +205,20 @@ asm64_setup_idt:                                        ;
     mov rax, asm64_default_int_handler                  ; ISR Vector 0x32 Software interrupt
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; Vector 0xFF: LAPIC Spurious Interrupt Handler
+                                                        ; Must be at vector 0xFF (set in LAPIC SVR)
+    mov rbx, IDT64_BASE + (0xFF * 16)                  ; Jump directly to vector 0xFF slot
+    mov rax, asm64_spurious_handler                     ;
+    call asm64_creategate_interrupt                     ;
                                                         ;
-    sub rbx, IDT64_BASE                                 ;
-	mov [idtptr64.idtptr64_limit], word bx              ; Writes the size to the limit of idtptr
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; IDT limit = 256 entries * 16 bytes - 1 = 4095
+	mov [idtptr64.idtptr64_limit], word 4095            ;
                                                         ;
     lidt [idtptr64]                                     ; Finally, load IDT64
                                                         ;
 	sti                                                 ; Enable interrupts
-                                                        ; Pray it doesn't crash... nah.
                                                         ;
     push rsi                                            ;
     mov rsi, msg_idt64_set                              ;
@@ -523,8 +551,8 @@ asm64_isr_timer_handler:                                ;
     mov rax, [GLOBAL_OS_COUNTER]                        ;
     inc rax                                             ;
     mov [GLOBAL_OS_COUNTER], rax                        ;
-    pop rax                                                    ;
-    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    pop rax                                             ;
+    call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
                                                         ;
 	iretq                                               ;
                                                         ;
@@ -554,7 +582,7 @@ asm64_isr_keyboard_handler:                             ;
 ;    int 0x30                                            ;
     call keyboard_driver
                                                         ;
-    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
                                                         ;
 	iretq                                               ;
                                                         ;
@@ -569,9 +597,13 @@ asm64_softwareint_handler:                              ;
     mov rsi, rbx                                        ;
     call asm64_display_writestring                      ;
                                                         ;
-    call asm64_pic_send_eoi                             ; Tells the PIC we're done servicing the interrupt.
+    call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
                                                         ;
 	iretq                                               ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_spurious_handler:                                 ; Vector 0xFF - LAPIC spurious interrupt
+    iretq                                               ; NO EOI for spurious interrupts
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]

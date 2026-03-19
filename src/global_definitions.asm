@@ -43,6 +43,7 @@
 highest_mmap_entry:             dd 0                    ; entry with the highest address
 GLOBAL data_counter_mmap_entries
 data_counter_mmap_entries:      dd 0                    ; How many entries in the memmap?
+GLOBAL mem_amount
 mem_amount:                     dq 0                    ; How much memory the system has?
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -73,6 +74,9 @@ CURRENTLY_PAGED_ADDRESS: dq 0                           ; Used as a "counter" on
 %define REACHED_LAST_PTE       10b                      ;
                                                         ;
 %define MAX_ENTRIES_IN_PAGING_TABLE 511                 ; In fact 512... 0 to 511
+                                                        ;
+%define MAX_CPUS 16                                     ; Maximum number of CPUs supported
+%define AP_STACK_SIZE 16384                              ; 16KB stack per AP
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 

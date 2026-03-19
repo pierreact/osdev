@@ -1,10 +1,32 @@
 %define BASE    0x100  ; 0x100:0x0 = 0x1000
-%define KSIZE   53     ; number of sectors to load.
+%define KSIZE   64     ; number of sectors to load.
+%define RELOC   0x060  ; Relocate bootsector to 0x0600
 
 [BITS 16]
 ; QEMU DEBUG:
 ; stop
 ; pmemsave 0 134217728 qemu_mem_dump.bin
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+; Relocate bootsector from 0x7C00 to 0x0600 so the kernel load
+; (0x1000-0x8000) does not overwrite us.
+;----------------------------------------------------------------------------------------------------------------------------------------
+    cli
+    xor ax, ax
+    mov ds, ax                                          ; DS = 0
+    mov es, ax                                          ; ES = 0
+    mov ss, ax                                          ;
+    mov sp, 0x7C00                                      ; Stack just below original bootsector
+    mov si, 0x7C00                                      ; Source: original location
+    mov di, 0x0600                                      ; Dest: relocation target
+    mov cx, 256                                         ; 512 bytes / 2 = 256 words
+    cld
+    rep movsw                                           ; Copy bootsector to 0x0600
+    jmp 0x0060:relocated                                ; Far jump to relocated code (0x0060:off = 0x0600+off)
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+relocated:
+    sti
 
 jmp end_define_functions
 %include "asm16/asm16_display.inc"
@@ -16,10 +38,10 @@ call asm16_display_clear                                ; I want a nice and clea
                                                         ;
                                                         ;
                                                         ; init segs in 0x7c0
-    mov ax, 0x07C0                                      ;
-    mov ds, ax                                          ; Data seg
+    mov ax, RELOC                                       ;
+    mov ds, ax                                          ; Data seg = 0x060 (linear 0x0600)
     mov es, ax                                          ; Extra
-    mov ax, 0x8000                                      ; stack at 0x17000
+    mov ax, 0x8000                                      ; stack at 0x8F000
     mov ss, ax                                          ;
     mov sp, 0xf000                                      ;
                                                         ;
@@ -69,10 +91,3 @@ msgboot: db "Booting kernel.", 0
 ;; NOP to 510
 times 510-($-$$) db 144
 dw 0xAA55
-
-
-
-
-
-
-

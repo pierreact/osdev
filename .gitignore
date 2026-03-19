@@ -22,3 +22,6 @@ src/kernel
 *~
 bochsout.txt
 snapshot.txt
+bin/
+compile_logs.log
+qemu.log

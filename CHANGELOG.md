@@ -1,5 +1,33 @@
 # Changelog
 
+## [2026-03-14] - Project Rename and Documentation Overhaul
+
+### Changed
+- Renamed project from "Remote NUMA Kernel" to ZINC (Zero-Interrupt NUMA Cluster)
+- License changed from GPL-2.0 to dual AGPLv3 (community) / commercial
+- Added status notices to README.md, ARCHITECTURE.md, application-model.md (target architecture vs current state)
+- Marked SPDK as planned (not yet implemented) across all docs
+- Standardized documentation audience pointers and cross-references
+- Clarified DSM page fault mechanism (how BSP returns page data to faulting AP)
+- Clarified locality map is intentionally static after failover (by design, not an accident)
+- Updated ARCHITECTURE.md status section to include device libraries
+
+### Added
+- LICENSE file: dual AGPLv3 / commercial with support and contact info
+- LICENSES/AGPL-3.0.txt: full AGPLv3 text
+- Linux HPC comparison section in doc/user/application-model.md
+- Documentation guide in README.md (per-audience reading paths)
+- Glossary entries: ZINC, Affinity, Locality map, Ownership, Soft real-time, Tier 1/2/3
+- Soft real-time characterization in application-model.md
+
+### Removed
+- doc/memory_use.text (stale draft, contradicted memory_map.md)
+- doc/todo.text (most items already completed, replaced with new version)
+- doc/docresources.text (bare URLs with no context)
+- All GPU/GPDK references (removed from README, ARCHITECTURE, application-model, glossary)
+- Duplicated boot sequence from CHANGELOG.md
+- Duplicated memory layout from DEBUG.md (now references memory_map.md)
+
 ## [2026-02-22] - Boot Fixes
 
 ### Fixed
@@ -15,22 +43,8 @@
 - QEMU logging with -d int,cpu_reset,guest_errors
 
 ### Changed
-- Reordered long mode init: CR3 → PAE → LME → Paging
+- Reordered long mode init: CR3 - PAE - LME - Paging
 - Reduced reboot wait loops from 10M to 100K iterations
 - Split normal and debug QEMU launch scripts
 
-## Boot Sequence
-1. 16-bit real mode: load kernel, setup stack
-2. Get memory map via E820
-3. Setup IVT (interrupts disabled)
-4. 32-bit protected mode: GDT, PIC, IDT, PIT
-5. Create paging structures at 0x100000
-6. Enable PAE, LME, paging
-7. 64-bit long mode: IDT, memory manager, shell
-
-## Memory Layout
-- 0x00001000: Kernel (.text, .data, .bss)
-- 0x00008000: Memory map (E820 entries)
-- 0x0000D000-0x9F000: Available (~588 KB)
-- 0x00100000: Paging structures (PML4T, PDPT, PD, PT)
-- After paging end: Main free area
+See `DEBUG.md` for boot sequence details and `memory_map.md` for memory layout.
