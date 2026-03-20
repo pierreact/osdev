@@ -346,8 +346,9 @@ void cmd_free() {
     uint32 heap_free_kb = free_pages * 4;
     uint32 heap_total_kb = total * 4;
 
-    // NUMA: 2 nodes, split evenly (hardcoded until SRAT parsing)
-    uint32 numa_nodes = 2;
+    // NUMA node count from ACPI SRAT; fallback to 1 when unavailable
+    uint32 numa_nodes = acpi_numa_node_count();
+    if (numa_nodes == 0) numa_nodes = 1;
     uint64 per_node_mb = total_mb / numa_nodes;
 
     // Kernel + paging structures consume low memory on node 0
@@ -384,13 +385,15 @@ void cmd_free() {
     kprint_dec_pad(node0_free_mb, 9);
     kprint(" MB\n");
 
-    kprint("NUMA 1  ");
-    kprint_dec_pad(per_node_mb, 10);
-    kprint(" MB");
-    kprint_dec_pad(0, 9);
-    kprint(" MB");
-    kprint_dec_pad(per_node_mb, 9);
-    kprint(" MB\n");
+    if (numa_nodes > 1) {
+        kprint("NUMA 1  ");
+        kprint_dec_pad(per_node_mb, 10);
+        kprint(" MB");
+        kprint_dec_pad(0, 9);
+        kprint(" MB");
+        kprint_dec_pad(per_node_mb, 9);
+        kprint(" MB\n");
+    }
 
     // Heap detail
     kprint("Heap    ");
@@ -434,17 +437,24 @@ void cmd_lscpu() {
     kprint("IOAPIC base:        ");
     kprint_long2hex(ioapic_base_addr, "\n");
 
-    // Hardcoded until SRAT parsing gives us real topology
-    kprint("\nNUMA node(s):       2\n");
-    kprint("  NUMA node 0:      CPU 0-1\n");
-    kprint("  NUMA node 1:      CPU 2-3\n");
+    uint32 numa_nodes = acpi_numa_node_count();
+    if (numa_nodes == 0) numa_nodes = 1;
+    kprint("\nNUMA node(s):       ");
+    kprint_dec(numa_nodes);
+    kprint("\n");
 
     kprint("\nPer-CPU info:\n");
     for (uint32 i = 0; i < cpu_count; i++) {
+        uint32 node = 0;
+        int has_node = acpi_cpu_to_node(percpu[i].lapic_id, &node);
         kprint("  CPU ");
         kprint_dec(i);
         kprint("  LAPIC ");
         kprint_dec(percpu[i].lapic_id);
+        if (has_node) {
+            kprint("  NUMA ");
+            kprint_dec(node);
+        }
         if (percpu[i].running)
             kprint("  [online]");
         else
@@ -461,6 +471,21 @@ void cmd_reboot() {
     // Disable interrupts
     __asm__ __volatile__("cli");
     
+    ACPIResetRegInfo reset;
+    if (acpi_reset_reg_info(&reset)) {
+        if (reset.space_id == 1 && reset.address <= 0xFFFF) { // System I/O
+            uint16 port = (uint16)reset.address;
+            if (reset.access_size == 2)
+                outw(port, (uint16)reset.value);
+            else
+                outb(port, reset.value);
+        } else if (reset.space_id == 0 && reset.address != 0) { // System memory
+            volatile uint8 *mmio = (volatile uint8 *)(uint64)reset.address;
+            *mmio = reset.value;
+        }
+        for (volatile int i = 0; i < 100000; i++);
+    }
+
     // Method 1: PCI Reset (most reliable on modern systems)
     outb(0xCF9, 0x00);  // Clear reset control
     outb(0xCF9, 0x02);  // Request system reset

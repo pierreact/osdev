@@ -548,17 +548,64 @@ asm64_rsv_int_handler:                                  ; All reserved exception
 asm64_isr_timer_handler:                                ;
                                                         ;
     push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
     mov rax, [GLOBAL_OS_COUNTER]                        ;
     inc rax                                             ;
     mov [GLOBAL_OS_COUNTER], rax                        ;
-    pop rax                                             ;
+
     call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
                                                         ;
 	iretq                                               ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 asm64_isr_keyboard_handler:                             ;
                                                         ;
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
 	in	al, 0x64		                                ; read controller status
 	mov	[kbstatus], al		                            ; save controller status
                                                         ;
@@ -583,6 +630,22 @@ asm64_isr_keyboard_handler:                             ;
     call keyboard_driver
                                                         ;
     call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
                                                         ;
 	iretq                                               ;
                                                         ;
