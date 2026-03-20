@@ -91,7 +91,7 @@ void kprint(char *string) {
 
 void kprint_long2hex(long number, char* postString) {
     const uint8 hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    char *string = "0000000000000000h: ";
+    char *string = "0000000000000000h ";
 
     uint8 nibble;
     for(nibble = 16; nibble > 0; nibble--) { // 16 nibbles in a 64 bits number.
