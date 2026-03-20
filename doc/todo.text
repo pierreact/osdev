@@ -21,16 +21,15 @@ D - 80x28 text mode, C monitor driver.
 D - SMP: AP bringup (INIT-SIPI-SIPI, trampoline).
 D - ACPI: MADT parsing for CPU/IOAPIC discovery.
 
+D - Parse SRAT (System Resource Affinity Table) for automatic NUMA topology discovery.
+D - Parse SLIT (System Locality Information Table) for latency distance matrix.
+D - Parse MCFG for PCIe ECAM base address (needed to enumerate and configure NICs).
+D - Parse HPET for high-precision timer (replace PIT, nanosecond resolution).
+D - FACP: use PM timer for precise timing, use reset register for cleaner reboot.
+D - DMAR/IVRS: IOMMU support for DMA protection and device isolation.
+
 Upcoming work
 -------------
-
-ACPI improvements:
-T - Parse SRAT (System Resource Affinity Table) for automatic NUMA topology discovery.
-T - Parse SLIT (System Locality Information Table) for latency distance matrix.
-T - Parse MCFG for PCIe ECAM base address (needed to enumerate and configure NICs).
-T - Parse HPET for high-precision timer (replace PIT, nanosecond resolution).
-T - FACP: use PM timer for precise timing, use reset register for cleaner reboot.
-T - DMAR/IVRS: IOMMU support for DMA protection and device isolation.
 
 Shell and userland:
 T - Move shell from kernel to ring 3 on BSP (syscalls into ring 0 for kernel services).

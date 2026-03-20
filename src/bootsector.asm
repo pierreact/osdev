@@ -1,5 +1,5 @@
 %define BASE    0x100  ; 0x100:0x0 = 0x1000
-%define KSIZE   64     ; number of sectors to load.
+%define KSIZE   96     ; number of sectors to load (kernel grew; keep headroom).
 %define RELOC   0x060  ; Relocate bootsector to 0x0600
 
 [BITS 16]

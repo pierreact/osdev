@@ -50,6 +50,16 @@ DMA buffers, driver state, and the thread touching the data are all on the same 
   - C states: We won't go deeper than C1 (hlt).
   - P states: We'll keep the CPU at max frequency.
   - T states: We'll ignore them, just cool your CPU appropriately.
+- ACPI root table discovery supports RSDT (ACPI 1.0) and XSDT (ACPI 2.0+), with checksum validation.
+- Parsed tables:
+  - MADT (CPU/LAPIC/IOAPIC/ISA overrides)
+  - SRAT (CPU and memory NUMA affinity)
+  - SLIT (NUMA distance matrix)
+  - HPET (timer MMIO metadata)
+  - FADT/FACP (PM timer and reset register)
+  - MCFG (PCIe ECAM segments)
+  - DMAR / IVRS (IOMMU unit discovery)
+- Exposed through ACPI query functions so shell/scheduler/memory/PCI/reboot code can consume parsed data without reading raw ACPI structures directly.
 
 ## Device libraries
 
@@ -208,6 +218,6 @@ ZINC ships a minimal libc providing malloc, printf, string operations, math, tim
 
 ## Timer architecture
 
-ZINC uses the TSC (Time Stamp Counter) for nanosecond-resolution timing. RDTSC/RDTSCP is a single instruction (~20ns) available on all modern x86-64 CPUs with invariant TSC. HPET is used once at boot to calibrate the TSC frequency, but is not used at runtime; HPET reads are MMIO to an uncacheable register (~1 microsecond per read), far too slow for frequent timing.
+ZINC uses the TSC (Time Stamp Counter) for nanosecond-resolution timing. RDTSC/RDTSCP is the primary runtime clock source on AP threads. ACPI HPET and FADT PM timer are parsed and exposed for calibration/validation and platform timing metadata. ACPI reset register (FADT) is used as the preferred reboot path when available, with existing fallback reset methods preserved.
 
 Cross-node time synchronization through PTP will provide consistent timestamps across all machines in the cluster, enabling coordinated timing for distributed workloads.

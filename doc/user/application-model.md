@@ -101,6 +101,8 @@ At a fixed virtual address in your thread's address space, the kernel provides a
 
 Use the locality map to make smart decisions: batch tier 3 reads, prefer tier 1 data when multiple copies exist, co-locate writers with their most frequent readers via affinity constraints.
 
+On current kernel builds, NUMA locality metadata is sourced from ACPI SRAT (node affinity) and SLIT (distance matrix) when firmware provides those tables.
+
 The map is static (set at boot, not updated on failover). After a node failure, tier information may be stale.
 
 This means:
@@ -149,7 +151,7 @@ All buffers are allocated on your thread's NUMA node. Zero copy; data is not mov
 
 ## Timers and clocks
 
-Userspace threads have access to high-precision timing via the TSC (Time Stamp Counter). RDTSC/RDTSCP is a single instruction (~20ns) providing nanosecond-resolution timestamps without syscalls or MMIO. The kernel calibrates the TSC frequency against HPET at boot.
+Userspace threads have access to high-precision timing via the TSC (Time Stamp Counter). RDTSC/RDTSCP is a single instruction (~20ns) providing nanosecond-resolution timestamps without syscalls or MMIO. The kernel parses ACPI HPET and FADT timer metadata (HPET, PM timer) for platform timing support while keeping TSC as the primary runtime clock source.
 
 Cross-node time synchronization (mechanism TBD; PTP, GPS, or similar) will provide consistent timestamps across all machines in the cluster. Threads on different nodes will be able to coordinate using a shared time base.
 

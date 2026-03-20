@@ -667,7 +667,7 @@ IDT32_BASE:
 IDT64_BASE:
 RESB 0x1000
 stack_begin:
-RESB 0x1000 ; Reserve 4KB for the stack.
+RESB 0x10000 ; Reserve 64KB for the BSP stack.
 stack_end:
 
 ; AP stacks: 16KB per CPU, MAX_CPUS (16) CPUs
