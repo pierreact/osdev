@@ -12,6 +12,26 @@
 static char cmd_buffer[CMD_BUFFER_SIZE];
 static uint8 cmd_index = 0;
 
+// Command table for tab completion
+static const char *commands[] = {
+    "help",
+    "clear",
+    "echo",
+    "sys.reboot",
+    "sys.cpu.ls",
+    "sys.mem.info",
+    "sys.mem.free",
+    "sys.mem.test",
+    "sys.acpi.ls",
+    "sys.disk.ls",
+    "sys.disk.info",
+    "sys.disk.read",
+    "sys.disk.write",
+    "sys.fs.ls",
+    "sys.fs.cat",
+};
+#define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
+
 // External symbols for memory info
 extern uint8 data_counter_mmap_entries;
 extern uint32 MEMMAP_START;
@@ -73,6 +93,67 @@ void shell_prompt() {
     kprint("> ");
 }
 
+// Find longest common prefix among all commands matching cmd_buffer.
+// Appends the completion to cmd_buffer and echoes it. If multiple
+// matches share no further common prefix, prints all matches.
+static void shell_tab_complete(void) {
+    if (cmd_index == 0) return;
+
+    const char *first_match = NULL;
+    uint32 match_count = 0;
+    uint32 common_len = 0;
+
+    // Find all commands that start with cmd_buffer
+    for (uint32 i = 0; i < NUM_COMMANDS; i++) {
+        if (starts_with(commands[i], cmd_buffer)) {
+            match_count++;
+            if (first_match == NULL) {
+                first_match = commands[i];
+                common_len = strlen(first_match);
+            } else {
+                // Shrink common prefix to what this match shares
+                uint32 j = cmd_index;
+                while (j < common_len && first_match[j] == commands[i][j])
+                    j++;
+                common_len = j;
+            }
+        }
+    }
+
+    if (match_count == 0) return;
+
+    if (common_len > cmd_index) {
+        // Append the common prefix extension
+        for (uint32 i = cmd_index; i < common_len && cmd_index < CMD_BUFFER_SIZE - 1; i++) {
+            char ch = first_match[i];
+            cmd_buffer[cmd_index++] = ch;
+            putc(ch);
+        }
+        cmd_buffer[cmd_index] = '\0';
+
+        // If unique match and it's a complete command (no further completions), add space
+        if (match_count == 1 && cmd_index < CMD_BUFFER_SIZE - 1) {
+            cmd_buffer[cmd_index++] = ' ';
+            cmd_buffer[cmd_index] = '\0';
+            putc(' ');
+        }
+    } else if (match_count > 1) {
+        // Multiple matches, no further common prefix: show all
+        putc('\n');
+        for (uint32 i = 0; i < NUM_COMMANDS; i++) {
+            if (starts_with(commands[i], cmd_buffer)) {
+                kprint("  ");
+                kprint((char *)commands[i]);
+                putc('\n');
+            }
+        }
+        shell_prompt();
+        // Re-echo current input
+        for (uint8 i = 0; i < cmd_index; i++)
+            putc(cmd_buffer[i]);
+    }
+}
+
 void shell_handle_char(char c) {
     if (c == 0x0A) {  // Enter key
         putc('\n');
@@ -80,7 +161,10 @@ void shell_handle_char(char c) {
         cmd_index = 0;
         cmd_buffer[0] = '\0';
         shell_prompt();
-    } 
+    }
+    else if (c == 0x09) {  // Tab
+        shell_tab_complete();
+    }
     else if (c == 0x08) {  // Backspace
         if (cmd_index > 0) {
             cmd_index--;
@@ -101,21 +185,21 @@ void shell_handle_char(char c) {
 
 void cmd_help() {
     kprint("Available commands:\n");
-    kprint("  help      - Show this help message\n");
-    kprint("  clear     - Clear the screen\n");
-    kprint("  meminfo   - Display memory information\n");
-    kprint("  memtest   - Test heap allocator\n");
-    kprint("  lsblk     - List block devices\n");
-    kprint("  diskinfo  - Show disk information\n");
-    kprint("  diskread  - Read disk sectors\n");
-    kprint("  diskwrite - Write disk sectors\n");
-    kprint("  ls        - List files on FAT32 disk\n");
-    kprint("  cat <file>- Print file contents\n");
-    kprint("  free      - Show memory usage\n");
-    kprint("  lsacpi    - List ACPI tables\n");
-    kprint("  lscpu     - Show CPU and NUMA topology\n");
-    kprint("  echo      - Echo text to screen\n");
-    kprint("  reboot    - Reboot the system\n");
+    kprint("  help            - Show this help message\n");
+    kprint("  clear           - Clear the screen\n");
+    kprint("  echo            - Echo text to screen\n");
+    kprint("  sys.reboot      - Reboot the system\n");
+    kprint("  sys.cpu.ls      - Show CPU and NUMA topology\n");
+    kprint("  sys.mem.info    - Display memory information\n");
+    kprint("  sys.mem.free    - Show memory usage\n");
+    kprint("  sys.mem.test    - Test heap allocator\n");
+    kprint("  sys.acpi.ls     - List ACPI tables\n");
+    kprint("  sys.disk.ls     - List block devices\n");
+    kprint("  sys.disk.info   - Show disk information\n");
+    kprint("  sys.disk.read   - Read disk sectors\n");
+    kprint("  sys.disk.write  - Write disk sectors\n");
+    kprint("  sys.fs.ls       - List files on FAT32 disk\n");
+    kprint("  sys.fs.cat <f>  - Print file contents\n");
 }
 
 void cmd_clear() {
@@ -253,11 +337,11 @@ static void hex_dump(uint8 *data, uint32 len) {
 }
 
 void cmd_diskread() {
-    char *args = cmd_buffer + 8;
+    char *args = cmd_buffer + 13;                       // skip "sys.disk.read"
     while(*args == ' ') args++;
-    
+
     if(*args == '\0') {
-        kprint("Usage: diskread <lba> [count]\n");
+        kprint("Usage: sys.disk.read <lba> [count]\n");
         return;
     }
     
@@ -290,11 +374,11 @@ void cmd_diskread() {
 }
 
 void cmd_diskwrite() {
-    char *args = cmd_buffer + 9;
+    char *args = cmd_buffer + 14;                       // skip "sys.disk.write"
     while(*args == ' ') args++;
-    
+
     if(*args == '\0') {
-        kprint("Usage: diskwrite <lba> <data>\n");
+        kprint("Usage: sys.disk.write <lba> <data>\n");
         return;
     }
     
@@ -524,11 +608,17 @@ void cmd_reboot() {
 }
 
 void shell_execute_command() {
+    // Strip trailing spaces (tab completion adds one)
+    while (cmd_index > 0 && cmd_buffer[cmd_index - 1] == ' ') {
+        cmd_index--;
+        cmd_buffer[cmd_index] = '\0';
+    }
+
     // Ignore empty commands
     if (cmd_buffer[0] == '\0') {
         return;
     }
-    
+
     // Parse and execute command
     if (strcmp(cmd_buffer, "help") == 0) {
         cmd_help();
@@ -536,50 +626,50 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "clear") == 0) {
         cmd_clear();
     }
-    else if (strcmp(cmd_buffer, "meminfo") == 0) {
+    else if (starts_with(cmd_buffer, "echo")) {
+        cmd_echo();
+    }
+    else if (strcmp(cmd_buffer, "sys.reboot") == 0) {
+        cmd_reboot();
+    }
+    else if (strcmp(cmd_buffer, "sys.cpu.ls") == 0) {
+        cmd_lscpu();
+    }
+    else if (strcmp(cmd_buffer, "sys.mem.info") == 0) {
         cmd_meminfo();
     }
-    else if (strcmp(cmd_buffer, "memtest") == 0) {
+    else if (strcmp(cmd_buffer, "sys.mem.free") == 0) {
+        cmd_free();
+    }
+    else if (strcmp(cmd_buffer, "sys.mem.test") == 0) {
         cmd_memtest();
     }
-    else if (strcmp(cmd_buffer, "lsblk") == 0) {
+    else if (strcmp(cmd_buffer, "sys.acpi.ls") == 0) {
+        acpi_lsacpi();
+    }
+    else if (strcmp(cmd_buffer, "sys.disk.ls") == 0) {
         cmd_lsblk();
     }
-    else if (strcmp(cmd_buffer, "diskinfo") == 0) {
+    else if (strcmp(cmd_buffer, "sys.disk.info") == 0) {
         cmd_diskinfo();
     }
-    else if (starts_with(cmd_buffer, "diskread")) {
+    else if (starts_with(cmd_buffer, "sys.disk.read")) {
         cmd_diskread();
     }
-    else if (starts_with(cmd_buffer, "diskwrite")) {
+    else if (starts_with(cmd_buffer, "sys.disk.write")) {
         cmd_diskwrite();
     }
-    else if (strcmp(cmd_buffer, "ls") == 0) {
+    else if (strcmp(cmd_buffer, "sys.fs.ls") == 0) {
         fat32_list_root();
     }
-    else if (starts_with(cmd_buffer, "cat ")) {
-        char *args = cmd_buffer + 4;
+    else if (starts_with(cmd_buffer, "sys.fs.cat ")) {
+        char *args = cmd_buffer + 11;
         while (*args == ' ') args++;
         if (*args) {
             fat32_cat_file(args);
         } else {
-            kprint("Usage: cat <filename>\n");
+            kprint("Usage: sys.fs.cat <filename>\n");
         }
-    }
-    else if (strcmp(cmd_buffer, "free") == 0) {
-        cmd_free();
-    }
-    else if (starts_with(cmd_buffer, "echo")) {
-        cmd_echo();
-    }
-    else if (strcmp(cmd_buffer, "lsacpi") == 0) {
-        acpi_lsacpi();
-    }
-    else if (strcmp(cmd_buffer, "lscpu") == 0) {
-        cmd_lscpu();
-    }
-    else if (strcmp(cmd_buffer, "reboot") == 0) {
-        cmd_reboot();
     }
     else {
         kprint("Unknown command: ");
