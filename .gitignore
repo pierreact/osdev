@@ -28,6 +28,3 @@ qemu.log
 qemudump.log
 bootserial.log
 iso/
-test/serial_output.log
-test/qemu.in
-test/qemu.out

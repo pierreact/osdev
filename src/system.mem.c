@@ -6,7 +6,6 @@ extern uint8 data_counter_mmap_entries;
 extern uint32 MEMMAP_START;
 extern uint32 PML4T_LOCATION;
 extern uint32 PAGING_LOCATION_END;
-extern uint8 kernelEnd[];
 
 // Page table entry flags
 #define PTE_PRESENT   0x01
@@ -15,15 +14,14 @@ extern uint8 kernelEnd[];
 #define PTE_PWT       0x08
 #define PTE_PCD       0x10
 
-// Heap: dynamic range from end of BSS to 0x9F000
+// Heap: 0xD000-0x9F000 (~584 KB)
+#define HEAP_START      0xD000
+#define HEAP_END        0x9F000
 #define BLOCK_SIZE      4096
-#define HEAP_CEILING    0x9F000
-#define MAX_BITMAP_SIZE 32              // supports up to 256 blocks (~1MB)
+#define NUM_BLOCKS      ((HEAP_END - HEAP_START) / BLOCK_SIZE)
+#define BITMAP_SIZE     ((NUM_BLOCKS + 7) / 8)
 
-static uint64 heap_start;
-static uint64 heap_end;
-static uint32 num_blocks;
-static uint8 heap_bitmap[MAX_BITMAP_SIZE];
+static uint8 heap_bitmap[BITMAP_SIZE];
 
 void init_memmgr() {
     kprint("Initializing memory manager.\n");
@@ -33,56 +31,28 @@ void init_memmgr() {
     kprint_long2hex(PAGING_LOCATION_END,        "PAGING_LOCATION_END\n");
 }
 
-// Allocate n contiguous pages from above PAGING_LOCATION_END (high memory)
-uint64 alloc_pages(uint32 n) {
-    uint64 addr = (uint64)PAGING_LOCATION_END;
-    PAGING_LOCATION_END += n * 4096;
-    return addr;
-}
-
-// Allocate 64KB BSP stack from high memory, return stack top
-uint64 alloc_bsp_stack(void) {
-    uint64 base = alloc_pages(16);      // 16 pages = 64KB
-    kprint("BSP stack: ");
-    kprint_long2hex(base, " - ");
-    kprint_long2hex(base + 0x10000, "\n");
-    return base + 0x10000;              // stack grows down from top
-}
-
 void heap_init() {
-    // Heap starts at page-aligned address after all BSS
-    heap_start = ((uint64)kernelEnd + 4095) & ~4095ULL;
-    heap_end = HEAP_CEILING;
-    num_blocks = (heap_end - heap_start) / BLOCK_SIZE;
-
-    // Clamp to bitmap capacity
-    if (num_blocks > MAX_BITMAP_SIZE * 8)
-        num_blocks = MAX_BITMAP_SIZE * 8;
-
-    for(uint32 i = 0; i < MAX_BITMAP_SIZE; i++) {
+    for(int i = 0; i < BITMAP_SIZE; i++) {
         heap_bitmap[i] = 0;
     }
-
-    kprint("Heap: ");
-    kprint_long2hex(heap_start, " - ");
-    kprint_long2hex(heap_end, " (");
-    kprint_dec(num_blocks);
-    kprint(" blocks)\n");
+    kprint("Heap initialized: ");
+    kprint_dec(NUM_BLOCKS);
+    kprint(" blocks\n");
 }
 
 void *kmalloc(size_t size) {
     if(size == 0) return NULL;
-
-    for(uint32 i = 0; i < num_blocks; i++) {
+    
+    for(uint32 i = 0; i < NUM_BLOCKS; i++) {
         uint32 byte_idx = i / 8;
         uint32 bit_idx = i % 8;
-
+        
         if(!(heap_bitmap[byte_idx] & (1 << bit_idx))) {
             heap_bitmap[byte_idx] |= (1 << bit_idx);
-            return (void*)(uint64)(heap_start + i * BLOCK_SIZE);
+            return (void*)(uint64)(HEAP_START + i * BLOCK_SIZE);
         }
     }
-
+    
     return NULL;
 }
 
@@ -90,9 +60,9 @@ void kfree(void *ptr) {
     if(ptr == NULL) return;
 
     uint64 addr = (uint64)ptr;
-    if(addr < heap_start || addr >= heap_end) return;
+    if(addr < HEAP_START || addr >= HEAP_END) return;
 
-    uint32 block = (addr - heap_start) / BLOCK_SIZE;
+    uint32 block = (addr - HEAP_START) / BLOCK_SIZE;
     uint32 byte_idx = block / 8;
     uint32 bit_idx = block % 8;
 
@@ -102,23 +72,25 @@ void kfree(void *ptr) {
 // Count used/free blocks by scanning the bitmap
 void heap_stats(uint32 *used_blocks, uint32 *free_blocks, uint32 *total_blocks) {
     uint32 used = 0;
-    for(uint32 i = 0; i < num_blocks; i++) {
+    for(uint32 i = 0; i < NUM_BLOCKS; i++) {
         uint32 byte_idx = i / 8;
         uint32 bit_idx = i % 8;
         if(heap_bitmap[byte_idx] & (1 << bit_idx))
             used++;
     }
     *used_blocks = used;
-    *free_blocks = num_blocks - used;
-    *total_blocks = num_blocks;
+    *free_blocks = NUM_BLOCKS - used;
+    *total_blocks = NUM_BLOCKS;
 }
 
 // Allocate a new page-table page from above PAGING_LOCATION_END
 static uint64 alloc_page_table(void) {
-    uint64 addr = alloc_pages(1);
+    uint64 addr = (uint64)PAGING_LOCATION_END;
     // Zero all 512 entries (4KB page)
     volatile uint64 *p = (volatile uint64 *)addr;
     for (int i = 0; i < 512; i++) p[i] = 0;
+    // Bump the allocator forward
+    PAGING_LOCATION_END += 4096;
     return addr;
 }
 
@@ -144,7 +116,7 @@ void map_mmio_region(void) {
             uint64 new_pdpt = alloc_page_table();
             pml4[pml4_idx] = new_pdpt | PTE_PRESENT | PTE_WRITABLE | PTE_USER | PTE_PWT;
         }
-        volatile uint64 *pdpt = (volatile uint64 *)(pml4[pml4_idx] & 0x000FFFFFFFFFF000ULL);
+        volatile uint64 *pdpt = (volatile uint64 *)(pml4[pml4_idx] & 0x000FFFFFFFFFF000ULL); // Strip flags, keep physical address
 
         // Check/create PD entry
         if (!(pdpt[pdpt_idx] & PTE_PRESENT)) {
@@ -173,3 +145,4 @@ void map_mmio_region(void) {
 
     kprint("MEM: MMIO region 0xFEC00000-0xFEF00000 mapped\n");
 }
+
