@@ -26,10 +26,15 @@ typedef unsigned long  uint64;
 
 typedef unsigned long  size_t;
 
+/* C23 makes bool/true/false language keywords. */
+#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L))
 typedef uint8 bool;
+#endif
 
 #define NULL ((void *)0)
+#if !defined(__cplusplus) && (!defined(__STDC_VERSION__) || (__STDC_VERSION__ < 202311L))
 #define true (1==1)
 #define false (!true)
+#endif
 
 #endif

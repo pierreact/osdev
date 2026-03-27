@@ -1,4 +1,4 @@
-To compile and run the kernel, run compile_qemu.sh
+To compile and run the kernel with the ISO-first flow, run `./compile_qemu.sh`.
 It certainly will complain at first you don't have the right tools to run it... just install them :)
 
 
@@ -7,6 +7,17 @@ It certainly will complain at first you don't have the right tools to run it... 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. Multi-node clustering, DSM, DPDK, and SPDK are not yet implemented. Sections below describe the intended design, not the current state.
 
 Current kernel ACPI status: root-table discovery (RSDT/XSDT), MADT parsing, and parser coverage for SRAT, SLIT, HPET, FADT/FACP, MCFG, and DMAR/IVRS with query APIs for kernel subsystems.
+
+## Boot and test workflow (current)
+
+**Default (confirmed):** BIOS boots the ISO via **El Torito hard-disk emulation** of the full `os.bin` image. The firmware exposes one virtual disk; the stage-1 bootsector’s **INT 13h** reads then match the on-disk layout of `os.bin`. **GRUB is not the primary ISO bootloader** for this project—`compile.sh` uses **`xorriso`** to build `bin/os.iso`. If `xorriso` is missing, `compile.sh` may fall back to `grub-mkrescue`, but that path does **not** correctly load this kernel from ISO; install **xorriso** for a working ISO.
+
+- Primary boot path is BIOS from ISO (`bin/os.iso`): El Torito **hard-disk emulation** of the whole `os.bin` (built with `xorriso`), so the stage-1 bootsector’s disk reads still see the kernel.
+- `compile.sh` builds both `bin/os.bin` (raw image) and `bin/os.iso` (bootable BIOS ISO).
+- `compile_qemu.sh` and `compile_qemu_debug.sh` boot QEMU from the ISO (`-boot order=d`, `-cdrom bin/os.iso`).
+- `bin/fat32.img` is an optional secondary data disk for filesystem testing; boot must succeed without it.
+
+Why ISO-first: immutable boot media simplifies rollout and rollback (switch ISO versions), keeps OS/tools bundled together, and makes local/QEMU test runs more reproducible.
 
 ## Documentation guide
 

@@ -1,9 +1,9 @@
 #!/bin/bash
-# Creates a FAT32 disk image with a test file for the OS
+# Creates an optional FAT32 data disk image (non-boot media).
 
 IMG=bin/fat32.img
 
-# Skip if image already exists (delete it to regenerate)
+# Skip if image already exists (delete it to regenerate).
 if [ -f "$IMG" ]; then
     echo "FAT32 image already exists: $IMG"
     exit 0
@@ -11,7 +11,7 @@ fi
 
 mkdir -p bin
 
-echo "Creating FAT32 disk image..."
+echo "Creating FAT32 data disk image..."
 
 # Create 32MB blank image
 dd if=/dev/zero of="$IMG" bs=512 count=65536 2>/dev/null
@@ -41,4 +41,4 @@ mcopy -i "$IMG" "$LOREM_FILE" ::LOREM.TXT
 
 rm -f "$LOREM_FILE"
 
-echo "FAT32 image created: $IMG"
+echo "FAT32 data disk image created: $IMG"

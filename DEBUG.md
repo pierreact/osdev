@@ -2,6 +2,28 @@
 
 **Audience:** Kernel developers. For memory layout details, see `memory_map.md`. For architecture decisions, see `ARCHITECTURE.md`.
 
+## Bootsector trace (COM1)
+
+The first-stage loader (`src/bootsector.asm`) emits single characters on **COM1** (0x3F8) so you can see how far boot gets before the kernel runs. Read the stream left-to-right:
+
+| Char | Meaning |
+|------|--------|
+| `0` | Bootsector running (after relocate + screen clear) |
+| `C` | CD-ROM no-emul path: copying kernel from memory |
+| `H` | CHS read loop entered (raw disk, LBA not available or failed) |
+| `X` | Disk read failed |
+| `J` | About to **far jmp** to kernel at `0x1000` |
+
+CD-ROM ISO boot: **`0CJ`**. Raw-disk CHS boot: **`0HJ`**. LBA success: **`0J`**. Disk error: **`0HX`**.
+
+If the trace ends with **`J`**, the bootsector completed and jumped to the kernel; a hang after that points at the kernel entry (`kmain`), not the loader.
+
+**QEMU:** `compile_qemu.sh` / `compile_qemu_debug.sh` attach COM1 to **`./bootserial.log`**. Run `tail -f bootserial.log` while QEMU is running.
+
+**Disable** serial I/O in the bootsector (smaller binary / no UART access): from `src/`, `make bootsector.bin BOOT_DEBUG=0` (passes **`-DBOOT_DEBUG=0`** to `nasm`; see `src/Makefile`).
+
+To print **COM1 on the terminal** instead of a file, replace `-serial file:./bootserial.log` with `-serial stdio` (may interact with `-monitor stdio`).
+
 ## Quick Start
 
 ### 1. Run Normally (with reboot enabled)
@@ -26,7 +48,7 @@ The OS will boot in QEMU with full debug logging:
 ### 2. Check the Debug Log
 After a crash or issue, check the QEMU log:
 ```bash
-cat /tmp/qemu.log | tail -100
+cat ./qemu.log | tail -100
 ```
 
 Or use the helper script:

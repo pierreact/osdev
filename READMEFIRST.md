@@ -26,6 +26,7 @@ The common thread: the OS gets in the way. Networking stacks, context switches, 
 
 The kernel currently runs on a single node. Multi-node clustering, DSM, DPDK, and SPDK are not yet implemented. What is working:
 
+- ISO-first BIOS boot flow (El Torito hard-disk emulation via xorriso) for reproducible boot media
 - Boots on x86-64 (real hardware and QEMU)
 - SMP: AP bringup via INIT-SIPI-SIPI
 - ACPI: MADT parsing, LAPIC and IOAPIC initialization
@@ -59,7 +60,7 @@ This is not a GPU oriented OS. It is about CPU cores, memory locality, and netwo
 
 ## What this is not
 
-Not a general-purpose OS. Not Linux. Not for running Docker containers, web servers, or desktop applications. There is no POSIX, no dynamic linking, no filesystem beyond a read-only FAT32 for loading binaries.
+Not a general-purpose OS. Not Linux. Not for running Docker containers, web servers, or desktop applications. There is no POSIX and no dynamic linking. Boot artifacts are shipped as an ISO image; the FAT32 image is used as optional runtime data media.
 
 This is a research kernel exploring whether the remote NUMA model can outperform traditional clustering for the workloads listed above.
 

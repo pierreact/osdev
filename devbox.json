@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.0/.schema/devbox.schema.json",
+  "packages": [
+    "bash",
+    "gnumake",
+    "gcc",
+    "binutils",
+    "nasm",
+    "qemu",
+    "grub2",
+    "xorriso",
+    "mtools",
+    "dosfstools",
+    "gdb"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo \"Devbox shell ready for ZINC builds.\"",
+      "echo \"Tools: gcc, ld, nasm, xorriso (ISO), qemu-system-x86_64, mkfs.fat, mcopy\""
+    ]
+  }
+}
