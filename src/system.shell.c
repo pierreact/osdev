@@ -101,21 +101,21 @@ void shell_handle_char(char c) {
 
 void cmd_help() {
     kprint("Available commands:\n");
-    kprint("  help      - Show this help message\n");
-    kprint("  clear     - Clear the screen\n");
-    kprint("  meminfo   - Display memory information\n");
-    kprint("  memtest   - Test heap allocator\n");
-    kprint("  lsblk     - List block devices\n");
-    kprint("  diskinfo  - Show disk information\n");
-    kprint("  diskread  - Read disk sectors\n");
-    kprint("  diskwrite - Write disk sectors\n");
-    kprint("  ls        - List files on FAT32 disk\n");
-    kprint("  cat <file>- Print file contents\n");
-    kprint("  free      - Show memory usage\n");
-    kprint("  lsacpi    - List ACPI tables\n");
-    kprint("  lscpu     - Show CPU and NUMA topology\n");
-    kprint("  echo      - Echo text to screen\n");
-    kprint("  reboot    - Reboot the system\n");
+    kprint("  help            - Show this help message\n");
+    kprint("  clear           - Clear the screen\n");
+    kprint("  echo            - Echo text to screen\n");
+    kprint("  sys.reboot      - Reboot the system\n");
+    kprint("  sys.cpu.ls      - Show CPU and NUMA topology\n");
+    kprint("  sys.mem.info    - Display memory information\n");
+    kprint("  sys.mem.free    - Show memory usage\n");
+    kprint("  sys.mem.test    - Test heap allocator\n");
+    kprint("  sys.acpi.ls     - List ACPI tables\n");
+    kprint("  sys.disk.ls     - List block devices\n");
+    kprint("  sys.disk.info   - Show disk information\n");
+    kprint("  sys.disk.read   - Read disk sectors\n");
+    kprint("  sys.disk.write  - Write disk sectors\n");
+    kprint("  sys.fs.ls       - List files on FAT32 disk\n");
+    kprint("  sys.fs.cat <f>  - Print file contents\n");
 }
 
 void cmd_clear() {
@@ -253,11 +253,11 @@ static void hex_dump(uint8 *data, uint32 len) {
 }
 
 void cmd_diskread() {
-    char *args = cmd_buffer + 8;
+    char *args = cmd_buffer + 13;                       // skip "sys.disk.read"
     while(*args == ' ') args++;
-    
+
     if(*args == '\0') {
-        kprint("Usage: diskread <lba> [count]\n");
+        kprint("Usage: sys.disk.read <lba> [count]\n");
         return;
     }
     
@@ -290,11 +290,11 @@ void cmd_diskread() {
 }
 
 void cmd_diskwrite() {
-    char *args = cmd_buffer + 9;
+    char *args = cmd_buffer + 14;                       // skip "sys.disk.write"
     while(*args == ' ') args++;
-    
+
     if(*args == '\0') {
-        kprint("Usage: diskwrite <lba> <data>\n");
+        kprint("Usage: sys.disk.write <lba> <data>\n");
         return;
     }
     
@@ -536,50 +536,50 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "clear") == 0) {
         cmd_clear();
     }
-    else if (strcmp(cmd_buffer, "meminfo") == 0) {
+    else if (starts_with(cmd_buffer, "echo")) {
+        cmd_echo();
+    }
+    else if (strcmp(cmd_buffer, "sys.reboot") == 0) {
+        cmd_reboot();
+    }
+    else if (strcmp(cmd_buffer, "sys.cpu.ls") == 0) {
+        cmd_lscpu();
+    }
+    else if (strcmp(cmd_buffer, "sys.mem.info") == 0) {
         cmd_meminfo();
     }
-    else if (strcmp(cmd_buffer, "memtest") == 0) {
+    else if (strcmp(cmd_buffer, "sys.mem.free") == 0) {
+        cmd_free();
+    }
+    else if (strcmp(cmd_buffer, "sys.mem.test") == 0) {
         cmd_memtest();
     }
-    else if (strcmp(cmd_buffer, "lsblk") == 0) {
+    else if (strcmp(cmd_buffer, "sys.acpi.ls") == 0) {
+        acpi_lsacpi();
+    }
+    else if (strcmp(cmd_buffer, "sys.disk.ls") == 0) {
         cmd_lsblk();
     }
-    else if (strcmp(cmd_buffer, "diskinfo") == 0) {
+    else if (strcmp(cmd_buffer, "sys.disk.info") == 0) {
         cmd_diskinfo();
     }
-    else if (starts_with(cmd_buffer, "diskread")) {
+    else if (starts_with(cmd_buffer, "sys.disk.read")) {
         cmd_diskread();
     }
-    else if (starts_with(cmd_buffer, "diskwrite")) {
+    else if (starts_with(cmd_buffer, "sys.disk.write")) {
         cmd_diskwrite();
     }
-    else if (strcmp(cmd_buffer, "ls") == 0) {
+    else if (strcmp(cmd_buffer, "sys.fs.ls") == 0) {
         fat32_list_root();
     }
-    else if (starts_with(cmd_buffer, "cat ")) {
-        char *args = cmd_buffer + 4;
+    else if (starts_with(cmd_buffer, "sys.fs.cat ")) {
+        char *args = cmd_buffer + 11;
         while (*args == ' ') args++;
         if (*args) {
             fat32_cat_file(args);
         } else {
-            kprint("Usage: cat <filename>\n");
+            kprint("Usage: sys.fs.cat <filename>\n");
         }
-    }
-    else if (strcmp(cmd_buffer, "free") == 0) {
-        cmd_free();
-    }
-    else if (starts_with(cmd_buffer, "echo")) {
-        cmd_echo();
-    }
-    else if (strcmp(cmd_buffer, "lsacpi") == 0) {
-        acpi_lsacpi();
-    }
-    else if (strcmp(cmd_buffer, "lscpu") == 0) {
-        cmd_lscpu();
-    }
-    else if (strcmp(cmd_buffer, "reboot") == 0) {
-        cmd_reboot();
     }
     else {
         kprint("Unknown command: ");

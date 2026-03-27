@@ -84,23 +84,23 @@ echo "Running tests..."
 # Test: shell prompt appeared (boot succeeded)
 check "Boot complete (shell prompt)" "> "
 
-# Test: lscpu
-send_cmd "lscpu"
+# Test: sys.cpu.ls
+send_cmd "sys.cpu.ls"
 check "CPU count detected" "CPU(s):"
 check "CPUs online" "Online CPU(s):"
 check "LAPIC base" "LAPIC base:"
 check "NUMA node(s)" "NUMA node(s):"
 
-# Test: free
-send_cmd "free"
+# Test: sys.mem.free
+send_cmd "sys.mem.free"
 check "Heap info displayed" "Heap"
 
-# Test: memtest
-send_cmd "memtest"
+# Test: sys.mem.test
+send_cmd "sys.mem.test"
 check "Memory test passed" "Test complete"
 
-# Test: meminfo
-send_cmd "meminfo"
+# Test: sys.mem.info
+send_cmd "sys.mem.info"
 check "MMAP entries" "MMAP"
 
 # Summary
