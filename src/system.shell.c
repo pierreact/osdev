@@ -608,11 +608,17 @@ void cmd_reboot() {
 }
 
 void shell_execute_command() {
+    // Strip trailing spaces (tab completion adds one)
+    while (cmd_index > 0 && cmd_buffer[cmd_index - 1] == ' ') {
+        cmd_index--;
+        cmd_buffer[cmd_index] = '\0';
+    }
+
     // Ignore empty commands
     if (cmd_buffer[0] == '\0') {
         return;
     }
-    
+
     // Parse and execute command
     if (strcmp(cmd_buffer, "help") == 0) {
         cmd_help();
