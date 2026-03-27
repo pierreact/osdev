@@ -19,6 +19,7 @@ SOURCES=    kmain.o \
             system.acpi.o \
             system.apic.o \
             system.cpu.o \
+            system.serial.o \
             system.stack_protector.o
 
 CFLAGS=     -m64 \

@@ -506,6 +506,7 @@ jmp GDT64.Code:Realm64                                  ; Set the code segment a
 EXTERN kprint                                           ; C functions
 EXTERN init_memmgr                                      ;
 EXTERN alloc_bsp_stack                                  ; Allocate BSP stack from high memory
+EXTERN serial_init                                      ; Initialize COM1 serial port
 EXTERN cls                                              ;
 EXTERN update_cursor                                    ;
 EXTERN scroll                                           ;
@@ -550,6 +551,7 @@ include_64bits_functions:                               ; /include
     call init_memmgr                                    ; Call the memory manager initialization.
     call alloc_bsp_stack                                ; Allocate 64KB BSP stack from high memory
     mov rsp, rax                                        ; Switch to real stack (rax = stack top)
+    call serial_init                                    ; Initialize COM1 (output mirrored from here)
     call heap_init                                      ; Initialize heap allocator.
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------

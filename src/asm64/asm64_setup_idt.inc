@@ -2,6 +2,7 @@
 [SECTION .text]
 
 EXTERN keyboard_driver
+EXTERN serial_driver
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
@@ -157,7 +158,7 @@ asm64_setup_idt:                                        ;
     mov rax, asm64_default_int_handler                  ; ISR Vector 0x23 (IRQ3) COM2
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
-    mov rax, asm64_default_int_handler                  ; ISR Vector 0x24 (IRQ4) COM1
+    mov rax, asm64_isr_serial_handler                   ; ISR Vector 0x24 (IRQ4) COM1
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
     mov rax, asm64_default_int_handler                  ; ISR Vector 0x25 (IRQ5) LPT2
@@ -629,6 +630,47 @@ asm64_isr_keyboard_handler:                             ;
 ;    int 0x30                                            ;
     call keyboard_driver
                                                         ;
+    call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+                                                        ;
+	iretq                                               ;
+                                                        ;
+;----------------------------------------------------------------------------------------------------------------------------------------
+asm64_isr_serial_handler:                               ; IRQ4 - COM1 serial port
+                                                        ;
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    call serial_driver                                  ; Read COM1 data, feed to shell
+
     call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
 
     pop r15
