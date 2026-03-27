@@ -12,6 +12,26 @@
 static char cmd_buffer[CMD_BUFFER_SIZE];
 static uint8 cmd_index = 0;
 
+// Command table for tab completion
+static const char *commands[] = {
+    "help",
+    "clear",
+    "echo",
+    "sys.reboot",
+    "sys.cpu.ls",
+    "sys.mem.info",
+    "sys.mem.free",
+    "sys.mem.test",
+    "sys.acpi.ls",
+    "sys.disk.ls",
+    "sys.disk.info",
+    "sys.disk.read",
+    "sys.disk.write",
+    "sys.fs.ls",
+    "sys.fs.cat",
+};
+#define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
+
 // External symbols for memory info
 extern uint8 data_counter_mmap_entries;
 extern uint32 MEMMAP_START;
@@ -73,6 +93,67 @@ void shell_prompt() {
     kprint("> ");
 }
 
+// Find longest common prefix among all commands matching cmd_buffer.
+// Appends the completion to cmd_buffer and echoes it. If multiple
+// matches share no further common prefix, prints all matches.
+static void shell_tab_complete(void) {
+    if (cmd_index == 0) return;
+
+    const char *first_match = NULL;
+    uint32 match_count = 0;
+    uint32 common_len = 0;
+
+    // Find all commands that start with cmd_buffer
+    for (uint32 i = 0; i < NUM_COMMANDS; i++) {
+        if (starts_with(commands[i], cmd_buffer)) {
+            match_count++;
+            if (first_match == NULL) {
+                first_match = commands[i];
+                common_len = strlen(first_match);
+            } else {
+                // Shrink common prefix to what this match shares
+                uint32 j = cmd_index;
+                while (j < common_len && first_match[j] == commands[i][j])
+                    j++;
+                common_len = j;
+            }
+        }
+    }
+
+    if (match_count == 0) return;
+
+    if (common_len > cmd_index) {
+        // Append the common prefix extension
+        for (uint32 i = cmd_index; i < common_len && cmd_index < CMD_BUFFER_SIZE - 1; i++) {
+            char ch = first_match[i];
+            cmd_buffer[cmd_index++] = ch;
+            putc(ch);
+        }
+        cmd_buffer[cmd_index] = '\0';
+
+        // If unique match and it's a complete command (no further completions), add space
+        if (match_count == 1 && cmd_index < CMD_BUFFER_SIZE - 1) {
+            cmd_buffer[cmd_index++] = ' ';
+            cmd_buffer[cmd_index] = '\0';
+            putc(' ');
+        }
+    } else if (match_count > 1) {
+        // Multiple matches, no further common prefix: show all
+        putc('\n');
+        for (uint32 i = 0; i < NUM_COMMANDS; i++) {
+            if (starts_with(commands[i], cmd_buffer)) {
+                kprint("  ");
+                kprint((char *)commands[i]);
+                putc('\n');
+            }
+        }
+        shell_prompt();
+        // Re-echo current input
+        for (uint8 i = 0; i < cmd_index; i++)
+            putc(cmd_buffer[i]);
+    }
+}
+
 void shell_handle_char(char c) {
     if (c == 0x0A) {  // Enter key
         putc('\n');
@@ -80,7 +161,10 @@ void shell_handle_char(char c) {
         cmd_index = 0;
         cmd_buffer[0] = '\0';
         shell_prompt();
-    } 
+    }
+    else if (c == 0x09) {  // Tab
+        shell_tab_complete();
+    }
     else if (c == 0x08) {  // Backspace
         if (cmd_index > 0) {
             cmd_index--;

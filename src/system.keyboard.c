@@ -138,6 +138,7 @@ void keyboard_driver() {
         if(kbscancode == 0x35) character = '/';
 
         if(kbscancode == 0x0E) character = 0x08; // Backspace
+        if(kbscancode == 0x0F) character = 0x09; // Tab
         if(kbscancode == 0x39) character = ' ';
         if(kbscancode == 0x1C) character = 0x0A; // New line, return key.
     }
