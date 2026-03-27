@@ -1,5 +1,15 @@
 # Changelog
 
+## [2026-03-27] - Move stacks to high memory
+
+### Changed
+- BSP stack (64KB) and AP stacks (16KB x CPUs) allocated from high memory (above 1MB) via PAGING_LOCATION_END bump allocator
+- Heap range now dynamic: starts at page-aligned kernelEnd instead of hardcoded 0xD000
+- BSS reduced from ~336KB to ~12KB (only MEMMAP, IDT, 4KB temp stack, C globals)
+
+### Fixed
+- BSS/heap overlap: BSP stack and AP stacks in BSS collided with heap at 0xD000-0x9F000
+
 ## [2026-03-27] - Boot Rework and SMP Fix
 
 ### Changed
