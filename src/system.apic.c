@@ -126,10 +126,24 @@ void ioapic_init(void) {
     }
     ioapic_route_irq(kb_gsi, 0x21, bsp_lapic_id, kb_flags);
 
+    // Route COM1: check for ISO remapping IRQ4
+    uint32 com1_gsi = 4;
+    uint16 com1_flags = 0;
+    for (uint32 i = 0; i < iso_count; i++) {
+        if (iso_entries[i].irq_source == 4) {
+            com1_gsi = iso_entries[i].gsi;
+            com1_flags = iso_entries[i].flags;
+            break;
+        }
+    }
+    ioapic_route_irq(com1_gsi, 0x24, bsp_lapic_id, com1_flags);
+
     kprint("IOAPIC: Timer->vec 0x20 (GSI ");
     kprint_dec(timer_gsi);
     kprint("), Keyboard->vec 0x21 (GSI ");
     kprint_dec(kb_gsi);
+    kprint("), COM1->vec 0x24 (GSI ");
+    kprint_dec(com1_gsi);
     kprint(")\n");
 }
 

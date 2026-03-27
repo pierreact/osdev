@@ -200,7 +200,7 @@ next:                                                   ;
     mov gs, ax                                          ;
     mov es, ax                                          ;
     mov ss, ax                                          ;
-    mov ebp, stack_end                                     ; Stack pointer
+    mov ebp, temp_stack_end                                ; Temporary stack (small, in BSS)
     jmp dword 0x8:kernel32                              ; reinit CS, CS = 0x8 (Second entry in GDT.)
                                                         ;
                                                         ;
@@ -505,6 +505,8 @@ jmp GDT64.Code:Realm64                                  ; Set the code segment a
                                                         ;
 EXTERN kprint                                           ; C functions
 EXTERN init_memmgr                                      ;
+EXTERN alloc_bsp_stack                                  ; Allocate BSP stack from high memory
+EXTERN serial_init                                      ; Initialize COM1 serial port
 EXTERN cls                                              ;
 EXTERN update_cursor                                    ;
 EXTERN scroll                                           ;
@@ -525,7 +527,7 @@ include_64bits_functions:                               ; /include
     mov fs, ax                                          ; Set the F-segment to the A-register.
     mov gs, ax                                          ; Set the G-segment to the A-register.
     mov ss, ax                                          ;
-    mov rsp, stack_end                        ; Stack pointer
+    mov rsp, temp_stack_end                     ; Temporary stack until BSP stack allocated
                                                         ;
     mov rsi, msg_64_bits                                ; Tell user we're in 64 bits
     call asm64_display_writestring                      ;
@@ -547,6 +549,9 @@ include_64bits_functions:                               ; /include
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
     call init_memmgr                                    ; Call the memory manager initialization.
+    call alloc_bsp_stack                                ; Allocate 64KB BSP stack from high memory
+    mov rsp, rax                                        ; Switch to real stack (rax = stack top)
+    call serial_init                                    ; Initialize COM1 (output mirrored from here)
     call heap_init                                      ; Initialize heap allocator.
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -666,15 +671,10 @@ MEMMAP_END:
 IDT32_BASE:
 IDT64_BASE:
 RESB 0x1000
-stack_begin:
-RESB 0x10000 ; Reserve 64KB for the BSP stack.
-stack_end:
 
-; AP stacks: 16KB per CPU, MAX_CPUS (16) CPUs
-GLOBAL ap_stacks
-align 16
-ap_stacks:
-RESB 16384 * 16
+temp_stack_begin:
+RESB 0x1000                                             ; 4KB temp stack for 32-bit and early 64-bit
+temp_stack_end:
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ; /K

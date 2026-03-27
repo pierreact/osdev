@@ -18,7 +18,9 @@ SOURCES=    kmain.o \
             system.fat32.o \
             system.acpi.o \
             system.apic.o \
-            system.cpu.o
+            system.cpu.o \
+            system.serial.o \
+            system.stack_protector.o
 
 CFLAGS=     -m64 \
             -ffreestanding \
@@ -37,7 +39,8 @@ CFLAGS=     -m64 \
             -fstrength-reduce \
             -fomit-frame-pointer \
             -finline-functions \
-            -fno-stack-protector \
+            -fstack-protector-strong \
+            -mstack-protector-guard=global \
             -fno-PIC \
     		-nostdinc
 

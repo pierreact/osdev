@@ -1,5 +1,6 @@
 #include <types.h>
 #include <system.monitor.h>
+#include <system.serial.h>
 #include <system.ports.h>
 
 #define VIDEO_WIDTH   80
@@ -49,6 +50,8 @@ void scroll() {
 }
 
 void putc(char c) {
+    serial_putc(c);                     // Mirror all output to COM1
+
     if(c == 0x0a){
         cursor_x = 0;
         cursor_y++;
