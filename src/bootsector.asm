@@ -16,16 +16,16 @@
 ;----------------------------------------------------------------------------------------------------------------------------------------
     cli
     xor ax, ax
-    mov ds, ax
-    mov es, ax
-    mov ss, ax
-    mov sp, 0x7C00
-    mov si, 0x7C00
-    mov di, 0x0600
-    mov cx, 256
+    mov ds, ax                                          ; DS = 0
+    mov es, ax                                          ; ES = 0
+    mov ss, ax                                          ;
+    mov sp, 0x7C00                                      ; Stack just below original bootsector
+    mov si, 0x7C00                                      ; Source: original location
+    mov di, 0x0600                                      ; Dest: relocation target
+    mov cx, 256                                         ; 512 bytes / 2 = 256 words
     cld
-    rep movsw
-    jmp 0x0060:relocated
+    rep movsw                                           ; Copy bootsector to 0x0600
+    jmp 0x0060:relocated                                ; Far jump to relocated code (0x0060:off = 0x0600+off)
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 relocated:
@@ -41,17 +41,17 @@ end_define_functions:
     DBG '0'
     call asm16_display_clear
 
-    mov ax, RELOC
-    mov ds, ax
-    mov es, ax
-    mov ax, 0x8000
-    mov ss, ax
-    mov sp, 0xf000
-
-    mov [bootdrv], dl
-
-    mov si, msgload
-    call asm16_display_writestring
+    mov ax, RELOC                                       ;
+    mov ds, ax                                          ; Data seg = 0x060 (linear 0x0600)
+    mov es, ax                                          ; Extra
+    mov ax, 0x8000                                      ; Stack at 0x8F000
+    mov ss, ax                                          ;
+    mov sp, 0xf000                                      ;
+                                                        ;
+    mov [bootdrv], dl                                   ; Save boot drive
+                                                        ;
+    mov si, msgload                                     ; Load message
+    call asm16_display_writestring                      ; Display!
 
     ; No-emulation El Torito: BIOS loaded bootsector + kernel to 0x7C00.
     ; CD-ROM drives are DL >= 0xE0.  Kernel data is at linear 0x7E00.
@@ -71,48 +71,49 @@ end_define_functions:
     cmp bx, 0xAA55
     jne kernel_read_chs
 
+    ; LBA read via INT 13h/42h — build DAP (Disk Address Packet) at 0x500
     xor ax, ax
     mov ds, ax
-    mov word  [0x500], 16
-    mov word  [0x502], KSIZE
-    mov word  [0x504], 0
-    mov word  [0x506], BASE
-    mov dword [0x508], 1
-    mov dword [0x50C], 0
-    mov ah, 0x42
-    mov dl, [cs:bootdrv]
-    mov si, 0x500
-    int 0x13
+    mov word  [0x500], 16                               ; DAP size (16 bytes)
+    mov word  [0x502], KSIZE                            ; Number of sectors to read
+    mov word  [0x504], 0                                ; Offset where kernel will be loaded
+    mov word  [0x506], BASE                             ; Segment where kernel will be loaded
+    mov dword [0x508], 1                                ; LBA low (sector 1, after bootsector)
+    mov dword [0x50C], 0                                ; LBA high
+    mov ah, 0x42                                        ; Extended read
+    mov dl, [cs:bootdrv]                                ; Drive number (cs: because ds=0)
+    mov si, 0x500                                       ; DAP address
+    int 0x13                                            ; Read!
     jnc kernel_read_ok
 
     ;----------- CHS: one sector at a time -----------
 kernel_read_chs:
     DBG 'H'
-    mov ax, RELOC
-    mov ds, ax
-    mov ax, BASE
-    mov es, ax
-    xor bx, bx
-    mov si, KSIZE
-    mov byte [cur_sec], 2
-    mov byte [cur_head], 0
+    mov ax, RELOC                                       ;
+    mov ds, ax                                          ; DS = bootsector segment (for data access)
+    mov ax, BASE                                        ;
+    mov es, ax                                          ; ES:BX = destination for kernel load
+    xor bx, bx                                         ;
+    mov si, KSIZE                                       ; Sector counter
+    mov byte [cur_sec], 2                               ; Start at sector 2 (after bootsector)
+    mov byte [cur_head], 0                              ; Head 0
 .chs_loop:
-    mov ah, 2
-    mov al, 1
-    mov ch, 0
-    mov cl, [cur_sec]
-    mov dh, [cur_head]
-    mov dl, [bootdrv]
-    int 0x13
-    jc  disk_error
-    add bh, 2
-    dec si
-    jz  kernel_read_ok
-    inc byte [cur_sec]
-    cmp byte [cur_sec], 64
-    jb  .chs_loop
-    mov byte [cur_sec], 1
-    inc byte [cur_head]
+    mov ah, 2                                           ; Read sectors
+    mov al, 1                                           ; One sector at a time
+    mov ch, 0                                           ; Cylinder 0
+    mov cl, [cur_sec]                                   ; Sector number
+    mov dh, [cur_head]                                  ; Head number
+    mov dl, [bootdrv]                                   ; Drive
+    int 0x13                                            ; Read!
+    jc  disk_error                                      ;
+    add bh, 2                                           ; Advance dest by 512 bytes (bh += 2 = 0x200)
+    dec si                                              ;
+    jz  kernel_read_ok                                  ; All sectors read?
+    inc byte [cur_sec]                                  ;
+    cmp byte [cur_sec], 64                              ; Max sectors per track
+    jb  .chs_loop                                       ;
+    mov byte [cur_sec], 1                               ; Wrap to next head
+    inc byte [cur_head]                                 ;
     jmp .chs_loop
 
     ;----------- CD-ROM no-emul: kernel already in memory -----------
@@ -142,8 +143,8 @@ kernel_read_ok:
     mov si, msgboot
     call asm16_display_writestring
     DBG 'J'
-    db 0xea
-    dw 0, 0x100
+    db 0xea                                             ; jmpf
+    dw 0, 0x100                                         ; 0x1000
 
 end:
 jmp end

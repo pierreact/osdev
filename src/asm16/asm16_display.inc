@@ -1,16 +1,17 @@
 [BITS 16]
 section .text
 
-%define LENGTH 80
+%define LENGTH 80                                       ; Screen is 80 characters wide
 %ifndef HEIGHT
-%define HEIGHT 28
+%define HEIGHT 28                                       ; Default 28 lines (8x14 font)
 %endif
-%define CELLS  (LENGTH * HEIGHT)
-%define video_address_16 0xB800
+%define CELLS  (LENGTH * HEIGHT)                        ; Total character cells
+%define video_address_16 0xB800                         ; In 16 bits mode, text memory is at 0xB800
 %define FIRST_BYTE_OF_LAST_LINE_16 (LENGTH * HEIGHT * 2 - (LENGTH*2))
 %define ATTR_SPACE 0x0920                               ; blue-on-black space
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; Fill entire screen with blue-on-black spaces.
 asm16_display_clear:
 	push es
 	pusha
@@ -48,20 +49,22 @@ asm16_display_scroll:
 	ret
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
+                                                        ; Scroll one line, then write null-terminated string from DS:SI
+                                                        ; to the last line. Preserves all registers.
 asm16_display_writestring:
 	push es
 	pusha
-	call asm16_display_scroll
-	mov ax, video_address_16
-	mov es, ax
-	mov di, FIRST_BYTE_OF_LAST_LINE_16
+	call asm16_display_scroll                           ; scroll one line
+	mov ax, video_address_16                            ;
+	mov es, ax                                          ;
+	mov di, FIRST_BYTE_OF_LAST_LINE_16                  ;
 .next:
-	lodsb
-	test al, al
-	jz .done
-	stosb
+	lodsb                                               ; ds:si -> al
+	test al, al                                         ; end of string?
+	jz .done                                            ;
+	stosb                                               ; write character
 	inc di                                              ; skip attribute byte
-	jmp .next
+	jmp .next                                           ;
 .done:
 	popa
 	pop es
