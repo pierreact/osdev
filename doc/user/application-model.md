@@ -6,6 +6,8 @@
 
 This document describes the execution and memory model from the perspective of an application developer.
 
+Current deployment model is ISO-first: machines boot the OS from a BIOS-bootable ISO built with **El Torito hard-disk emulation** of the full **`os.bin`** image (see `compile.sh` / `xorriso`). The primary boot path is **firmware + El Torito**, not GRUB loading the kernel file. Application/runtime data disks are separate and optional at boot. This keeps OS/tooling versions immutable and makes rollback a media switch (or PXE) instead of an in-place mutation.
+
 ZINC turns off-the-shelf x86 hardware into a unified supercomputer. It runs on a single machine or across a cluster; commodity servers connected by standard networking, treated as one shared-memory machine with a single process, a single shared address space, spanning as many nodes as you plug in but still with some protection.
 
 ## Supported languages

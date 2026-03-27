@@ -9,6 +9,19 @@ Decisions and rationale behind kernel design choices.
 Performance is the only driver for this project.
 It's meant to live in an isolated environment.
 
+## Boot media model
+
+**Default:** BIOS-bootable ISO (`bin/os.iso`) built with **`xorriso`** using **El Torito no-emulation boot**. The firmware loads `boot-load-size` sectors of `boot/os.bin` (bootsector + kernel) to `0:7C00h`. The bootsector detects CD-ROM boot (`DL >= 0xE0`) and copies the kernel from `0x7E00` to `0x1000` via `rep movsw` (no INT 13h needed). For raw-disk boot (`-hda os.bin`), the bootsector uses LBA or CHS to read the kernel. **GRUB is not used.**
+
+- **Why no-emulation over HDD emulation:** No-emul mode loads the exact bytes we specify. The bootsector handles both CD and raw-disk paths. HDD emulation requires the BIOS to fake a disk geometry, which adds complexity and BIOS-dependent behavior. No-emul is simpler and more portable.
+- The ISO contains the OS boot payload and userland tools as a single immutable artifact.
+- Runtime disk access is separate from boot: `bin/fat32.img` is attached as an optional data disk during QEMU runs.
+- Operational benefit: testing and rollback are version-based (swap ISO), while data disk lifecycle remains independent.
+
+### Future alternative: GRUB + Multiboot2 (not implemented)
+
+If a GRUB menu or ecosystem integration is required later, the supported approach is **Multiboot2**: link the kernel as **ELF**, add a **Multiboot2 header**, provide a **32-bit protected-mode entry** (per spec), then transition to long mode and reuse the 64-bit bring-up. That implies replacing or bypassing early **BIOS-only** setup (E820, INT 10h) with **Multiboot2 info** (memory map, optional framebuffer). This is a large bootstrap refactor; the El Torito no-emul path remains the default for the current flat-binary, real-mode `kmain` entry.
+
 ## Memory allocation
 
 malloc allocates a minimum of 4KB (one page). All allocations are multiples of 4KB.
