@@ -142,7 +142,7 @@ static void delay_us(uint32 us) {
     }
 }
 
-// Wake APs via INIT-SIPI-SIPI sequence. Trampoline at 0x8000 brings each AP
+// Wake APs via INIT-SIPI-SIPI sequence. Trampoline at TRAMPOLINE_BASE brings each AP
 // from real mode to long mode, then it sets its percpu.running flag.
 void ap_startup(void) {
     if (cpu_count <= 1) {
@@ -150,22 +150,25 @@ void ap_startup(void) {
         return;
     }
 
-    // Copy trampoline to 0x8000
+    // Copy trampoline below kernel (IVT page, no longer needed in long mode)
+    #define TRAMPOLINE_BASE  0x9F000
+    #define TRAMPOLINE_VECTOR (TRAMPOLINE_BASE >> 12)
+
     extern uint8 ap_trampoline_start[];
     extern uint8 ap_trampoline_end[];
     uint64 trampoline_size = (uint64)ap_trampoline_end - (uint64)ap_trampoline_start;
 
-    uint8 *dest = (uint8 *)0x8000;
+    uint8 *dest = (uint8 *)TRAMPOLINE_BASE;
     uint8 *src = ap_trampoline_start;
     for (uint64 i = 0; i < trampoline_size; i++) {
         dest[i] = src[i];
     }
 
-    // Patch data area at end of trampoline page (fixed offsets from 0x8000).
+    // Patch data area at end of trampoline page.
     // The AP reads CR3 and percpu base from here during startup.
     extern uint32 PML4T_LOCATION;
-    volatile uint64 *patch_cr3 = (volatile uint64 *)0x8FF0;
-    volatile uint64 *patch_percpu = (volatile uint64 *)0x8FF8;
+    volatile uint64 *patch_cr3 = (volatile uint64 *)(TRAMPOLINE_BASE + 0xFF0);
+    volatile uint64 *patch_percpu = (volatile uint64 *)(TRAMPOLINE_BASE + 0xFF8);
 
     *patch_cr3 = (uint64)PML4T_LOCATION;
     *patch_percpu = (uint64)&percpu[0];
@@ -186,15 +189,15 @@ void ap_startup(void) {
 
         delay_us(200);
 
-        // Send SIPI #1 (vector 0x08 -> address 0x8000)
+        // Send SIPI #1
         lapic_write(LAPIC_ICR_HI, ((uint32)apic_id) << 24);
-        lapic_write(LAPIC_ICR_LO, ICR_STARTUP | 0x08);
+        lapic_write(LAPIC_ICR_LO, ICR_STARTUP | TRAMPOLINE_VECTOR);
 
         delay_us(200);
 
         // Send SIPI #2
         lapic_write(LAPIC_ICR_HI, ((uint32)apic_id) << 24);
-        lapic_write(LAPIC_ICR_LO, ICR_STARTUP | 0x08);
+        lapic_write(LAPIC_ICR_LO, ICR_STARTUP | TRAMPOLINE_VECTOR);
 
         delay_us(200);
 

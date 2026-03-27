@@ -1,13 +1,15 @@
-; AP Trampoline - copied to 0x8000 at runtime
+; AP Trampoline - copied to a free page at runtime
 ; APs start here in 16-bit real mode after SIPI
-; SIPI vector 0x08 => start address 0x8000
 ;
-; Data area at end of page (0x8FF0-0x8FFF):
-;   0x8FF0: CR3 value (uint64)
-;   0x8FF8: percpu base address (uint64)
+; Data area at end of page (page_base+0xFF0):
+;   +0xFF0: CR3 value (uint64)
+;   +0xFF8: percpu base address (uint64)
+
+%define TRAMPOLINE_BASE 0x9F000
+%define TRAMPOLINE_VECTOR (TRAMPOLINE_BASE >> 12)
 
 [BITS 16]
-[ORG 0x8000]
+[ORG TRAMPOLINE_BASE]
 
 ap_trampoline_entry:
     cli
@@ -45,7 +47,7 @@ ap_protected_mode:
     mov cr4, eax
 
     ; Load CR3 with PML4T address (patched by BSP)
-    mov eax, [0x8FF0]
+    mov eax, [TRAMPOLINE_BASE + 0xFF0]
     mov cr3, eax
 
     ; Enable Long Mode via EFER MSR
@@ -78,8 +80,8 @@ ap_long_mode:
     shr eax, 24                ; ID is in bits 31:24
 
     ; Find our index in percpu array
-    ; percpu base is at 0x8FF8
-    mov rbx, [0x8FF8]          ; percpu base
+    ; percpu base is at page_base + 0xFF8
+    mov rbx, [TRAMPOLINE_BASE + 0xFF8]          ; percpu base
     mov rsi, rbx               ; rsi = current percpu entry pointer
 
 .find_cpu:
@@ -109,8 +111,8 @@ ap_long_mode:
     ; Signal that we're online: percpu[i].running = 1 (offset 1)
     mov byte [rsi + 1], 1
 
-    ; Park: enable interrupts and halt loop
-    sti
+    ; Park: APs never handle interrupts (BSP owns all IRQs).
+    cli
 .park:
     hlt
     jmp .park
@@ -133,4 +135,4 @@ ap_gdt_ptr:
     dw ap_gdt_end - ap_gdt - 1     ; GDT limit
     dd ap_gdt                       ; GDT base (linear address, works since trampoline is identity-mapped)
 
-; Pad to known size (keep data area at 0x8FF0-0x8FFF accessible)
+; Pad to known size (keep data area at TRAMPOLINE_BASE+0xFF0 accessible)
