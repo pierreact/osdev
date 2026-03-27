@@ -25,3 +25,6 @@ snapshot.txt
 bin/
 compile_logs.log
 qemu.log
+qemudump.log
+bootserial.log
+iso/
