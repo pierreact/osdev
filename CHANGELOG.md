@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026-03-27] - Boot Rework and SMP Fix
+
+### Changed
+- Bootsector rewritten: multi-path boot (LBA, CHS, CD-ROM no-emulation El Torito)
+- KSIZE computed dynamically from kernel binary size
+- Build switched to xorriso El Torito no-emul ISO as primary boot artifact
+- QEMU launches from ISO with NUMA topology and serial trace
+- 16-bit display routines rewritten with rep movsw/stosw
+- AP trampoline moved from 0x8000 to 0x9F000 (was overwriting kernel .data)
+- APs park with cli (BSP owns all interrupts)
+- Trampoline uses segment-relative addressing (ORG 0, DS=CS) for high-memory compatibility
+- memory_map.md rewritten with correct addresses and starts-at column
+
+### Added
+- Serial debug trace on COM1 for boot diagnostics (DBG macro)
+- devbox.json/devbox.lock for reproducible build toolchain
+- C23 bool/true/false guards in types.h
+
+### Fixed
+- AP trampoline at 0x8000 overwrote kernel .data, causing VGA garbage
+- AP trampoline at 0x9F000 triple-faulted: 16-bit address overflow with ORG > 0xFFFF
+- Explicit -fno-stack-protector (devbox GCC enables it by default, unusable without FS base)
+
 ## [2026-03-14] - Project Rename and Documentation Overhaul
 
 ### Changed
