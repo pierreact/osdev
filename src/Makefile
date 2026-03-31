@@ -20,6 +20,9 @@ SOURCES=    kmain.o \
             system.apic.o \
             system.cpu.o \
             system.serial.o \
+            system.tss.o \
+            system.syscall.o \
+            system.task.o \
             system.stack_protector.o
 
 CFLAGS=     -m64 \

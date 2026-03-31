@@ -34,13 +34,36 @@ Trade-off: wastes memory on small allocations. Acceptable for a kernel where mos
 
 ## Execution model
 
-- BSP (CPU 0) runs the kernel and management services.
+- BSP (CPU 0) runs the kernel and multiple ring 3 management tasks via cooperative multitasking.
+- BSP tasks: shell (implemented), user program coordinator, telnet server, Prometheus exporter, heartbeat monitor, DSM coordinator (planned).
+- BSP cooperative multitasking: per-task struct, yield() syscall, round-robin scheduling. Non-preemptive. Tasks must yield explicitly.
+- APs (all other cores): each core runs one user thread in ring 3. No context switching. One thread per core, pinned at creation, never migrated.
 - BSP has 2 NICs:
   - Inter-node NIC: dedicated for cluster communication between nodes (layer 2).
   - Management NIC: full TCP/IP stack for SSH, telnet, and maintenance.
-- APs (all other cores): each core runs one user thread in ring 3.
 - Ring 3 provides memory isolation. Threads cannot corrupt kernel memory or each other (see Thread memory isolation).
 - Device MMIO (NICs, storage controllers) is mapped into each thread's address space by the kernel via page tables. Threads access devices directly via polling without syscalls (see Device assignment).
+
+## Syscall interface
+
+Ring 3 tasks access kernel services via the SYSCALL instruction (x86-64). The kernel uses SYSRET to return.
+
+- **Mechanism:** SYSCALL/SYSRET via IA32_STAR, IA32_LSTAR, IA32_SFMASK MSRs. EFER.SCE enabled.
+- **Convention:** Linux-style registers. RAX = syscall number, RDI/RSI/RDX/R10/R8/R9 = arguments. Return value in RAX.
+- **Per-CPU data:** SWAPGS on SYSCALL entry swaps GS base to &percpu[cpu_idx]. Each CPU sets IA32_KERNEL_GS_BASE during init.
+- **Stack switch:** SYSCALL entry saves user RSP to percpu.user_rsp, loads kernel RSP from percpu.stack_top.
+
+GDT layout (GDT64 in kmain.s):
+
+| Offset | Selector | Purpose |
+|--------|----------|---------|
+| 0x00 | - | Null |
+| 0x08 | 0x08 | Ring 0 code |
+| 0x10 | 0x10 | Ring 0 data |
+| 0x18 | - | Ring 3 compat code (SYSRET placeholder) |
+| 0x20 | 0x23 | Ring 3 data |
+| 0x28 | 0x2B | Ring 3 64-bit code |
+| 0x30 | 0x30 | TSS (16 bytes, runtime-patched) |
 
 ## Device assignment
 

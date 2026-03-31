@@ -36,6 +36,6 @@ void serial_driver(void) {
     while (inb(COM1 + 5) & 0x01) {         // Data available (LSR bit 0)
         char c = inb(COM1);
         if (c == '\r') c = '\n';            // Normalize CR to LF
-        shell_handle_char(c);
+        input_buf_push(c);
     }
 }

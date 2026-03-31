@@ -25,6 +25,9 @@ All addresses below are approximate (~) where they depend on kernel binary size.
 | 0x101000+ | 1 MB + 4 KB | 5-20 MB | PDPT/PDT/PT | USED |
 | PAGING_END+ | ~6-21 MB | 64 KB | BSP stack (allocated at runtime) | USED |
 | (after BSP stack) | ~6-21 MB | 16 KB each | AP stacks (allocated per CPU at runtime) | USED |
+| (after AP stacks) | - | 104 B x 16 | TSS array (per-CPU, in BSS) | USED |
+| (after TSS) | - | 64 KB each | BSP task kernel stacks (allocated per task) | USED |
+| (after kstacks) | - | 64 KB each | BSP task user stacks (allocated per task) | USED |
 | (after stacks) | - | - | - | FREE |
 | 0xFEC00000-0xFEF00000 | 4076 MB | 3 MB | APIC MMIO (IOAPIC + LAPIC, mapped at runtime) | HW |
 
@@ -64,6 +67,8 @@ High memory: after stacks (PAGING_LOCATION_END+) to RAM_END
 | 64-bit (BSP early) | temp_stack_end (~0xD400) | Until alloc_bsp_stack runs |
 | 64-bit (BSP) | PAGING_LOCATION_END+ | 64 KB, allocated from high memory |
 | 64-bit (APs) | percpu[i].stack_top | 16 KB per AP, allocated from high memory |
+| 64-bit (BSP ring 3) | task.user_rsp | 64 KB per task, allocated from high memory |
+| 64-bit (BSP ring 0, syscall) | task.kstack_top | 64 KB per task kernel stack |
 
 ## SMP / NUMA
 

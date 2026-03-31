@@ -37,6 +37,7 @@
 [SECTION .text]                                         ;
                                                         ;
 GLOBAL MEMMAP_START
+GLOBAL GDT64
 GLOBAL kmain                                            ;--------------------------------------------------------------------------------
 kmain:                                                  ; Starting point of the kernel called by the bootsector
                                                         ;
@@ -51,6 +52,12 @@ EXTERN disable_pic                                      ; Disable 8259A PIC.
 EXTERN lapic_init                                       ; Initialize Local APIC on BSP.
 EXTERN ioapic_init                                      ; Initialize I/O APIC.
 EXTERN cpu_init                                         ; Initialize per-CPU structures.
+EXTERN tss_init                                         ; Initialize TSS and load TR.
+EXTERN percpu                                           ; Per-CPU state array (system.cpu.c).
+EXTERN task_init                                        ; Initialize BSP task scheduler.
+EXTERN task_create                                      ; Create a BSP ring 3 task.
+EXTERN task_run_first                                   ; Start first BSP task (drops to ring 3).
+EXTERN shell_ring3_entry                                ; Shell entry point for ring 3.
 EXTERN ap_startup                                       ; Wake Application Processors.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
@@ -519,6 +526,7 @@ Realm64:                                                ; Arrivals
 jmp include_64bits_functions                            ; include
     %include 'asm64/asm64_display.inc'                  ; ASM64 display functions.
     %include 'asm64/asm64_setup_idt.inc'                ; ASM64 IDT functions.
+    %include 'asm64/asm64_syscall.inc'                  ; SYSCALL/SYSRET entry point and MSR setup.
 include_64bits_functions:                               ; /include
                                                         ;
     mov ax, GDT64.Data                                  ; Set the A-register to the data descriptor.
@@ -563,6 +571,9 @@ include_64bits_functions:                               ; /include
     call ioapic_init                                    ; Setup I/O APIC routing
     call cpu_init                                       ; Initialize per-CPU structures
     call ap_startup                                     ; Wake APs via INIT-SIPI-SIPI
+    call tss_init                                       ; Setup BSP TSS and load Task Register
+    call syscall_init                                   ; Setup SYSCALL/SYSRET MSRs and SWAPGS
+    call task_init                                      ; Initialize BSP task scheduler
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
     call ide_init                                       ; Initialize IDE controller.
@@ -572,19 +583,16 @@ include_64bits_functions:                               ; /include
 ;xchg bx, bx ; Bochs magic
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
-    sti                                                 ; Enable interrupts (for keyboard, timer, etc.)
-                                                        ; Initialize the shell
-    call shell_init                                     ; Display welcome message and prompt
-                                                        ;
-                                                        ;
-event_loop:                                             ; Main event loop - wait for interrupts
-    hlt                                                 ; Halt until interrupt (keyboard, timer, etc.)
-    jmp event_loop                                      ; Loop forever
+    ; Create shell task and drop to ring 3
+    mov rdi, shell_task_name                             ; arg1 = task name
+    mov rsi, shell_ring3_entry                          ; arg2 = entry point
+    call task_create                                    ; Create shell as BSP task 0
+    call task_run_first                                 ; Drop to ring 3 (does not return)
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]
 
-
+shell_task_name:        db 'shell', 0
 
 msg16_nommap:           db 'K16 - No memory map, dying here.', 0
 msg16_mmap_ok:          db 'K16 - Memory map found, continuing.', 0
@@ -630,27 +638,57 @@ gdtend:                                                 ;
                                                         ; GDT64
                                                         ; AMD volume 2, section 4.8
 GDT64:                                                  ; Global Descriptor Table (64-bit).
-    .Null: equ $ - GDT64                                ; The null descriptor.
+    .Null: equ $ - GDT64                                ; 0x00 - Null descriptor.
     dw 0                                                ; Limit (low).
     dw 0                                                ; Base (low).
     db 0                                                ; Base (middle)
     db 0                                                ; Access.
     db 0                                                ; Granularity.
     db 0                                                ; Base (high).
-    .Code: equ $ - GDT64                                ; The code descriptor.
+    .Code: equ $ - GDT64                                ; 0x08 - Ring 0 code.
     dw 0xFFFF                                           ; Limit (low).
     dw 0                                                ; Base (low).
     db 0                                                ; Base (middle)
-    db 10011000b                                        ; Access.
-    db 00101111b                                        ; Granularity.
+    db 10011000b                                        ; Access: P=1, DPL=0, S=1, Type=8 (exec).
+    db 00101111b                                        ; Granularity: G=0, L=1 (64-bit).
     db 0                                                ; Base (high).
-    .Data: equ $ - GDT64                                ; The data descriptor.
+    .Data: equ $ - GDT64                                ; 0x10 - Ring 0 data.
     dw 0xFFFF                                           ; Limit (low).
     dw 0                                                ; Base (low).
     db 0                                                ; Base (middle)
-    db 10010010b                                        ; Access.
+    db 10010010b                                        ; Access: P=1, DPL=0, S=1, Type=2 (r/w).
     db 00001111b                                        ; Granularity.
     db 0                                                ; Base (high).
+    .UserCode32: equ $ - GDT64                          ; 0x18 - Ring 3 compat code (SYSRET placeholder).
+    dw 0xFFFF                                           ;
+    dw 0                                                ;
+    db 0                                                ;
+    db 11111000b                                        ; Access: P=1, DPL=3, S=1, Type=8 (exec).
+    db 11001111b                                        ; Granularity: G=1, D=1 (32-bit compat).
+    db 0                                                ;
+    .UserData: equ $ - GDT64                            ; 0x20 - Ring 3 data.
+    dw 0xFFFF                                           ;
+    dw 0                                                ;
+    db 0                                                ;
+    db 11110010b                                        ; Access: P=1, DPL=3, S=1, Type=2 (r/w).
+    db 00001111b                                        ; Granularity.
+    db 0                                                ;
+    .UserCode64: equ $ - GDT64                          ; 0x28 - Ring 3 64-bit code.
+    dw 0xFFFF                                           ;
+    dw 0                                                ;
+    db 0                                                ;
+    db 11111000b                                        ; Access: P=1, DPL=3, S=1, Type=8 (exec).
+    db 00101111b                                        ; Granularity: G=0, L=1 (64-bit).
+    db 0                                                ;
+    .TSS: equ $ - GDT64                                 ; 0x30 - TSS descriptor (16 bytes, filled at runtime).
+    dw 0                                                ; Limit [15:0] (patched by tss_init)
+    dw 0                                                ; Base [15:0]
+    db 0                                                ; Base [23:16]
+    db 0                                                ; Type + flags (patched by tss_init)
+    db 0                                                ; Limit [19:16] + granularity
+    db 0                                                ; Base [31:24]
+    dd 0                                                ; Base [63:32]
+    dd 0                                                ; Reserved
                                                         ;
     .Pointer:                                           ; The GDT-pointer.
     dw $ - GDT64 - 1                                    ; Limit.

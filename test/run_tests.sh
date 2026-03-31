@@ -84,6 +84,20 @@ echo "Running tests..."
 # Test: shell prompt appeared (boot succeeded)
 check "Boot complete (shell prompt)" "> "
 
+# Test: TSS and SYSCALL infrastructure initialized during boot
+check "TSS loaded" "TSS: BSP TSS loaded"
+
+# Test: BSP task scheduler initialized
+check "Task scheduler initialized" "TASK: BSP task scheduler"
+
+# Test: Shell task created and dropped to ring 3
+check "Shell task created" "TASK: created 'shell'"
+check "Dropped to ring 3" "TASK: dropping to ring 3"
+
+# Test: sys.cpu.ring (shell runs in ring 3)
+send_cmd "sys.cpu.ring"
+check "Shell runs in ring 3" "ring 3"
+
 # Test: sys.cpu.ls
 send_cmd "sys.cpu.ls"
 check "CPU count detected" "CPU(s):"
@@ -102,6 +116,10 @@ check "Memory test passed" "Test complete"
 # Test: sys.mem.info
 send_cmd "sys.mem.info"
 check "MMAP entries" "MMAP"
+
+# Test: sys.acpi.ls
+send_cmd "sys.acpi.ls"
+check "ACPI tables listed" "MADT"
 
 # Summary
 echo ""
