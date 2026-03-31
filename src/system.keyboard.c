@@ -142,6 +142,6 @@ void keyboard_driver() {
         if(kbscancode == 0x39) character = ' ';
         if(kbscancode == 0x1C) character = 0x0A; // New line, return key.
     }
-    if(character != 0x0) shell_handle_char(character);
+    if(character != 0x0) input_buf_push(character);
 }
 

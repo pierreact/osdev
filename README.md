@@ -6,7 +6,7 @@ It certainly will complain at first you don't have the right tools to run it... 
 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. Multi-node clustering, DSM, DPDK, and SPDK are not yet implemented. Sections below describe the intended design, not the current state.
 
-Current kernel ACPI status: root-table discovery (RSDT/XSDT), MADT parsing, and parser coverage for SRAT, SLIT, HPET, FADT/FACP, MCFG, and DMAR/IVRS with query APIs for kernel subsystems.
+Current kernel status: BSP shell runs in ring 3 via SYSCALL/SYSRET with cooperative multitasking. ACPI: root-table discovery (RSDT/XSDT), MADT parsing, and parser coverage for SRAT, SLIT, HPET, FADT/FACP, MCFG, and DMAR/IVRS with query APIs for kernel subsystems.
 
 ## Boot and test workflow (current)
 

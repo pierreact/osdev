@@ -10,6 +10,7 @@
 
 %define TRAMPOLINE_BASE 0x9F000
 %define TRAMPOLINE_VECTOR (TRAMPOLINE_BASE >> 12)
+%define PERCPU_SIZE 40
 
 [BITS 16]
 [ORG 0]                                                 ; Offsets are segment-relative; SIPI sets CS = TRAMPOLINE_BASE >> 4
@@ -89,14 +90,14 @@ ap_long_mode:
 .find_cpu:
     mov rcx, rsi
     sub rcx, rbx                                        ; byte offset from base
-    cmp rcx, 16 * 16                                    ; MAX_CPUS * sizeof(PerCPU)
+    cmp rcx, 16 * PERCPU_SIZE                            ; MAX_CPUS * sizeof(PerCPU)
     jge .halt                                           ; Not found, halt
 
     movzx edx, byte [rsi]                               ; percpu[i].lapic_id
     cmp dl, al
     je .found
 
-    add rsi, 16                                         ; Next entry (sizeof PerCPU = 16)
+    add rsi, PERCPU_SIZE                                ; Next entry (sizeof PerCPU)
     jmp .find_cpu
 
 .found:

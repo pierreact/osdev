@@ -27,26 +27,31 @@ D - Parse HPET for high-precision timer (replace PIT, nanosecond resolution).
 D - FACP: use PM timer for precise timing, use reset register for cleaner reboot.
 D - DMAR/IVRS: IOMMU support for DMA protection and device isolation.
 D - ISO-first boot workflow: xorriso El Torito no-emul ISO, QEMU boots from ISO, data disk optional.
+D - Move shell from kernel to ring 3 on BSP (syscalls into ring 0 for kernel services).
+D - GDT64 expansion: ring 3 code/data segments, TSS descriptor.
+D - Per-CPU TSS with RSP0 for ring transitions.
+D - SYSCALL/SYSRET via IA32_STAR/LSTAR/SFMASK MSRs, SWAPGS per-CPU pattern.
+D - Syscall dispatch table (23 syscalls: display, memory, disk, FS, ACPI, task management).
+D - Input ring buffer decoupling ISR from ring 3 shell.
+D - BSP cooperative multitasking infrastructure (task create/yield/exit/wait/wake).
+D - Namespaced commands (sys.cpu.ls, sys.numa.ls, sys.fs.df, sys.mem.free, etc.).
+D - Tab completion walking the namespace tree.
+D - Define ZINC syscall interface (syscall instruction, numbers, register convention).
 
 Upcoming work
 -------------
 
 Shell and userland:
-T - Move shell from kernel to ring 3 on BSP (syscalls into ring 0 for kernel services).
 T - Filesystem layout: /bin (binaries), /home, /log, /conf (configurations).
 T - Commands as separate binaries in /bin, loaded from FAT32.
-T - Namespaced commands (sys.cpu.ls, sys.numa.ls, sys.fs.df, sys.mem.free, etc.).
-T - Tab completion walking the namespace tree.
 T - Keymap loader from FS.
 T - Telnet server on BSP management NIC (concurrent multi-user sessions).
 T - Per-connection shell state (socket, input buffer, command history).
 T - User identification (username prompt, no password, must match existing user in /conf).
 T - root user exists by default, can create other users. No home directory for root.
-T - No access rights or privilege levels. All users have the same privileges.
 T - Common users get a personal home directory in /home/<username>.
 
 Cross-compilation toolchain:
-T - Define ZINC syscall interface (syscall instruction, numbers, register convention).
 T - GCC cross-toolchain target (x86_64-unknown-zinc): machine config, linker defaults.
 T - Libc (malloc, printf, string operations, math, time functions) wrapping ZINC syscalls.
 T - Default linker script for ZINC userland binaries.
@@ -59,7 +64,7 @@ T - FAT32 write support (BSP system disk: /bin, /conf, /home, /log).
 T - Slab allocator (replace O(n) bitmap scan for frequent small allocations).
 T - Ring 3 thread execution on AP cores.
 T - Per-thread page tables (CR3 per AP).
-T - Syscall interface (ring 3 to ring 0 for shell and userland commands).
+T - User program coordinator task on BSP (master for threads spanning APs).
 T - Binary loader (load and execute /bin commands from FAT32).
 T - Shared memory region mapping.
 T - Locality map generation.

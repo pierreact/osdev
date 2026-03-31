@@ -1,5 +1,25 @@
 # Changelog
 
+## [2026-03-31] - Ring 3 shell with SYSCALL/SYSRET
+
+### Added
+- GDT64 expanded with ring 3 code/data segments (0x18, 0x20, 0x28) and TSS descriptor (0x30)
+- Per-CPU TSS array with RSP0 for ring 3 to ring 0 transitions
+- SYSCALL/SYSRET infrastructure: IA32_STAR, IA32_LSTAR, IA32_SFMASK MSRs, EFER.SCE
+- SWAPGS-based per-CPU data access pattern (IA32_KERNEL_GS_BASE = &percpu[cpu])
+- Syscall dispatch table with 23 syscalls (display, memory, disk, FS, ACPI, task management)
+- User-side syscall wrappers in include/syscall.h (inline asm)
+- Input ring buffer decoupling keyboard/serial ISRs from ring 3 shell
+- BSP cooperative multitasking: task create, yield, exit, wait/wake, round-robin scheduling
+- sys.cpu.ring shell command to verify current privilege level
+
+### Changed
+- Shell runs in ring 3 on BSP via IRETQ transition from kernel
+- Shell uses syscall wrappers for all kernel services (putc, kprint, disk, memory, ACPI)
+- Keyboard and serial drivers push to input ring buffer instead of calling shell directly
+- PerCPU struct expanded to 40 bytes (added user_stack_top, user_rsp, cr3, in_usermode)
+- AP trampoline updated for new PerCPU size
+
 ## [2026-03-27] - Move stacks to high memory
 
 ### Changed

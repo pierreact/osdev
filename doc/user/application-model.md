@@ -1,6 +1,6 @@
 # Writing Applications for ZINC
 
-> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The multi-node features described below (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
+> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell runs in ring 3 with SYSCALL/SYSRET. AP ring 3 threads, multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
 
 **Audience:** Application developers writing code against ZINC. For kernel design rationale, see `ARCHITECTURE.md`. For research context and project overview, see `README.md`.
 
@@ -28,8 +28,8 @@ ZINC provides a libc (malloc, printf, string operations, math, time functions) b
 
 Your application runs as a single process spanning one or more machines in the cluster. Each thread runs on exactly one core and never moves.
 
-- One thread per core. No context switching. Your thread owns the core entirely.
-- BSP (CPU 0) runs the kernel. All other cores run application threads.
+- One thread per core on APs. No context switching. Your thread owns the core entirely.
+- BSP (CPU 0) runs the kernel and multiple ring 3 management tasks (shell, user program coordinator, telnet, etc.) via cooperative multitasking. BSP tasks yield explicitly; this is not preemptive.
 - BSP handles all interrupts. Your thread is never interrupted. The only exception is a DSM page fault when accessing remote shared memory (see below).
 - All CPUs run at maximum frequency at all times. No frequency scaling, no deep sleep states. When work arrives, it is processed immediately; no wake-up or ramp-up latency.
 - Each thread polls its NIC directly (DPDK-style). No syscalls for network I/O.
@@ -148,7 +148,7 @@ All buffers are allocated on your thread's NUMA node. Zero copy; data is not mov
 - **No dynamic linking.** All binaries are statically linked.
 - **No virtual memory tricks.** ZINC uses virtual memory (page tables, per-thread CR3) for isolation and mapping, but no swap, no fork, no copy-on-write, no demand paging. Every page is backed by a physical frame, NUMA-local, allocated at thread creation.
 - **No mmap.** Device MMIO is mapped by the kernel at thread setup. Storage is accessed directly via SPDK (planned), not through a filesystem. Shared memory is pre-partitioned or BSP-allocated. There is nothing left for mmap to do.
-- **No scheduling.** One thread per core, pinned at creation. No preemption, no context switching, no migration, no load balancing.
+- **No scheduling on APs.** One thread per core, pinned at creation. No preemption, no context switching, no migration, no load balancing. BSP uses cooperative multitasking for management tasks (shell, coordinator, telnet), but this does not affect application threads.
 - **No power management.** All CPUs run at maximum frequency at all times. No frequency scaling, no deep sleep states. This will be revisited in the future, when no job runs, it doesn't make sense to run at full frequency.
 
 ## Timers and clocks
