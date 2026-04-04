@@ -20,7 +20,6 @@ src/kernel
 
 # Others #
 *~
-bochsout.txt
 snapshot.txt
 bin/
 compile_logs.log
