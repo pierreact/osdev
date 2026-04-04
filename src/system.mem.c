@@ -122,16 +122,12 @@ static uint64 alloc_page_table(void) {
     return addr;
 }
 
-// Map APIC MMIO region (0xFEC00000 - 0xFEF00000) into page tables
-// These are above the identity-mapped range. We walk the existing
-// PML4T and add entries as needed.
-void map_mmio_region(void) {
-    uint64 start = 0xFEC00000ULL;
-    uint64 end   = 0xFEF00000ULL;
-
+// Identity-map [phys_start, phys_start+size) as uncacheable MMIO
+void map_mmio_range(uint64 phys_start, uint64 size) {
+    uint64 end = phys_start + size;
     uint64 pml4t_addr = (uint64)PML4T_LOCATION;
 
-    for (uint64 vaddr = start; vaddr < end; vaddr += 4096) {
+    for (uint64 vaddr = phys_start; vaddr < end; vaddr += 4096) {
         uint32 pml4_idx = (vaddr >> 39) & 0x1FF;
         uint32 pdpt_idx = (vaddr >> 30) & 0x1FF;
         uint32 pd_idx   = (vaddr >> 21) & 0x1FF;
@@ -170,6 +166,31 @@ void map_mmio_region(void) {
     uint64 cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
     __asm__ volatile("mov %0, %%cr3" : : "r"(cr3));
+}
 
+// Map APIC MMIO region (legacy wrapper)
+void map_mmio_region(void) {
+    map_mmio_range(0xFEC00000ULL, 0x300000ULL);
     kprint("MEM: MMIO region 0xFEC00000-0xFEF00000 mapped\n");
 }
+
+// Prevent GCC from replacing these loops with calls to themselves
+#pragma GCC push_options
+#pragma GCC optimize("no-tree-loop-distribute-patterns")
+
+void *memcpy(void *dest, const void *src, size_t n) {
+    uint8 *d = (uint8 *)dest;
+    const uint8 *s = (const uint8 *)src;
+    for (size_t i = 0; i < n; i++)
+        d[i] = s[i];
+    return dest;
+}
+
+void *memset(void *dest, int val, size_t n) {
+    uint8 *d = (uint8 *)dest;
+    for (size_t i = 0; i < n; i++)
+        d[i] = (uint8)val;
+    return dest;
+}
+
+#pragma GCC pop_options

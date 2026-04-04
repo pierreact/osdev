@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026-04-02] - PCI enumeration, virtio-net driver, NIC abstraction
+
+### Added
+- PCI device enumeration via PCIe ECAM (MCFG ACPI table)
+- Config space read/write, BAR decoding (MMIO/IO, 32/64-bit)
+- Virtio PCI transport: capability walking, virtqueue allocation, feature negotiation
+- Virtio-net driver: TX/RX via virtqueues, MAC address, link status
+- NIC abstraction layer: vtable dispatch supporting multiple NIC drivers
+- sys.pci.ls and sys.nic.ls shell commands
+- Generic map_mmio_range() for arbitrary physical MMIO mapping
+- memcpy/memset for freestanding kernel
+
+### Changed
+- QEMU machine type switched from i440fx to Q35 (PCIe ECAM support)
+- All QEMU scripts include 4 virtio-net-pci devices (2 BSP + 1 per NUMA node)
+- Linker script captures GCC subsections (.text.*, .rodata.*, .bss.*) and discards .eh_frame/.note.gnu.property
+- IDE driver skips init when no controller present (Q35 has AHCI, not PIIX IDE)
+- Boot init sequence: pci_init and nic_init called after fat32_init
+
 ## [2026-03-31] - Ring 3 shell with SYSCALL/SYSRET
 
 ### Added

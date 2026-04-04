@@ -59,11 +59,14 @@ EXTERN task_create                                      ; Create a BSP ring 3 ta
 EXTERN task_run_first                                   ; Start first BSP task (drops to ring 3).
 EXTERN shell_ring3_entry                                ; Shell entry point for ring 3.
 EXTERN ap_startup                                       ; Wake Application Processors.
+EXTERN pci_init                                         ; Enumerate PCI devices.
+EXTERN nic_init                                         ; Initialize NIC drivers.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
 %include "asm16/asm16_interrupts.inc"                   ; Setup Interrupt Vector Table and defined ISRs
 %include "asm16/asm16_get_memmap.inc"                   ; Get memory map of the system.
+[SECTION .text]                                         ; Ensure we're back in .text
 end_define_functions:                                   ; Done.
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -578,6 +581,8 @@ include_64bits_functions:                               ; /include
 ;----------------------------------------------------------------------------------------------------------------------------------------
     call ide_init                                       ; Initialize IDE controller.
     call fat32_init                                     ; Initialize FAT32 filesystem.
+    call pci_init                                       ; Enumerate PCI devices.
+    call nic_init                                       ; Initialize NIC drivers.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;xchg bx, bx ; Bochs magic

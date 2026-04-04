@@ -246,7 +246,7 @@ A cluster is modeled as additional NUMA nodes with higher latency. From the sche
 
 Memory on remote nodes is accessible but expensive. The allocator prefers local memory. Remote allocation requires explicit intent. Coherence across machines is handled by the DSM layer: remote pages are fetched on demand via page faults. Each shared slice has a permanent writer; readers fetch and cache pages read-only (see Coherence protocol).
 
-**Current status:** the kernel runs on a single node. The cluster memory model, DSM layer, coherence protocol, inter-node communication, and userspace device libraries (DPDK, SPDK) described above are the target architecture and are not yet implemented.
+**Current status:** the kernel runs on a single node with PCI enumeration (ECAM), virtio-net driver, and NIC abstraction layer implemented. The cluster memory model, DSM layer, coherence protocol, inter-node communication, and userspace device libraries (DPDK, SPDK) described above are the target architecture and are not yet implemented.
 
 ## Libc
 

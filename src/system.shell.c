@@ -6,6 +6,8 @@
 #include <system.fat32.h>
 #include <system.acpi.h>
 #include <system.cpu.h>
+#include <system.pci.h>
+#include <system.nic.h>
 #include <syscall.h>
 
 // Command buffer
@@ -31,6 +33,8 @@ static const char *commands[] = {
     "sys.disk.write",
     "sys.fs.ls",
     "sys.fs.cat",
+    "sys.pci.ls",
+    "sys.nic.ls",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -269,6 +273,8 @@ void cmd_help() {
     sh_print("  sys.disk.write  - Write disk sectors\n");
     sh_print("  sys.fs.ls       - List files on FAT32 disk\n");
     sh_print("  sys.fs.cat <f>  - Print file contents\n");
+    sh_print("  sys.pci.ls      - List PCI devices\n");
+    sh_print("  sys.nic.ls      - List network interfaces\n");
 }
 
 void cmd_clear() {
@@ -702,6 +708,65 @@ void cmd_reboot() {
     while (1) { __asm__ __volatile__("hlt"); }
 }
 
+static const char hex_tbl[] = "0123456789abcdef";
+
+static void sh_print_hex16(uint16 val) {
+    sh_putc(hex_tbl[(val >> 12) & 0xF]);
+    sh_putc(hex_tbl[(val >> 8) & 0xF]);
+    sh_putc(hex_tbl[(val >> 4) & 0xF]);
+    sh_putc(hex_tbl[val & 0xF]);
+}
+
+static void sh_print_hex8(uint8 val) {
+    sh_putc(hex_tbl[(val >> 4) & 0xF]);
+    sh_putc(hex_tbl[val & 0xF]);
+}
+
+void cmd_lspci() {
+    uint32 count = pci_get_device_count();
+    if (count == 0) {
+        sh_print("No PCI devices found\n");
+        return;
+    }
+    for (uint32 i = 0; i < count; i++) {
+        const PCIDevice *d = pci_get_device(i);
+        sh_print_hex8(d->bus);
+        sh_putc(':');
+        sh_print_hex8(d->dev);
+        sh_putc('.');
+        sh_print_dec(d->func);
+        sh_print("  ");
+        sh_print_hex16(d->vendor_id);
+        sh_putc(':');
+        sh_print_hex16(d->device_id);
+        sh_print("  class ");
+        sh_print_hex8(d->class_code);
+        sh_putc(':');
+        sh_print_hex8(d->subclass);
+        sh_putc('\n');
+    }
+}
+
+void cmd_lsnic() {
+    uint32 count = nic_get_count();
+    if (count == 0) {
+        sh_print("No NICs found\n");
+        return;
+    }
+    for (uint32 i = 0; i < count; i++) {
+        sh_print((char *)nic_name(i));
+        sh_print("  MAC ");
+        uint8 mac[6];
+        nic_get_mac(i, mac);
+        for (int j = 0; j < 6; j++) {
+            sh_print_hex8(mac[j]);
+            if (j < 5) sh_putc(':');
+        }
+        sh_print(nic_link_status(i) ? "  link up" : "  link down");
+        sh_putc('\n');
+    }
+}
+
 void shell_execute_command() {
     while (cmd_index > 0 && cmd_buffer[cmd_index - 1] == ' ') {
         cmd_index--;
@@ -733,6 +798,8 @@ void shell_execute_command() {
         if (*args) sh_fat32_cat(args);
         else sh_print("Usage: sys.fs.cat <filename>\n");
     }
+    else if (strcmp(cmd_buffer, "sys.pci.ls") == 0) cmd_lspci();
+    else if (strcmp(cmd_buffer, "sys.nic.ls") == 0) cmd_lsnic();
     else {
         sh_print("Unknown command: ");
         sh_print(cmd_buffer);

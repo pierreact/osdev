@@ -17,6 +17,7 @@ echo "Press Ctrl+C to exit"
 echo "========================================"
 # Bootsector writes COM1 trace to ./bootserial.log (tail -f in another terminal).
 QEMU_ARGS=(
+    -machine q35
     -m 2G
     -serial file:./bootserial.log
     -smp "4,sockets=2,cores=2,threads=1"
@@ -24,6 +25,14 @@ QEMU_ARGS=(
     -object "memory-backend-ram,id=mem1,size=1G"
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0"
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1"
+    -netdev user,id=mgmt0
+    -device virtio-net-pci,netdev=mgmt0,romfile=
+    -netdev user,id=inter0
+    -device virtio-net-pci,netdev=inter0,romfile=
+    -netdev user,id=dpdk0
+    -device virtio-net-pci,netdev=dpdk0,romfile=
+    -netdev user,id=dpdk1
+    -device virtio-net-pci,netdev=dpdk1,romfile=
     -s
     -monitor stdio
     -boot order=d

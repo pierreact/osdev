@@ -71,7 +71,11 @@ T - Locality map generation.
 
 Drivers:
 T - NVMe driver.
-T - NIC driver.
+D - PCI enumeration (ECAM via MCFG).
+D - Virtio-net driver (virtqueue TX/RX, MAC, link status).
+D - NIC abstraction layer (vtable dispatch, multiple driver support).
+D - Q35 machine type for PCIe support.
+D - IDE controller detection skip on Q35/AHCI.
 T - TCP/IP stack (userspace, runs in ring 3 polling loop).
 
 Device libraries:

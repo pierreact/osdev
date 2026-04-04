@@ -58,18 +58,25 @@ static int ide_wait_ready() {
 
 void ide_init() {
     kprint("Initializing IDE controller...\n");
-    
+
+    // Check if IDE controller exists (Q35/AHCI returns 0xFF)
+    uint8 probe = inb(IDE_STATUS);
+    if(probe == 0xFF) {
+        kprint("IDE: No controller present\n");
+        return;
+    }
+
     outb(IDE_CONTROL, 0x02);
-    
+
     ide_wait_bsy();
-    
+
     outb(IDE_DRIVE_HEAD, 0xA0);
     outb(IDE_SECTOR_CNT, 0);
     outb(IDE_LBA_LOW, 0);
     outb(IDE_LBA_MID, 0);
     outb(IDE_LBA_HIGH, 0);
     outb(IDE_COMMAND, IDE_CMD_IDENTIFY);
-    
+
     uint8 status = inb(IDE_STATUS);
     if(status == 0) {
         kprint("IDE: No drive detected\n");
