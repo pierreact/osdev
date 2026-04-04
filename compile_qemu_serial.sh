@@ -18,6 +18,7 @@ echo "QEMU Serial Mode - OS shell on stdio"
 echo "Press Ctrl-A X to exit QEMU"
 echo "========================================"
 QEMU_ARGS=(
+    -machine q35
     -m 2G
     -serial stdio
     -display none
@@ -27,6 +28,14 @@ QEMU_ARGS=(
     -object "memory-backend-ram,id=mem1,size=1G"
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0"
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1"
+    -netdev user,id=mgmt0
+    -device virtio-net-pci,netdev=mgmt0,romfile=
+    -netdev user,id=inter0
+    -device virtio-net-pci,netdev=inter0,romfile=
+    -netdev user,id=dpdk0
+    -device virtio-net-pci,netdev=dpdk0,romfile=
+    -netdev user,id=dpdk1
+    -device virtio-net-pci,netdev=dpdk1,romfile=
     -boot order=d
     -cdrom "$ISO"
     -D ./qemu.log

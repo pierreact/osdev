@@ -33,6 +33,7 @@ mkfifo test/qemu.in test/qemu.out
 
 # Boot QEMU headless with serial on pipes
 qemu-system-x86_64 \
+    -machine q35 \
     -m 2G \
     -display none \
     -monitor none \
@@ -42,6 +43,14 @@ qemu-system-x86_64 \
     -object "memory-backend-ram,id=mem1,size=1G" \
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0" \
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1" \
+    -netdev user,id=mgmt0 \
+    -device virtio-net-pci,netdev=mgmt0,romfile= \
+    -netdev user,id=inter0 \
+    -device virtio-net-pci,netdev=inter0,romfile= \
+    -netdev user,id=dpdk0 \
+    -device virtio-net-pci,netdev=dpdk0,romfile= \
+    -netdev user,id=dpdk1 \
+    -device virtio-net-pci,netdev=dpdk1,romfile= \
     -boot order=d \
     -cdrom "$ISO" \
     -no-reboot &
@@ -120,6 +129,14 @@ check "MMAP entries" "MMAP"
 # Test: sys.acpi.ls
 send_cmd "sys.acpi.ls"
 check "ACPI tables listed" "MADT"
+
+# Test: sys.pci.ls (Q35 + 4 virtio-net devices)
+send_cmd "sys.pci.ls"
+check "PCI devices found" "1af4"
+
+# Test: sys.nic.ls
+send_cmd "sys.nic.ls"
+check "NIC interface listed" "virtio-net"
 
 # Summary
 echo ""
