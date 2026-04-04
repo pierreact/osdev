@@ -23,7 +23,11 @@ SOURCES=    kmain.o \
             system.tss.o \
             system.syscall.o \
             system.task.o \
-            system.stack_protector.o
+            system.stack_protector.o \
+            system.pci.o \
+            system.virtio.o \
+            system.virtio_net.o \
+            system.nic.o
 
 CFLAGS=     -m64 \
             -ffreestanding \
