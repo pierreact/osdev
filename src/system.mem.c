@@ -162,7 +162,7 @@ void map_mmio_range(uint64 phys_start, uint64 size) {
         }
     }
 
-    // Flush TLB
+    // Flush TLB by reloading CR3
     uint64 cr3;
     __asm__ volatile("mov %%cr3, %0" : "=r"(cr3));
     __asm__ volatile("mov %0, %%cr3" : : "r"(cr3));
