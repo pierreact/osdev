@@ -2,7 +2,7 @@
 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell runs in ring 3 with SYSCALL/SYSRET. AP ring 3 threads, multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
 
-**Audience:** Application developers writing code against ZINC. For kernel design rationale, see `ARCHITECTURE.md`. For research context and project overview, see `README.md`.
+**Audience:** Application developers writing code against ZINC. For kernel design rationale, see [Architecture](../developer/architecture.md). For research context and project overview, see [Research Overview](../research/overview.md).
 
 This document describes the execution and memory model from the perspective of an application developer.
 

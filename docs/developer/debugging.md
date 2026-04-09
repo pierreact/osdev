@@ -1,6 +1,6 @@
 # OS Development - Debugging Guide
 
-**Audience:** Kernel developers. For memory layout details, see `memory_map.md`. For architecture decisions, see `ARCHITECTURE.md`.
+**Audience:** Kernel developers. For memory layout details, see [memory-map.md](memory-map.md). For architecture decisions, see [architecture.md](architecture.md).
 
 ## Bootsector trace (COM1)
 
@@ -151,6 +151,12 @@ info tlb           # Show TLB entries
 x /10x 0x100000    # Examine memory
 ```
 
+## Memory dump from QEMU monitor
+
+```
+memsave 0 0xffffffff dump.dmp
+```
+
 ## Memory Layout
 
-See `memory_map.md` for the full memory map.
+See [memory-map.md](memory-map.md) for the full memory map.

@@ -2,7 +2,7 @@
 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. Multi-node clustering, DSM, DPDK, and SPDK are not yet implemented. Sections below describe the intended design, not the current state.
 
-**Audience:** Kernel developers and contributors. For application-level guidance, see `doc/user/application-model.md`. For research context, see `README.md`.
+**Audience:** Kernel developers and contributors. For application-level guidance, see [Application Model](../user/application-model.md). For research context, see [Research Overview](../research/overview.md).
 
 Decisions and rationale behind kernel design choices.
 

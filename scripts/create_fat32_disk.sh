@@ -1,5 +1,6 @@
 #!/bin/bash
 # Creates an optional FAT32 data disk image (non-boot media).
+cd "$(dirname "$0")/.."
 
 IMG=bin/fat32.img
 

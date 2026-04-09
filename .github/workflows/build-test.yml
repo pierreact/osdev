@@ -20,7 +20,7 @@ jobs:
           sudo apt-get install -y -qq nasm gcc xorriso qemu-system-x86 mtools
 
       - name: Build
-        run: ./compile.sh
+        run: scripts/compile.sh
 
       - name: Boot and test
         run: ./test/run_tests.sh

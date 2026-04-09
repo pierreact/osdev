@@ -1,5 +1,6 @@
-Done
-----
+# Roadmap
+
+## Done
 
 D - Long to hex in C.
 D - Rework IDT and ISRs, some trap and fault IDT entries have to be set properly.
@@ -37,11 +38,15 @@ D - BSP cooperative multitasking infrastructure (task create/yield/exit/wait/wak
 D - Namespaced commands (sys.cpu.ls, sys.numa.ls, sys.fs.df, sys.mem.free, etc.).
 D - Tab completion walking the namespace tree.
 D - Define ZINC syscall interface (syscall instruction, numbers, register convention).
+D - PCI enumeration (ECAM via MCFG).
+D - Virtio-net driver (virtqueue TX/RX, MAC, link status).
+D - NIC abstraction layer (vtable dispatch, multiple driver support).
+D - Q35 machine type for PCIe support.
+D - IDE controller detection skip on Q35/AHCI.
 
-Upcoming work
--------------
+## Upcoming work
 
-Shell and userland:
+### Shell and userland
 T - Filesystem layout: /bin (binaries), /home, /log, /conf (configurations).
 T - Commands as separate binaries in /bin, loaded from FAT32.
 T - Keymap loader from FS.
@@ -51,15 +56,15 @@ T - User identification (username prompt, no password, must match existing user 
 T - root user exists by default, can create other users. No home directory for root.
 T - Common users get a personal home directory in /home/<username>.
 
-Cross-compilation toolchain:
+### Cross-compilation toolchain
 T - GCC cross-toolchain target (x86_64-unknown-zinc): machine config, linker defaults.
 T - Libc (malloc, printf, string operations, math, time functions) wrapping ZINC syscalls.
 T - Default linker script for ZINC userland binaries.
 
-Future consideration:
+### Future consideration
 - Time-bound cluster utilisation per user. Policy-based scheduling: after a defined period, user A's jobs stop to let user B's jobs start. Users can pre-configure job definitions so the system starts them automatically when their time slot begins. Enables unattended time slicing of cluster resources.
 
-Kernel improvements:
+### Kernel improvements
 T - FAT32 write support (BSP system disk: /bin, /conf, /home, /log).
 T - Slab allocator (replace O(n) bitmap scan for frequent small allocations).
 T - Ring 3 thread execution on AP cores.
@@ -69,22 +74,17 @@ T - Binary loader (load and execute /bin commands from FAT32).
 T - Shared memory region mapping.
 T - Locality map generation.
 
-Drivers:
+### Drivers
 T - NVMe driver.
-D - PCI enumeration (ECAM via MCFG).
-D - Virtio-net driver (virtqueue TX/RX, MAC, link status).
-D - NIC abstraction layer (vtable dispatch, multiple driver support).
-D - Q35 machine type for PCIe support.
-D - IDE controller detection skip on Q35/AHCI.
 T - TCP/IP stack (userspace, runs in ring 3 polling loop).
 
-Device libraries:
+### Device libraries
 T - DPDK: userspace NIC library (DMA rings, RSS, per-thread queues, TCP/IP).
 T - SPDK: userspace NVMe library (direct block access, polling).
 T - Blobstore: block-level allocator over SPDK (named extents, no filesystem overhead).
 T - BlobFS: minimal filesystem over Blobstore (flat namespace, file semantics for apps).
 
-Multi-node / clustering:
+### Multi-node / clustering
 T - Inter-node NIC driver (layer 2 communication between nodes).
 T - DSM layer: page fault to network request path.
 T - Coherence protocol: cache invalidation on write, coordinated through BSP.
