@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="isurus_logo.png" alt="Isurus logo" width="300">
+</p>
+
 # Isurus - Zero-Interrupt NUMA Cluster
 
 A bare-metal OS kernel for x86-64. The idea: treat a cluster of machines as one big NUMA computer, where a single process spans multiple physical nodes and threads share memory transparently across machines.
