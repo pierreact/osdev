@@ -10,14 +10,14 @@ When a NIC DMAs packets into memory, the CPU cache may hold stale data at those 
 
 The consequence: DMA buffers can live in normal write-back cacheable memory. Threads reading packet data get full cache performance with no manual coherence management.
 
-## Why ZINC requires it
+## Why Isurus requires it
 
-This is not a correctness issue. A non-coherent system would still work with proper cache management. The requirement comes from ZINC's specific design choices:
+This is not a correctness issue. A non-coherent system would still work with proper cache management. The requirement comes from Isurus's specific design choices:
 
 **Performance at line rate.** Without coherent DMA, every received packet requires explicit cache line invalidations before the CPU can read the DMA data. A 2KB packet buffer spans 32 cache lines (64 bytes each) -- that is 32 `clflush` instructions per packet. At millions of packets per second on a polling-based NIC driver, this adds significant latency to every iteration of the hot path.
 
-**Zero-copy design.** ZINC's I/O path is zero-copy: the DMA buffer is the application buffer. There is no intermediate kernel buffer or bounce buffer. Without coherent DMA, you would either flush before every read (adding per-packet latency) or copy through uncacheable memory (breaking zero-copy and adding a memcpy).
+**Zero-copy design.** Isurus's I/O path is zero-copy: the DMA buffer is the application buffer. There is no intermediate kernel buffer or bounce buffer. Without coherent DMA, you would either flush before every read (adding per-packet latency) or copy through uncacheable memory (breaking zero-copy and adding a memcpy).
 
-**Userspace direct access.** ZINC maps device MMIO and DMA buffers directly into ring 3 (userspace). Some cache management instructions (`wbinvd`) are ring 0 only and cannot be executed from userspace. `clflush` is available in ring 3 but adds per-cache-line overhead to the userspace hot path. The DPDK library would need explicit cache management on every TX/RX operation, complicating the code and the data path.
+**Userspace direct access.** Isurus maps device MMIO and DMA buffers directly into ring 3 (userspace). Some cache management instructions (`wbinvd`) are ring 0 only and cannot be executed from userspace. `clflush` is available in ring 3 but adds per-cache-line overhead to the userspace hot path. The DPDK library would need explicit cache management on every TX/RX operation, complicating the code and the data path.
 
-A kernel that uses bounce buffers or kernel-managed DMA could work on non-coherent hardware. But that is the opposite of what ZINC does.
+A kernel that uses bounce buffers or kernel-managed DMA could work on non-coherent hardware. But that is the opposite of what Isurus does.

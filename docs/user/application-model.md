@@ -1,18 +1,18 @@
-# Writing Applications for ZINC
+# Writing Applications for Isurus
 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell runs in ring 3 with SYSCALL/SYSRET. AP ring 3 threads, multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
 
-**Audience:** Application developers writing code against ZINC. For kernel design rationale, see [Architecture](../developer/architecture.md). For research context and project overview, see [Research Overview](../research/overview.md).
+**Audience:** Application developers writing code against Isurus. For kernel design rationale, see [Architecture](../developer/architecture.md). For research context and project overview, see [Research Overview](../research/overview.md).
 
 This document describes the execution and memory model from the perspective of an application developer.
 
 Current deployment model is ISO-first: machines boot the OS from a BIOS-bootable ISO built with **El Torito hard-disk emulation** of the full **`os.bin`** image (see `compile.sh` / `xorriso`). The primary boot path is **firmware + El Torito**, not GRUB loading the kernel file. Application/runtime data disks are separate and optional at boot. This keeps OS/tooling versions immutable and makes rollback a media switch (or PXE) instead of an in-place mutation.
 
-ZINC turns off-the-shelf x86 hardware into a unified supercomputer. It runs on a single machine or across a cluster; commodity servers connected by standard networking, treated as one shared-memory machine with a single process, a single shared address space, spanning as many nodes as you plug in but still with some protection.
+Isurus turns off-the-shelf x86 hardware into a unified supercomputer. It runs on a single machine or across a cluster; commodity servers connected by standard networking, treated as one shared-memory machine with a single process, a single shared address space, spanning as many nodes as you plug in but still with some protection.
 
 ## Supported languages
 
-ZINC provides a libc (malloc, printf, string operations, math, time functions) but not a full POSIX runtime. Any language that compiles to native code and can operate freestanding or link against a minimal libc is a candidate.
+Isurus provides a libc (malloc, printf, string operations, math, time functions) but not a full POSIX runtime. Any language that compiles to native code and can operate freestanding or link against a minimal libc is a candidate.
 
 **Native, no runtime required:**
 - **C:** the primary language. Direct hardware control, freestanding.
@@ -22,7 +22,7 @@ ZINC provides a libc (malloc, printf, string operations, math, time functions) b
 - **Rust:** `no_std` mode, no runtime, memory safety at compile time.
 - **D:** `betterC` mode strips the runtime entirely. Compiles to native code via GCC or LLVM backend.
 
-**Not currently compatible:** Languages that require an interpreter (Python, Ruby, JavaScript) or a managed runtime with OS dependencies (Go, Java, C#, Erlang, Haskell). These runtimes depend on POSIX services that ZINC does not provide. Porting such a runtime to ZINC is theoretically possible but would be a significant effort.
+**Not currently compatible:** Languages that require an interpreter (Python, Ruby, JavaScript) or a managed runtime with OS dependencies (Go, Java, C#, Erlang, Haskell). These runtimes depend on POSIX services that Isurus does not provide. Porting such a runtime to Isurus is theoretically possible but would be a significant effort.
 
 ## Execution model
 
@@ -38,11 +38,11 @@ Your application runs as a single process spanning one or more machines in the c
 
 ### Real-time characteristics
 
-ZINC provides no preemption, no scheduling jitter, no OS-generated interrupt latency on application threads, and deterministic core ownership with CPUs always at maximum capacity.
+Isurus provides no preemption, no scheduling jitter, no OS-generated interrupt latency on application threads, and deterministic core ownership with CPUs always at maximum capacity.
 
 This benefits two categories of workloads. Latency-sensitive work (packet processing, storage I/O, real-time simulation, high-frequency trading) gets predictable response times. Throughput-oriented work (heavy computation, batch processing, streaming) gets every CPU cycle; no overhead lost to the OS.
 
-**Single node: low-jitter.** All memory accesses are local (same NUMA node or cross-NUMA within the machine). No network, no DSM faults, no OS-generated interrupts on application cores, no scheduling. The remaining jitter sources are hardware-level: SMIs (firmware, invisible to any OS, can steal hundreds of microseconds), NMIs, and MCEs. These are infrequent but cannot be eliminated without firmware cooperation. ZINC gets you as close to hard real-time as x86-64 allows without custom firmware.
+**Single node: low-jitter.** All memory accesses are local (same NUMA node or cross-NUMA within the machine). No network, no DSM faults, no OS-generated interrupts on application cores, no scheduling. The remaining jitter sources are hardware-level: SMIs (firmware, invisible to any OS, can steal hundreds of microseconds), NMIs, and MCEs. These are infrequent but cannot be eliminated without firmware cooperation. Isurus gets you as close to hard real-time as x86-64 allows without custom firmware.
 
 **Cluster: soft real-time.** DSM page faults introduce network-dependent latency when a thread first accesses remote shared memory. Subsequent accesses to the same page are cached and local. The latency bound depends on network conditions and BSP queue depth, not on a guaranteed worst-case deadline.
 
@@ -143,10 +143,10 @@ All devices are accessed via polling from userspace. No interrupts, no syscalls.
 
 All buffers are allocated on your thread's NUMA node. Zero copy; data is not moved between buffers.
 
-## What ZINC does not provide
+## What Isurus does not provide
 
 - **No dynamic linking.** All binaries are statically linked.
-- **No virtual memory tricks.** ZINC uses virtual memory (page tables, per-thread CR3) for isolation and mapping, but no swap, no fork, no copy-on-write, no demand paging. Every page is backed by a physical frame, NUMA-local, allocated at thread creation.
+- **No virtual memory tricks.** Isurus uses virtual memory (page tables, per-thread CR3) for isolation and mapping, but no swap, no fork, no copy-on-write, no demand paging. Every page is backed by a physical frame, NUMA-local, allocated at thread creation.
 - **No mmap.** Device MMIO is mapped by the kernel at thread setup. Storage is accessed directly via SPDK (planned), not through a filesystem. Shared memory is pre-partitioned or BSP-allocated. There is nothing left for mmap to do.
 - **No scheduling on APs.** One thread per core, pinned at creation. No preemption, no context switching, no migration, no load balancing. BSP uses cooperative multitasking for management tasks (shell, coordinator, telnet), but this does not affect application threads.
 - **No power management.** All CPUs run at maximum frequency at all times. No frequency scaling, no deep sleep states. This will be revisited in the future, when no job runs, it doesn't make sense to run at full frequency.
@@ -212,40 +212,40 @@ The locality map is not updated after failover. It still reflects the original p
 
 > **Note:** This comparison describes the target architecture. The kernel currently runs on a single node. The multi-node features described below (DSM, cross-machine memory, machine anti-affinity for fault tolerance) are not yet implemented.
 
-This section compares ZINC with Linux-based HPC stacks across dimensions that matter for supercomputing workloads. The goal is to help you decide which platform fits your use case, not to argue that one is universally better.
+This section compares Isurus with Linux-based HPC stacks across dimensions that matter for supercomputing workloads. The goal is to help you decide which platform fits your use case, not to argue that one is universally better.
 
-### Why ZINC instead of Linux
+### Why Isurus instead of Linux
 
 On Linux, getting bare-metal performance from an HPC workload requires fighting the kernel at every step: isolcpus, DPDK, SPDK, taskset, hugepages, NUMA pinning, RT scheduling, cgroups. Each is a workaround against a general-purpose OS that was not designed for your workload. These workarounds interact badly, break across kernel upgrades, and require expert-level tuning to get right.
 
-ZINC eliminates the entire category of "kernel bypass." There is nothing to bypass. The design assumptions match HPC workloads from the start:
+Isurus eliminates the entire category of "kernel bypass." There is nothing to bypass. The design assumptions match HPC workloads from the start:
 
 - **Minimal jitter.** No OS-generated interrupts on application cores, no scheduler, no frequency scaling, no context switches. CPUs run at maximum capacity at all times. The only remaining jitter sources are hardware-level (SMIs, NMIs, MCEs), which are infrequent. For latency-sensitive workloads, this means predictable tail latency. For throughput-oriented workloads, this means no cycles lost to OS overhead.
 - **Shared memory across machines without MPI.** A pointer dereference works across the cluster. No serialization, no message passing, no explicit data movement. For workloads with irregular, fine-grained access patterns (graph processing, sparse computation, distributed databases), this eliminates the entire messaging layer.
-- **NUMA-correct by default.** On Linux, getting NUMA right is expert-level work and fragile. On ZINC, every allocation is NUMA-local, every thread is pinned, the locality map tells you the cost of every access. You cannot accidentally get it wrong.
+- **NUMA-correct by default.** On Linux, getting NUMA right is expert-level work and fragile. On Isurus, every allocation is NUMA-local, every thread is pinned, the locality map tells you the cost of every access. You cannot accidentally get it wrong.
 - **Single-purpose deployment.** One process, one cluster, one workload. No containers, no orchestration, no package management, no multi-tenant isolation. You deploy a workload and every core runs it.
 
-The trade-off is ecosystem. ZINC has no third-party libraries, no standard debuggers, no safety net. It is for teams who know exactly what they want to run and are willing to write against a bare-metal API to get maximum performance. If your team spends significant engineering effort tuning Linux to get out of the way, ZINC is a system where that tuning is the default.
+The trade-off is ecosystem. Isurus has no third-party libraries, no standard debuggers, no safety net. It is for teams who know exactly what they want to run and are willing to write against a bare-metal API to get maximum performance. If your team spends significant engineering effort tuning Linux to get out of the way, Isurus is a system where that tuning is the default.
 
 The sections below compare each dimension in detail.
 
 ### I/O path
 
-**Trade-off.** Linux has decades of driver support for virtually every device on the market. ZINC supports only the devices that have been explicitly implemented. If your hardware is not supported, Linux is your only option.
+**Trade-off.** Linux has decades of driver support for virtually every device on the market. Isurus supports only the devices that have been explicitly implemented. If your hardware is not supported, Linux is your only option.
 
 ### Scheduling and thread model
 
 **Linux.** General-purpose preemptive scheduler with thousands of threads, migration, load balancing, and CFS. You can pin threads with taskset or cgroups, but it is opt-in and fragile; a misconfigured cgroup or a stray system thread can still steal cycles.
 
-**ZINC.** One thread per core, pinned at creation, no context switching, no scheduler overhead. The core belongs entirely to your thread. BSP handles all interrupts so application threads are never preempted.
+**Isurus.** One thread per core, pinned at creation, no context switching, no scheduler overhead. The core belongs entirely to your thread. BSP handles all interrupts so application threads are never preempted.
 
-**Trade-off.** Linux handles mixed workloads well (batch jobs, interactive services, system daemons coexisting). ZINC is single-purpose; every core except BSP runs application code. If you need to run unrelated services alongside your HPC workload, Linux is the better choice.
+**Trade-off.** Linux handles mixed workloads well (batch jobs, interactive services, system daemons coexisting). Isurus is single-purpose; every core except BSP runs application code. If you need to run unrelated services alongside your HPC workload, Linux is the better choice.
 
 ### Cross-machine memory
 
 **Linux.** No shared memory across machines. Applications must use MPI, RDMA verbs, or application-level protocols. Data that crosses machine boundaries must be explicitly serialized and transferred.
 
-**ZINC.** DSM provides a shared address space across machines. A pointer dereference to remote data just works; the page fault and network fetch happen transparently behind the scenes.
+**Isurus.** DSM provides a shared address space across machines. A pointer dereference to remote data just works; the page fault and network fetch happen transparently behind the scenes.
 
 **Trade-off.** DSM adds page-fault latency on first remote access. MPI can batch transfers more efficiently for bulk data movement where access patterns are known in advance. DSM is better for fine-grained, irregular access patterns where the application cannot predict which data it will need next.
 
@@ -253,27 +253,27 @@ The sections below compare each dimension in detail.
 
 **Linux.** NUMA is a secondary heuristic. Tools like numactl, mbind, and set_mempolicy exist but are opt-in. The default allocator may place memory on the wrong node, and the scheduler may migrate threads away from their data.
 
-**ZINC.** NUMA is the primary abstraction. All allocations are NUMA-local by default. Affinity constraints are specified at thread creation. The locality map tells your application the cost tier of every shared region.
+**Isurus.** NUMA is the primary abstraction. All allocations are NUMA-local by default. Affinity constraints are specified at thread creation. The locality map tells your application the cost tier of every shared region.
 
-**Trade-off.** Linux is more flexible; you can change NUMA policy at runtime, migrate threads, and rebalance dynamically. ZINC's static placement is simpler and more predictable but less adaptive to changing workload patterns.
+**Trade-off.** Linux is more flexible; you can change NUMA policy at runtime, migrate threads, and rebalance dynamically. Isurus's static placement is simpler and more predictable but less adaptive to changing workload patterns.
 
 ### Ecosystem and tooling
 
 **Linux.** Mature ecosystem. GDB, perf, valgrind, strace, thousands of libraries, package managers, container runtimes, decades of documentation and community knowledge.
 
-**ZINC.** Research prototype. Minimal tooling. No standard library beyond what the kernel provides. Application code must be written directly against the kernel's APIs.
+**Isurus.** Research prototype. Minimal tooling. No standard library beyond what the kernel provides. Application code must be written directly against the kernel's APIs.
 
-**Trade-off.** This is the biggest practical barrier. Linux wins overwhelmingly on ecosystem maturity. If your application depends on third-party libraries, debugging tools, or container infrastructure, the cost of porting to ZINC may outweigh the performance benefits.
+**Trade-off.** This is the biggest practical barrier. Linux wins overwhelmingly on ecosystem maturity. If your application depends on third-party libraries, debugging tools, or container infrastructure, the cost of porting to Isurus may outweigh the performance benefits.
 
 ### Fault tolerance
 
 **Linux.** Process isolation via virtual memory, mature error handling, and decades of hardening. A crashed process does not take down the system. Other processes continue unaffected.
 
-**ZINC.** Thread isolation via per-thread page tables. Shared pages are replicated to backup nodes. Heartbeat-based failure detection triggers automatic thread re-instantiation. The single-writer principle limits corruption scope.
+**Isurus.** Thread isolation via per-thread page tables. Shared pages are replicated to backup nodes. Heartbeat-based failure detection triggers automatic thread re-instantiation. The single-writer principle limits corruption scope.
 
-**Trade-off.** Linux isolates processes from each other completely. ZINC runs a single process spanning the cluster; a thread failure can affect shared state. The single-writer principle and BSP scrubbing mitigate this, but the blast radius of a failure is larger than Linux process isolation.
+**Trade-off.** Linux isolates processes from each other completely. Isurus runs a single process spanning the cluster; a thread failure can affect shared state. The single-writer principle and BSP scrubbing mitigate this, but the blast radius of a failure is larger than Linux process isolation.
 
-### When ZINC is a better fit
+### When Isurus is a better fit
 
 **Single node (bare-metal low-jitter OS):**
 

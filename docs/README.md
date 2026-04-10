@@ -1,4 +1,4 @@
-# ZINC Documentation
+# Isurus Documentation
 
 ## Getting Started
 

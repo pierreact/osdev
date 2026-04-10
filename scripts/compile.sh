@@ -58,7 +58,7 @@ if run_with_env command -v xorriso >/dev/null 2>&1; then
     run_with_env xorriso -as mkisofs \
         -o "$ISO_IMAGE" \
         -r -J \
-        -V ZINC_OS \
+        -V ISURUS_OS \
         -b boot/os.bin \
         -no-emul-boot \
         -boot-load-size "$BOOT_LOAD_SIZE" \

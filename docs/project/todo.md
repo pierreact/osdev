@@ -37,7 +37,7 @@ D - Input ring buffer decoupling ISR from ring 3 shell.
 D - BSP cooperative multitasking infrastructure (task create/yield/exit/wait/wake).
 D - Namespaced commands (sys.cpu.ls, sys.numa.ls, sys.fs.df, sys.mem.free, etc.).
 D - Tab completion walking the namespace tree.
-D - Define ZINC syscall interface (syscall instruction, numbers, register convention).
+D - Define Isurus syscall interface (syscall instruction, numbers, register convention).
 D - PCI enumeration (ECAM via MCFG).
 D - Virtio-net driver (virtqueue TX/RX, MAC, link status).
 D - NIC abstraction layer (vtable dispatch, multiple driver support).
@@ -57,9 +57,9 @@ T - root user exists by default, can create other users. No home directory for r
 T - Common users get a personal home directory in /home/<username>.
 
 ### Cross-compilation toolchain
-T - GCC cross-toolchain target (x86_64-unknown-zinc): machine config, linker defaults.
-T - Libc (malloc, printf, string operations, math, time functions) wrapping ZINC syscalls.
-T - Default linker script for ZINC userland binaries.
+T - GCC cross-toolchain target (x86_64-unknown-isurus): machine config, linker defaults.
+T - Libc (malloc, printf, string operations, math, time functions) wrapping Isurus syscalls.
+T - Default linker script for Isurus userland binaries.
 
 ### Future consideration
 - Time-bound cluster utilisation per user. Policy-based scheduling: after a defined period, user A's jobs stop to let user B's jobs start. Users can pre-configure job definitions so the system starts them automatically when their time slot begins. Enables unattended time slicing of cluster resources.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Boot ZINC in QEMU headless, send commands over serial, verify output.
+# Boot Isurus in QEMU headless, send commands over serial, verify output.
 # Exit 0 on success, 1 on failure.
 #
 # Usage: ./test/run_tests.sh [path/to/os.iso]

@@ -117,7 +117,7 @@ In Linux, DPDK is a workaround against the OS: it bypasses the kernel to poll th
 
 ## Thread memory isolation
 
-Each AP loads its own CR3, pointing to its own PML4T. This gives each thread a fully independent address space: different virtual-to-physical mappings, different permission bits, complete isolation. Intel MPK (Skylake+) can toggle read/write permissions per-thread within a shared address space, but is limited to 16 protection keys and does not provide address space separation. Per-thread CR3 is the stronger mechanism and the one ZINC uses.
+Each AP loads its own CR3, pointing to its own PML4T. This gives each thread a fully independent address space: different virtual-to-physical mappings, different permission bits, complete isolation. Intel MPK (Skylake+) can toggle read/write permissions per-thread within a shared address space, but is limited to 16 protection keys and does not provide address space separation. Per-thread CR3 is the stronger mechanism and the one Isurus uses.
 
 One thread per core, no context switching. CR3 is loaded once during AP startup and never changes.
 
@@ -250,10 +250,10 @@ Memory on remote nodes is accessible but expensive. The allocator prefers local 
 
 ## Libc
 
-ZINC ships a minimal libc providing malloc, printf, string operations, math, time and helper functions for memory areas mentioned aboved. No POSIX. No dynamic linking; all binaries are statically linked. There is no dynamic linker.
+Isurus ships a minimal libc providing malloc, printf, string operations, math, time and helper functions for memory areas mentioned aboved. No POSIX. No dynamic linking; all binaries are statically linked. There is no dynamic linker.
 
 ## Timer architecture
 
-ZINC uses the TSC (Time Stamp Counter) for nanosecond-resolution timing. RDTSC/RDTSCP is the primary runtime clock source on AP threads. ACPI HPET and FADT PM timer are parsed and exposed for calibration/validation and platform timing metadata. ACPI reset register (FADT) is used as the preferred reboot path when available, with existing fallback reset methods preserved.
+Isurus uses the TSC (Time Stamp Counter) for nanosecond-resolution timing. RDTSC/RDTSCP is the primary runtime clock source on AP threads. ACPI HPET and FADT PM timer are parsed and exposed for calibration/validation and platform timing metadata. ACPI reset register (FADT) is used as the preferred reboot path when available, with existing fallback reset methods preserved.
 
 Cross-node time synchronization through PTP will provide consistent timestamps across all machines in the cluster, enabling coordinated timing for distributed workloads.

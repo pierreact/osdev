@@ -1,14 +1,14 @@
-# ZINC - Research Overview
+# Isurus - Research Overview
 
 > **Note:** This document describes the target architecture. The kernel currently runs on a single node. Multi-node clustering, DSM, DPDK, and SPDK are not yet implemented. Sections below describe the intended design, not the current state.
 
 ## 1. Project Overview
 
-ZINC is an **operating system for AMD64 (x86-64)** where the kernel runs on its own dedicated core (BSP) and never sits in the application's data path. Application threads own their cores entirely: they access devices directly via mapped MMIO, poll NICs and storage without syscalls, and are never interrupted by the kernel. BSP handles coordination separately -- setup, memory management, coherence, fault recovery -- but once threads are running, the kernel is not between them and the hardware.
+Isurus is an **operating system for AMD64 (x86-64)** where the kernel runs on its own dedicated core (BSP) and never sits in the application's data path. Application threads own their cores entirely: they access devices directly via mapped MMIO, poll NICs and storage without syscalls, and are never interrupted by the kernel. BSP handles coordination separately -- setup, memory management, coherence, fault recovery -- but once threads are running, the kernel is not between them and the hardware.
 
 On a **single machine**, this gives you a bare-metal execution environment with minimal jitter, direct device access (DPDK-style NIC polling, SPDK-planned storage), and CPUs locked at maximum frequency. What Linux HPC and HFT shops achieve through extensive tuning (isolcpus, DPDK, hugepages, RT scheduling, NUMA pinning) is the default configuration here.
 
-On a **cluster**, ZINC extends this model across machines. Multiple nodes are treated as **one large NUMA topology**. A single process spans all machines, threads share a **single logical address space** via distributed shared memory, and remote memory access is transparent (a page fault fetches the data over layer 2).
+On a **cluster**, Isurus extends this model across machines. Multiple nodes are treated as **one large NUMA topology**. A single process spans all machines, threads share a **single logical address space** via distributed shared memory, and remote memory access is transparent (a page fault fetches the data over layer 2).
 
 The kernel is implemented as a **research prototype** to evaluate:
 

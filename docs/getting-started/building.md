@@ -1,4 +1,4 @@
-# Building and Running ZINC
+# Building and Running Isurus
 
 ## Prerequisites
 

@@ -1,4 +1,4 @@
-# ZINC - Zero-Interrupt NUMA Cluster
+# Isurus - Zero-Interrupt NUMA Cluster
 
 A bare-metal OS kernel for x86-64. The idea: treat a cluster of machines as one big NUMA computer, where a single process spans multiple physical nodes and threads share memory transparently across machines.
 
@@ -13,7 +13,7 @@ Scaling a workload beyond one machine today means rewriting it as a distributed 
 
 The common thread: the OS gets in the way.
 
-## What ZINC does differently
+## What Isurus does differently
 
 - **Cluster as NUMA topology.** Remote machines are just NUMA nodes with higher latency. Same abstraction, different numbers.
 - **One thread per core, pinned.** No scheduling, no migration, no context switching. Placement is decided once at creation.
@@ -54,7 +54,7 @@ scripts/compile_qemu.sh
 
 - **[Getting Started](docs/getting-started/building.md)** -- build toolchain, compile scripts, QEMU setup
 - **[Research Overview](docs/research/overview.md)** -- motivation, core concepts, evaluation goals
-- **[Application Model](docs/user/application-model.md)** -- execution model, memory model, how to write applications for ZINC
+- **[Application Model](docs/user/application-model.md)** -- execution model, memory model, how to write applications for Isurus
 - **[Architecture](docs/developer/architecture.md)** -- kernel design decisions and rationale
 - **[Full Documentation Index](docs/README.md)** -- all documentation organized by audience
 
