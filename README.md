@@ -2,6 +2,12 @@
 
 A bare-metal OS kernel for x86-64. The idea: treat a cluster of machines as one big NUMA computer, where a single process spans multiple physical nodes and threads share memory transparently across machines.
 
+## Why "Isurus"
+
+*Isurus* is the genus of the mako shark. Mako sharks are obligate ram ventilators: they must keep swimming to breathe. They never stop, they never sleep, they never idle. They have warm-blooded muscles in an otherwise cold-blooded lineage -- specialized engineering for sustained high performance. They are the fastest sharks in the ocean, solitary pelagic hunters.
+
+The metaphor maps directly to the kernel's design: threads never yield, CPUs never throttle, cores run at full speed continuously, each thread owns its hardware and hunts alone. Stop moving and you die.
+
 ## The problem
 
 Scaling a workload beyond one machine today means rewriting it as a distributed system:
