@@ -1,18 +1,20 @@
 #!/bin/bash
 # Interactive serial mode: OS shell on stdio, no VGA window.
 # Use this to interact with the OS over COM1.
+cd "$(dirname "$0")/.."
 set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
-./compile.sh
+scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
     echo "Error: ISO not found after compile: $ISO" >&2
     exit 1
 fi
 
-rm -f ./qemu.log
+mkdir -p logs
+rm -f logs/qemu.log
 echo "========================================"
 echo "QEMU Serial Mode - OS shell on stdio"
 echo "Press Ctrl-A X to exit QEMU"
@@ -38,7 +40,7 @@ QEMU_ARGS=(
     -device virtio-net-pci,netdev=dpdk1,romfile=
     -boot order=d
     -cdrom "$ISO"
-    -D ./qemu.log
+    -D logs/qemu.log
     -d "int,cpu_reset,guest_errors"
 )
 

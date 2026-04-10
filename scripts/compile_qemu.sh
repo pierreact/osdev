@@ -1,28 +1,27 @@
 #!/bin/bash
-# Debug version - prevents automatic reboots on crashes/triple faults
+cd "$(dirname "$0")/.."
 set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
-./compile.sh
+scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
     echo "Error: ISO not found after compile: $ISO" >&2
     exit 1
 fi
 
-rm -f ./qemu.log
-# Bootsector COM1 trace (same as compile_qemu.sh)
-echo "Bootsector serial trace: ./bootserial.log (tail -f)"
-echo "========================================" 
-echo "QEMU DEBUG Mode - logs in ./qemu.log"
-echo "Reboot disabled for debugging"
+mkdir -p logs
+rm -f logs/qemu.log
+echo "========================================"
+echo "QEMU Running - logs in logs/qemu.log"
+echo "Serial output: logs/serial.log"
 echo "Press Ctrl+C to exit"
 echo "========================================"
 QEMU_ARGS=(
     -machine q35
     -m 2G
-    -serial file:./bootserial.log
+    -serial file:logs/serial.log
     -smp "4,sockets=2,cores=2,threads=1"
     -object "memory-backend-ram,id=mem0,size=1G"
     -object "memory-backend-ram,id=mem1,size=1G"
@@ -40,11 +39,8 @@ QEMU_ARGS=(
     -monitor stdio
     -boot order=d
     -cdrom "$ISO"
-    -D ./qemu.log
-    -d in_asm,int,cpu_reset,guest_errors
-    -dfilter 0x600+0x200
-    -no-reboot
-    -no-shutdown
+    -D logs/qemu.log
+    -d "int,cpu_reset,guest_errors"
 )
 
 if [ -f "$DATA_DISK" ]; then
@@ -54,4 +50,3 @@ else
 fi
 
 qemu-system-x86_64 "${QEMU_ARGS[@]}"
-

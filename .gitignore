@@ -22,10 +22,7 @@ src/kernel
 *~
 snapshot.txt
 bin/
-compile_logs.log
-qemu.log
-qemudump.log
-bootserial.log
+*.log
 iso/
 test/serial_output.log
 test/qemu.in

@@ -1,7 +1,8 @@
 #!/bin/bash
+cd "$(dirname "$0")/.."
 
 # This script connects GDB to QEMU for debugging
-# Run ./compile_qemu.sh in another terminal first (it starts with -s flag)
+# Run scripts/compile_qemu.sh in another terminal first (it starts with -s flag)
 
 cat > /tmp/gdb_commands.txt << 'EOF'
 # Connect to QEMU

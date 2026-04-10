@@ -1,5 +1,5 @@
 #!/bin/bash
-
+cd "$(dirname "$0")/.."
 set -euo pipefail
 
 OBJ=bin/os.bin
@@ -32,7 +32,7 @@ run_with_env dd if=src/kernel of="$OBJ" bs=512 seek=1 conv=notrunc
 
 # Create optional data disk image used by the IDE/FAT32 driver.
 echo "[compile] Preparing optional FAT32 data disk..."
-if ! run_with_env ./create_fat32_disk.sh; then
+if ! run_with_env scripts/create_fat32_disk.sh; then
     echo "[compile] Warning: data disk creation failed; continuing (boot does not depend on it)." >&2
 fi
 
@@ -58,7 +58,7 @@ if run_with_env command -v xorriso >/dev/null 2>&1; then
     run_with_env xorriso -as mkisofs \
         -o "$ISO_IMAGE" \
         -r -J \
-        -V ZINC_OS \
+        -V ISURUS_OS \
         -b boot/os.bin \
         -no-emul-boot \
         -boot-load-size "$BOOT_LOAD_SIZE" \

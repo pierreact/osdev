@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-04-10] - Renamed project from ZINC to Isurus
+
+### Changed
+- Project renamed to Isurus (shark genus containing the mako) to avoid collision with existing Zinc OS
+- "Zero-Interrupt NUMA Cluster" kept as descriptive subtitle (no longer an acronym)
+- ISO volume label: ZINC_OS -> ISURUS_OS
+
 ## [2026-04-02] - PCI enumeration, virtio-net driver, NIC abstraction
 
 ### Added
