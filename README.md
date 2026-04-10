@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="isurus_logo.png" alt="Isurus logo" width="300">
+  <img src="isurus_logo.png" alt="Isurus logo" width="100%">
 </p>
 
 # Isurus - Zero-Interrupt NUMA Cluster
