@@ -10,6 +10,7 @@ OBJECTS=    boot/kmain.o \
             arch/ports.o \
             arch/apic.o \
             arch/acpi.o \
+            arch/aml.o \
             kernel/mem.o \
             kernel/cpu.o \
             kernel/task.o \

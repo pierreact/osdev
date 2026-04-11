@@ -1,5 +1,6 @@
 #include <types.h>
 #include <arch/acpi.h>
+#include <arch/aml.h>
 #include <drivers/monitor.h>
 
 uint8  cpu_lapic_ids[MAX_CPUS];
@@ -602,6 +603,32 @@ void acpi_init(void) {
 
     dispatch_parsers();
 
+    // Parse DSDT and any SSDTs for AML _BBN/_PXM (PCI host bridge proximity).
+    // DSDT is referenced by FADT (x_dsdt or dsdt). SSDTs appear directly in
+    // the root table.
+    ACPISDTHeader *facp = acpi_get_table("FACP");
+    if (facp) {
+        FADT *fadt = (FADT *)facp;
+        uint64 dsdt_addr = fadt->x_dsdt ? fadt->x_dsdt : (uint64)fadt->dsdt;
+        if (dsdt_addr) {
+            ACPISDTHeader *dsdt = (ACPISDTHeader *)dsdt_addr;
+            if (validate_sdt(dsdt) &&
+                signatures_equal(dsdt->signature, "DSDT")) {
+                aml_parse((uint8 *)dsdt + sizeof(ACPISDTHeader),
+                          dsdt->length - sizeof(ACPISDTHeader));
+            }
+        }
+    }
+    for (uint32 i = 0; i < acpi_table_count; i++) {
+        if (signatures_equal(acpi_tables[i].signature, "SSDT")) {
+            ACPISDTHeader *ssdt = (ACPISDTHeader *)acpi_tables[i].address;
+            if (validate_sdt(ssdt)) {
+                aml_parse((uint8 *)ssdt + sizeof(ACPISDTHeader),
+                          ssdt->length - sizeof(ACPISDTHeader));
+            }
+        }
+    }
+
     // Keep interrupt routing functional even when MADT is absent or malformed.
     if (lapic_base_addr == 0) lapic_base_addr = 0xFEE00000;
     if (ioapic_base_addr == 0) ioapic_base_addr = 0xFEC00000;
@@ -809,6 +836,28 @@ int acpi_pci_to_node(uint16 segment, uint8 bus, uint8 dev, uint8 func, uint32 *n
             *node_out = numa_pci_affinities[i].proximity_domain;
             return 1;
         }
+    }
+
+    // Second: try the AML walker which extracted _BBN/_PXM from DSDT/SSDT.
+    // Walk up the bus number range to find the host bridge that owns this bus.
+    // We pick the host bridge with the largest _BBN <= bus.
+    uint32 best_node = 0;
+    int best_match = -1;
+    uint8 best_bbn = 0;
+    uint32 hb_count = aml_host_bridge_count();
+    for (uint32 i = 0; i < hb_count; i++) {
+        const AMLHostBridge *hb = aml_host_bridge(i);
+        if (hb->has_bbn && hb->has_pxm && hb->bus_base <= bus) {
+            if (best_match < 0 || hb->bus_base > best_bbn) {
+                best_bbn = hb->bus_base;
+                best_node = hb->proximity;
+                best_match = (int)i;
+            }
+        }
+    }
+    if (best_match >= 0) {
+        *node_out = best_node;
+        return 1;
     }
 
     // Fallback: look up the segment's ECAM base address in memory affinities
