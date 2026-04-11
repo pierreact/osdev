@@ -1,8 +1,8 @@
 #include <types.h>
-#include <system.cpu.h>
-#include <system.acpi.h>
-#include <system.mem.h>
-#include <system.monitor.h>
+#include <kernel/cpu.h>
+#include <arch/acpi.h>
+#include <kernel/mem.h>
+#include <drivers/monitor.h>
 
 // Verify struct size matches assembly constant
 _Static_assert(sizeof(PerCPU) == PERCPU_SIZE,

@@ -1,13 +1,13 @@
-#include <system.shell.h>
-#include <system.monitor.h>
-#include <system.ports.h>
-#include <system.mem.h>
-#include <system.ide.h>
-#include <system.fat32.h>
-#include <system.acpi.h>
-#include <system.cpu.h>
-#include <system.pci.h>
-#include <system.nic.h>
+#include <shell/shell.h>
+#include <drivers/monitor.h>
+#include <arch/ports.h>
+#include <kernel/mem.h>
+#include <drivers/ide.h>
+#include <fs/fat32.h>
+#include <arch/acpi.h>
+#include <kernel/cpu.h>
+#include <drivers/pci.h>
+#include <net/nic.h>
 #include <syscall.h>
 
 // Command buffer

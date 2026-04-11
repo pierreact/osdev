@@ -1,7 +1,7 @@
 #include <types.h>
-#include <system.tss.h>
-#include <system.cpu.h>
-#include <system.monitor.h>
+#include <kernel/tss.h>
+#include <kernel/cpu.h>
+#include <drivers/monitor.h>
 
 static TSS64 tss[MAX_CPUS];
 

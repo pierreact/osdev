@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-04-11] - Reorganize src/ by subsystem
+
+### Changed
+- Move flat src/ layout into subdirectories: boot/, kernel/, arch/, drivers/, net/, fs/, shell/
+- Drop the system. prefix from .c and .h filenames
+- include/ mirrors the source tree (kernel/, arch/, drivers/, net/, fs/, shell/)
+- Includes use the new paths: #include <kernel/mem.h>, #include <drivers/ide.h>, etc.
+- Build output renamed from kernel to kernel.bin (to free up the kernel/ directory name)
+- Makefile rewritten with subdirectory-aware rules
+
+### Removed
+- src/system.kbd.c (2-byte empty stub)
+
 ## [2026-04-10] - Renamed project from ZINC to Isurus
 
 ### Changed

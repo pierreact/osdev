@@ -1,9 +1,9 @@
 #include <types.h>
-#include <system.task.h>
-#include <system.tss.h>
-#include <system.cpu.h>
-#include <system.mem.h>
-#include <system.monitor.h>
+#include <kernel/task.h>
+#include <kernel/tss.h>
+#include <kernel/cpu.h>
+#include <kernel/mem.h>
+#include <drivers/monitor.h>
 
 static Task bsp_tasks[MAX_BSP_TASKS];
 uint8 current_task_id = 0;

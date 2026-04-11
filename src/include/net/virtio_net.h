@@ -2,7 +2,7 @@
 #define SYSTEM_VIRTIO_NET_H
 
 #include <types.h>
-#include <system.virtio.h>
+#include <net/virtio.h>
 
 // Virtio-net device IDs
 #define VIRTIO_NET_DEVICE_LEGACY    0x1000

@@ -1,7 +1,7 @@
-#include <system.fat32.h>
-#include <system.ide.h>
-#include <system.monitor.h>
-#include <system.mem.h>
+#include <fs/fat32.h>
+#include <drivers/ide.h>
+#include <drivers/monitor.h>
+#include <kernel/mem.h>
 
 #define FAT32_DRIVE 1
 

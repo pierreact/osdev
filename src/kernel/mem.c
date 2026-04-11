@@ -1,6 +1,6 @@
 #include <types.h>
-#include <system.monitor.h>
-#include <system.mem.h>
+#include <drivers/monitor.h>
+#include <kernel/mem.h>
 
 extern uint8 data_counter_mmap_entries;
 extern uint32 MEMMAP_START;

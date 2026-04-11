@@ -4,7 +4,7 @@
 
 ## Bootsector trace (COM1)
 
-The first-stage loader (`src/bootsector.asm`) emits single characters on **COM1** (0x3F8) so you can see how far boot gets before the kernel runs. Read the stream left-to-right:
+The first-stage loader (`src/boot/bootsector.asm`) emits single characters on **COM1** (0x3F8) so you can see how far boot gets before the kernel runs. Read the stream left-to-right:
 
 | Char | Meaning |
 |------|--------|

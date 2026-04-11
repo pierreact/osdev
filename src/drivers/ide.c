@@ -1,6 +1,6 @@
-#include <system.ide.h>
-#include <system.monitor.h>
-#include <system.ports.h>
+#include <drivers/ide.h>
+#include <drivers/monitor.h>
+#include <arch/ports.h>
 
 // Primary IDE controller ports
 #define IDE_DATA        0x1F0

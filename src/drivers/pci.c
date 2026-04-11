@@ -1,7 +1,7 @@
-#include <system.pci.h>
-#include <system.acpi.h>
-#include <system.mem.h>
-#include <system.monitor.h>
+#include <drivers/pci.h>
+#include <arch/acpi.h>
+#include <kernel/mem.h>
+#include <drivers/monitor.h>
 
 // PCI config space offsets
 #define PCI_VENDOR_ID       0x00

@@ -1,9 +1,9 @@
 #include <types.h>
-#include <system.apic.h>
-#include <system.acpi.h>
-#include <system.cpu.h>
-#include <system.ports.h>
-#include <system.monitor.h>
+#include <arch/apic.h>
+#include <arch/acpi.h>
+#include <kernel/cpu.h>
+#include <arch/ports.h>
+#include <drivers/monitor.h>
 
 // MMIO base pointers, set during init
 static volatile uint32 *lapic_ptr = NULL;

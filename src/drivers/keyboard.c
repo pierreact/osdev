@@ -1,6 +1,6 @@
 
-#include <system.monitor.h>
-#include <system.shell.h>
+#include <drivers/monitor.h>
+#include <shell/shell.h>
 #include <types.h>
 
 void keyboard_driver();

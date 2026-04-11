@@ -1,14 +1,14 @@
 #include <types.h>
 #include <syscall.h>
-#include <system.monitor.h>
-#include <system.mem.h>
-#include <system.ide.h>
-#include <system.fat32.h>
-#include <system.acpi.h>
-#include <system.cpu.h>
-#include <system.task.h>
+#include <drivers/monitor.h>
+#include <kernel/mem.h>
+#include <drivers/ide.h>
+#include <fs/fat32.h>
+#include <arch/acpi.h>
+#include <kernel/cpu.h>
+#include <kernel/task.h>
 
-// Forward declaration - cmd_reboot stays in system.shell.c for now
+// Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
 extern void cmd_reboot(void);
 

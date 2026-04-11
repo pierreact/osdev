@@ -1,4 +1,4 @@
-#include "system.ports.h"
+#include "arch/ports.h"
 
 // Write a byte out to the specified port.
 void outb(uint16 port, uint8 value)

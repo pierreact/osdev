@@ -53,7 +53,7 @@ EXTERN lapic_init                                       ; Initialize Local APIC 
 EXTERN ioapic_init                                      ; Initialize I/O APIC.
 EXTERN cpu_init                                         ; Initialize per-CPU structures.
 EXTERN tss_init                                         ; Initialize TSS and load TR.
-EXTERN percpu                                           ; Per-CPU state array (system.cpu.c).
+EXTERN percpu                                           ; Per-CPU state array (kernel/cpu.c).
 EXTERN task_init                                        ; Initialize BSP task scheduler.
 EXTERN task_create                                      ; Create a BSP ring 3 task.
 EXTERN task_run_first                                   ; Start first BSP task (drops to ring 3).
@@ -552,7 +552,7 @@ include_64bits_functions:                               ; /include
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ;
                                                         ; Display called display functions will now be from the video
-                                                        ; driver written in C from system.monitor.c
+                                                        ; driver written in C from drivers/monitor.c
     call update_cursor                                  ;
                                                         ;
     mov rdi, msg_c64_function                           ; ABI Page 21, Figure 3.4, register usage.

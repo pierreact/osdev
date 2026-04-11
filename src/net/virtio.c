@@ -1,7 +1,7 @@
-#include <system.virtio.h>
-#include <system.pci.h>
-#include <system.mem.h>
-#include <system.monitor.h>
+#include <net/virtio.h>
+#include <drivers/pci.h>
+#include <kernel/mem.h>
+#include <drivers/monitor.h>
 
 
 // Compiler barrier (x86-64 TSO makes this sufficient for most virtio operations)

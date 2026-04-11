@@ -1,6 +1,6 @@
-#include <system.virtio_net.h>
-#include <system.mem.h>
-#include <system.monitor.h>
+#include <net/virtio_net.h>
+#include <kernel/mem.h>
+#include <drivers/monitor.h>
 
 #define barrier() __asm__ volatile("" ::: "memory")
 

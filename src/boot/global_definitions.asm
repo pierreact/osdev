@@ -34,7 +34,7 @@
                                                         ;
                                                         ;
 ;%define MEMMAP_START    0x9000                          ; Where the memory map is stored in phy mem
-; If you change this, change it also in system.mem.c    ;
+; If you change this, change it also in kernel/mem.c    ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 [SECTION .data]                                         ;

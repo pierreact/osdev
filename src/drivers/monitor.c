@@ -1,7 +1,7 @@
 #include <types.h>
-#include <system.monitor.h>
-#include <system.serial.h>
-#include <system.ports.h>
+#include <drivers/monitor.h>
+#include <drivers/serial.h>
+#include <arch/ports.h>
 
 #define VIDEO_WIDTH   80
 #define VIDEO_HEIGHT  28

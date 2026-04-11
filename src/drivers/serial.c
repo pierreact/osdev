@@ -1,7 +1,7 @@
 #include <types.h>
-#include <system.serial.h>
-#include <system.shell.h>
-#include <system.ports.h>
+#include <drivers/serial.h>
+#include <shell/shell.h>
+#include <arch/ports.h>
 
 #define COM1 0x3F8
 

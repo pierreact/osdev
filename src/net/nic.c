@@ -1,7 +1,7 @@
-#include <system.nic.h>
-#include <system.pci.h>
-#include <system.virtio_net.h>
-#include <system.monitor.h>
+#include <net/nic.h>
+#include <drivers/pci.h>
+#include <net/virtio_net.h>
+#include <drivers/monitor.h>
 
 static NICSlot nics[MAX_NICS];
 static uint32 nic_count = 0;

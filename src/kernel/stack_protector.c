@@ -1,5 +1,5 @@
 #include <types.h>
-#include <system.monitor.h>
+#include <drivers/monitor.h>
 
 /*
  * Kernel-provided stack protector runtime for freestanding builds.

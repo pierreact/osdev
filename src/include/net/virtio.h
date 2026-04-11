@@ -2,7 +2,7 @@
 #define SYSTEM_VIRTIO_H
 
 #include <types.h>
-#include <system.pci.h>
+#include <drivers/pci.h>
 
 // Virtio PCI vendor
 #define VIRTIO_PCI_VENDOR       0x1AF4

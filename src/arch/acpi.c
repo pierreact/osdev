@@ -1,6 +1,6 @@
 #include <types.h>
-#include <system.acpi.h>
-#include <system.monitor.h>
+#include <arch/acpi.h>
+#include <drivers/monitor.h>
 
 uint8  cpu_lapic_ids[MAX_CPUS];
 uint32 cpu_count = 0;
