@@ -117,17 +117,42 @@ kernel_read_chs:
     jmp .chs_loop
 
     ;----------- CD-ROM no-emul: kernel already in memory -----------
+    ; rep movsw can only safely copy up to 64KB in one shot because DI/SI
+    ; are 16-bit. For larger kernels we copy in 64KB chunks, advancing the
+    ; segment registers between chunks. NASM %rep unrolls the chunk loop
+    ; at assembly time based on KSIZE.
 kernel_memcopy:
     DBG 'C'
     mov ax, 0x07E0                                      ; source: linear 0x7E00
     mov ds, ax
     mov ax, BASE                                        ; dest: linear 0x1000
     mov es, ax
+    cld
+
+%assign WORDS_TOTAL  KSIZE * 256
+%assign FULL_CHUNKS  WORDS_TOTAL / 0x8000
+%assign LAST_WORDS   WORDS_TOTAL - FULL_CHUNKS * 0x8000
+
+%rep FULL_CHUNKS
     xor si, si
     xor di, di
-    mov cx, KSIZE * 256                                 ; KSIZE sectors × 256 words/sector
-    cld
+    mov cx, 0x8000                                      ; 64KB chunk
     rep movsw
+    mov ax, ds
+    add ax, 0x1000                                      ; advance source by 64KB
+    mov ds, ax
+    mov ax, es
+    add ax, 0x1000                                      ; advance dest by 64KB
+    mov es, ax
+%endrep
+
+%if LAST_WORDS > 0
+    xor si, si
+    xor di, di
+    mov cx, LAST_WORDS
+    rep movsw
+%endif
+
     jmp kernel_read_ok
 
 disk_error:
