@@ -4,6 +4,16 @@
 #include <types.h>
 
 #define MAX_NICS 4
+#define NIC_NONE 0xFFFFFFFFu
+
+// First N NICs (in enumeration order) are reserved as BSP NICs
+// (mgmt + inter-node) and excluded from the AP assignment pool.
+#define BSP_NIC_COUNT 2
+
+typedef enum {
+    NIC_MODE_PER_NUMA = 0,    // one NIC per NUMA node, shared across cores
+    NIC_MODE_PER_CORE = 1,    // one NIC per core, locality-respecting
+} NicAssignmentMode;
 
 typedef struct {
     int  (*send)(void *dev, const uint8 *data, uint32 len);
@@ -29,5 +39,9 @@ uint32      nic_get_count(void);
 const char *nic_name(uint32 idx);
 uint32      nic_get_numa_node(uint32 idx);
 int         nic_find_for_node(uint32 node);
+
+void                nic_set_mode(NicAssignmentMode mode);
+NicAssignmentMode   nic_get_mode(void);
+void                nic_assign(void);   // (re)compute per-CPU assignment
 
 #endif

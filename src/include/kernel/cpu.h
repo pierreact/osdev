@@ -27,6 +27,28 @@ typedef struct {
 
 extern PerCPU percpu[MAX_CPUS];
 
+// Thread metadata: per-CPU snapshot of "what does this core/thread see?"
+// Filled at boot by nic_assign(). When ring 3 AP threads land, this
+// struct will be mapped read-only into each thread's address space at
+// a fixed virtual address so threads can read it without syscalls.
+typedef struct {
+    uint32 cpu_index;       // CPU number (0..MAX_CPUS-1)
+    uint32 numa_node;       // NUMA proximity of this core (or 0xFFFFFFFF)
+    uint32 nic_index;       // NIC slot index, or NIC_NONE
+    uint16 nic_segment;     // PCI segment of assigned NIC
+    uint8  nic_bus;         // PCI bus
+    uint8  nic_dev;         // PCI device
+    uint8  nic_func;        // PCI function
+    uint8  reserved[3];
+    uint8  nic_mac[6];      // MAC address copied from NIC
+    uint8  reserved2[2];
+} ThreadMeta;
+
+#define THREAD_NUMA_UNKNOWN 0xFFFFFFFFu
+
+extern ThreadMeta thread_meta[MAX_CPUS];
+
 void cpu_init(void);
+ThreadMeta *thread_meta_get(uint32 cpu_idx);
 
 #endif

@@ -9,6 +9,7 @@ _Static_assert(sizeof(PerCPU) == PERCPU_SIZE,
     "PerCPU size mismatch: update PERCPU_SIZE and ap_trampoline.asm");
 
 PerCPU percpu[MAX_CPUS];
+ThreadMeta thread_meta[MAX_CPUS];
 
 extern uint32 PML4T_LOCATION;
 
@@ -41,4 +42,9 @@ void cpu_init(void) {
     kprint("CPU: Per-CPU structures initialized for ");
     kprint_dec(cpu_count);
     kprint(" CPUs\n");
+}
+
+ThreadMeta *thread_meta_get(uint32 cpu_idx) {
+    if (cpu_idx >= MAX_CPUS) return NULL;
+    return &thread_meta[cpu_idx];
 }

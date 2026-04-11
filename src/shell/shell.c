@@ -35,6 +35,8 @@ static const char *commands[] = {
     "sys.fs.cat",
     "sys.pci.ls",
     "sys.nic.ls",
+    "sys.nic.mode",
+    "sys.thread.ls",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -275,6 +277,8 @@ void cmd_help() {
     sh_print("  sys.fs.cat <f>  - Print file contents\n");
     sh_print("  sys.pci.ls      - List PCI devices\n");
     sh_print("  sys.nic.ls      - List network interfaces\n");
+    sh_print("  sys.nic.mode    - Show or set NIC assignment mode (per-numa|per-core)\n");
+    sh_print("  sys.thread.ls   - Show per-CPU thread metadata (NUMA, NIC)\n");
 }
 
 void cmd_clear() {
@@ -758,6 +762,73 @@ void cmd_lspci() {
     }
 }
 
+static void print_mode(NicAssignmentMode m) {
+    sh_print(m == NIC_MODE_PER_CORE ? "per-core" : "per-numa");
+}
+
+void cmd_nic_mode() {
+    char *args = cmd_buffer + strlen("sys.nic.mode");
+    while (*args == ' ') args++;
+    if (*args == '\0') {
+        sh_print("mode: ");
+        print_mode(nic_get_mode());
+        sh_putc('\n');
+        return;
+    }
+    if (strcmp(args, "per-numa") == 0) {
+        nic_set_mode(NIC_MODE_PER_NUMA);
+        nic_assign();
+        sh_print("mode: per-numa\n");
+    } else if (strcmp(args, "per-core") == 0) {
+        nic_set_mode(NIC_MODE_PER_CORE);
+        nic_assign();
+        sh_print("mode: per-core\n");
+    } else {
+        sh_print("Usage: sys.nic.mode [per-numa|per-core]\n");
+    }
+}
+
+void cmd_thread_ls() {
+    sh_print("mode: ");
+    print_mode(nic_get_mode());
+    sh_putc('\n');
+    sh_print("CPU  NUMA  NIC          PCI         MAC\n");
+    for (uint32 i = 0; i < cpu_count; i++) {
+        ThreadMeta *tm = thread_meta_get(i);
+        sh_print_dec_pad(i, 3);
+        sh_print("  ");
+        if (tm->numa_node == THREAD_NUMA_UNKNOWN) {
+            sh_print("  -");
+        } else {
+            sh_print_dec_pad(tm->numa_node, 3);
+        }
+        sh_print("  ");
+        if (tm->nic_index == NIC_NONE) {
+            sh_print("(none)       ");
+            sh_print("           ");
+            sh_print("                 ");
+        } else {
+            const char *name = nic_name(tm->nic_index);
+            sh_print(name ? (char *)name : "?");
+            // pad name to 13 chars
+            int nlen = 0;
+            if (name) { while (name[nlen] && nlen < 13) nlen++; }
+            for (int p = nlen; p < 13; p++) sh_putc(' ');
+            sh_print_hex8(tm->nic_bus);
+            sh_putc(':');
+            sh_print_hex8(tm->nic_dev);
+            sh_putc('.');
+            sh_print_dec(tm->nic_func);
+            sh_print("    ");
+            for (int j = 0; j < 6; j++) {
+                sh_print_hex8(tm->nic_mac[j]);
+                if (j < 5) sh_putc(':');
+            }
+        }
+        sh_putc('\n');
+    }
+}
+
 void cmd_lsnic() {
     uint32 count = nic_get_count();
     if (count == 0) {
@@ -817,6 +888,8 @@ void shell_execute_command() {
     }
     else if (strcmp(cmd_buffer, "sys.pci.ls") == 0) cmd_lspci();
     else if (strcmp(cmd_buffer, "sys.nic.ls") == 0) cmd_lsnic();
+    else if (starts_with(cmd_buffer, "sys.nic.mode")) cmd_nic_mode();
+    else if (strcmp(cmd_buffer, "sys.thread.ls") == 0) cmd_thread_ls();
     else {
         sh_print("Unknown command: ");
         sh_print(cmd_buffer);
