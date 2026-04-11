@@ -69,6 +69,7 @@ void nic_init(void) {
             slot->ops = virtio_net_ops;
             slot->dev = vnet;
             slot->active = 1;
+            slot->numa_node = pci->numa_node;
             nic_count++;
         }
     }
@@ -110,4 +111,18 @@ const char *nic_name(uint32 idx) {
     if (idx >= nic_count)
         return NULL;
     return nics[idx].name;
+}
+
+uint32 nic_get_numa_node(uint32 idx) {
+    if (idx >= nic_count || !nics[idx].active)
+        return PCI_NUMA_UNKNOWN;
+    return nics[idx].numa_node;
+}
+
+int nic_find_for_node(uint32 node) {
+    for (uint32 i = 0; i < nic_count; i++) {
+        if (nics[i].active && nics[i].numa_node == node)
+            return (int)i;
+    }
+    return -1;
 }

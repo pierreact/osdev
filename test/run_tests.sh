@@ -43,14 +43,20 @@ qemu-system-x86_64 \
     -object "memory-backend-ram,id=mem1,size=1G" \
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0" \
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1" \
+    -device pxb-pcie,id=pcie.1,bus_nr=10,bus=pcie.0,numa_node=0 \
+    -device pxb-pcie,id=pcie.2,bus_nr=20,bus=pcie.0,numa_node=1 \
+    -device pcie-root-port,id=rp1,bus=pcie.1,chassis=1 \
+    -device pcie-root-port,id=rp2,bus=pcie.1,chassis=2 \
+    -device pcie-root-port,id=rp3,bus=pcie.2,chassis=3 \
+    -device pcie-root-port,id=rp4,bus=pcie.2,chassis=4 \
     -netdev user,id=mgmt0 \
-    -device virtio-net-pci,netdev=mgmt0,romfile= \
+    -device virtio-net-pci,netdev=mgmt0,romfile=,bus=rp1 \
     -netdev user,id=inter0 \
-    -device virtio-net-pci,netdev=inter0,romfile= \
+    -device virtio-net-pci,netdev=inter0,romfile=,bus=rp2 \
     -netdev user,id=dpdk0 \
-    -device virtio-net-pci,netdev=dpdk0,romfile= \
+    -device virtio-net-pci,netdev=dpdk0,romfile=,bus=rp3 \
     -netdev user,id=dpdk1 \
-    -device virtio-net-pci,netdev=dpdk1,romfile= \
+    -device virtio-net-pci,netdev=dpdk1,romfile=,bus=rp4 \
     -boot order=d \
     -cdrom "$ISO" \
     -no-reboot &

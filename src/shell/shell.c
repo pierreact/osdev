@@ -743,6 +743,11 @@ void cmd_lspci() {
         sh_print_hex8(d->class_code);
         sh_putc(':');
         sh_print_hex8(d->subclass);
+        sh_print("  NUMA ");
+        if (d->numa_node == PCI_NUMA_UNKNOWN)
+            sh_putc('-');
+        else
+            sh_print_dec(d->numa_node);
         sh_putc('\n');
     }
 }
@@ -755,6 +760,12 @@ void cmd_lsnic() {
     }
     for (uint32 i = 0; i < count; i++) {
         sh_print((char *)nic_name(i));
+        sh_print("  NUMA ");
+        uint32 node = nic_get_numa_node(i);
+        if (node == PCI_NUMA_UNKNOWN)
+            sh_putc('-');
+        else
+            sh_print_dec(node);
         sh_print("  MAC ");
         uint8 mac[6];
         nic_get_mac(i, mac);

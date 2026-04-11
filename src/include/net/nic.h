@@ -17,6 +17,7 @@ typedef struct {
     NICOps      ops;
     void       *dev;
     uint8       active;
+    uint32      numa_node;     // proximity domain, or PCI_NUMA_UNKNOWN
 } NICSlot;
 
 void        nic_init(void);
@@ -26,5 +27,7 @@ void        nic_get_mac(uint32 idx, uint8 *mac_out);
 int         nic_link_status(uint32 idx);
 uint32      nic_get_count(void);
 const char *nic_name(uint32 idx);
+uint32      nic_get_numa_node(uint32 idx);
+int         nic_find_for_node(uint32 node);
 
 #endif

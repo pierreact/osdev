@@ -138,6 +138,12 @@ static void enumerate_segment(uint32 seg_idx) {
                 d->func = func;
                 d->irq_line = *irq_ptr;
 
+                uint32 node = 0;
+                if (acpi_pci_to_node(seg_idx, bus, dev, func, &node))
+                    d->numa_node = node;
+                else
+                    d->numa_node = PCI_NUMA_UNKNOWN;
+
                 if (d->header_type == 0)
                     decode_bars(d);
 

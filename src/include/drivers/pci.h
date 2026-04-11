@@ -5,6 +5,8 @@
 
 #define MAX_PCI_DEVICES 64
 
+#define PCI_NUMA_UNKNOWN 0xFFFFFFFFu
+
 // PCI config space offsets
 #define PCI_CAP_PTR             0x34
 
@@ -28,6 +30,7 @@ typedef struct {
     uint8  bar_is_mmio[6];
     uint8  bar_is_64bit[6];
     uint8  irq_line;
+    uint32 numa_node;     // proximity domain, or PCI_NUMA_UNKNOWN
 } PCIDevice;
 
 void            pci_init(void);

@@ -22,6 +22,8 @@ static ACPINumaCpuAffinity numa_cpu_affinities[MAX_NUMA_CPU_AFFINITIES];
 static uint32 numa_cpu_affinity_count = 0;
 static ACPINumaMemAffinity numa_mem_affinities[MAX_NUMA_MEM_AFFINITIES];
 static uint32 numa_mem_affinity_count = 0;
+static ACPINumaPCIAffinity numa_pci_affinities[MAX_NUMA_PCI_AFFINITIES];
+static uint32 numa_pci_affinity_count = 0;
 static uint32 numa_nodes[MAX_NUMA_NODES];
 static uint32 numa_node_count = 0;
 static uint8 slit_distances[MAX_NUMA_NODES * MAX_NUMA_NODES];
@@ -385,6 +387,25 @@ static void parse_srat(ACPISDTHeader *hdr) {
                 numa_cpu_affinities[numa_cpu_affinity_count].proximity_domain = prox;
                 numa_cpu_affinities[numa_cpu_affinity_count].flags = flags;
                 numa_cpu_affinity_count++;
+                append_numa_node(prox);
+            }
+        } else if (type == 5 && len >= 32) {
+            // Generic Initiator Affinity (ACPI 6.3+)
+            // ptr[0]=type, ptr[1]=length, ptr[2]=reserved, ptr[3]=device handle type
+            // ptr[4..7]=proximity domain, ptr[8..23]=device handle, ptr[24..27]=flags
+            uint8 dev_handle_type = ptr[3];
+            uint32 prox = *(uint32 *)(void *)(ptr + 4);
+            uint32 flags = *(uint32 *)(void *)(ptr + 24);
+            if ((flags & 1) && dev_handle_type == 1 &&
+                numa_pci_affinity_count < MAX_NUMA_PCI_AFFINITIES) {
+                // PCI device handle: 2-byte segment + 2-byte BDF, rest reserved
+                uint16 segment = *(uint16 *)(void *)(ptr + 8);
+                uint16 bdf     = *(uint16 *)(void *)(ptr + 10);
+                numa_pci_affinities[numa_pci_affinity_count].segment = segment;
+                numa_pci_affinities[numa_pci_affinity_count].bdf = bdf;
+                numa_pci_affinities[numa_pci_affinity_count].proximity_domain = prox;
+                numa_pci_affinities[numa_pci_affinity_count].flags = flags;
+                numa_pci_affinity_count++;
                 append_numa_node(prox);
             }
         }
@@ -770,6 +791,40 @@ int acpi_distance(uint32 from_node, uint32 to_node, uint8 *distance_out) {
 const ACPINumaMemAffinity *acpi_memory_affinities(uint32 *count_out) {
     if (count_out) *count_out = numa_mem_affinity_count;
     return numa_mem_affinities;
+}
+
+const ACPINumaPCIAffinity *acpi_pci_affinities(uint32 *count_out) {
+    if (count_out) *count_out = numa_pci_affinity_count;
+    return numa_pci_affinities;
+}
+
+int acpi_pci_to_node(uint16 segment, uint8 bus, uint8 dev, uint8 func, uint32 *node_out) {
+    if (!node_out) return 0;
+
+    // First, look for an exact match in SRAT Type 5 entries
+    uint16 bdf = ((uint16)bus << 8) | ((uint16)(dev & 0x1F) << 3) | (func & 0x7);
+    for (uint32 i = 0; i < numa_pci_affinity_count; i++) {
+        if (numa_pci_affinities[i].segment == segment &&
+            numa_pci_affinities[i].bdf == bdf) {
+            *node_out = numa_pci_affinities[i].proximity_domain;
+            return 1;
+        }
+    }
+
+    // Fallback: look up the segment's ECAM base address in memory affinities
+    if (segment < pcie_segment_count) {
+        uint64 ecam_base = pcie_segments[segment].base_address;
+        for (uint32 i = 0; i < numa_mem_affinity_count; i++) {
+            uint64 base = numa_mem_affinities[i].base;
+            uint64 length = numa_mem_affinities[i].length;
+            if (ecam_base >= base && ecam_base < base + length) {
+                *node_out = numa_mem_affinities[i].proximity_domain;
+                return 1;
+            }
+        }
+    }
+
+    return 0;
 }
 
 const ACPIPCIEConfigSegment *acpi_pcie_ecam_segments(uint32 *count_out) {

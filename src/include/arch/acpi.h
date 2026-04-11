@@ -9,6 +9,7 @@
 #define MAX_NUMA_NODES 16
 #define MAX_NUMA_CPU_AFFINITIES 32
 #define MAX_NUMA_MEM_AFFINITIES 32
+#define MAX_NUMA_PCI_AFFINITIES 32
 #define MAX_PCIE_SEGMENTS 16
 #define MAX_IOMMU_UNITS 16
 
@@ -118,6 +119,13 @@ typedef struct {
 } ACPINumaMemAffinity;
 
 typedef struct {
+    uint16   segment;
+    uint16   bdf;             // bus<<8 | dev<<3 | func
+    uint32   proximity_domain;
+    uint32   flags;
+} ACPINumaPCIAffinity;
+
+typedef struct {
     uint64   base_address;
     uint16   segment_group;
     uint8    start_bus;
@@ -165,6 +173,8 @@ uint32 acpi_numa_node_count(void);
 int acpi_cpu_to_node(uint8 lapic_id, uint32 *node_out);
 int acpi_distance(uint32 from_node, uint32 to_node, uint8 *distance_out);
 const ACPINumaMemAffinity *acpi_memory_affinities(uint32 *count_out);
+const ACPINumaPCIAffinity *acpi_pci_affinities(uint32 *count_out);
+int acpi_pci_to_node(uint16 segment, uint8 bus, uint8 dev, uint8 func, uint32 *node_out);
 
 const ACPIPCIEConfigSegment *acpi_pcie_ecam_segments(uint32 *count_out);
 int acpi_hpet_info(ACPIHPETInfo *out);
