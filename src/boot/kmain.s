@@ -36,8 +36,8 @@
 [BITS 16]                                               ;
 [SECTION .text]                                         ;
                                                         ;
-GLOBAL MEMMAP_START
 GLOBAL GDT64
+EXTERN MEMMAP_START                                     ; defined as absolute symbol in link.ld
 GLOBAL kmain                                            ;--------------------------------------------------------------------------------
 kmain:                                                  ; Starting point of the kernel called by the bootsector
                                                         ;
@@ -704,12 +704,11 @@ ap_trampoline_start:                                    ;
     incbin "ap_trampoline.bin"                          ;
 ap_trampoline_end:                                      ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
+; MEMMAP_START is defined as an absolute symbol in link.ld at 0x500
+; so the 16-bit init code can reference it with a 16-bit relocation.
+
 [SECTION .bss]
 align 16
-MEMMAP_START:
-RESB 1024
-MEMMAP_END:
-
 IDT32_BASE:
 IDT64_BASE:
 RESB 0x1000
