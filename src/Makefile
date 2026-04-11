@@ -22,6 +22,7 @@ OBJECTS=    boot/kmain.o \
             drivers/keyboard.o \
             drivers/ide.o \
             drivers/pci.o \
+            drivers/pci_ids.o \
             net/nic.o \
             net/virtio.o \
             net/virtio_net.o \

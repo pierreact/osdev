@@ -748,6 +748,12 @@ void cmd_lspci() {
             sh_putc('-');
         else
             sh_print_dec(d->numa_node);
+        const char *vname = pci_vendor_name(d->vendor_id);
+        const char *cname = pci_class_name(d->class_code, d->subclass);
+        sh_print("  ");
+        sh_print(vname ? (char *)vname : "?");
+        sh_print("  ");
+        sh_print(cname ? (char *)cname : "?");
         sh_putc('\n');
     }
 }
