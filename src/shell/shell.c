@@ -39,6 +39,7 @@ static const char *commands[] = {
     "sys.nic.ls",
     "sys.nic.mode",
     "sys.thread.ls",
+    "sys.test.ap",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -950,6 +951,9 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "sys.nic.ls") == 0) cmd_lsnic();
     else if (starts_with(cmd_buffer, "sys.nic.mode")) cmd_nic_mode();
     else if (strcmp(cmd_buffer, "sys.thread.ls") == 0) cmd_thread_ls();
+    else if (strcmp(cmd_buffer, "sys.test.ap") == 0) {
+        if (use_syscalls) sys_test_ap();
+    }
     else {
         sh_print("Unknown command: ");
         sh_print(cmd_buffer);

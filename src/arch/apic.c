@@ -187,6 +187,10 @@ void ap_startup(void) {
     *patch_cr3 = (uint64)PML4T_LOCATION;
     *patch_percpu = (uint64)&percpu[0];
 
+    // Patch ap_work base for AP polling loop
+    volatile uint64 *patch_apwork = (volatile uint64 *)(TRAMPOLINE_BASE + 0xFE8);
+    *patch_apwork = (uint64)&ap_work[0];
+
     // Send INIT-SIPI-SIPI to each AP
     for (uint32 i = 1; i < cpu_count; i++) {
         uint8 apic_id = cpu_lapic_ids[i];

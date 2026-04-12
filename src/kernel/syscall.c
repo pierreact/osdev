@@ -9,6 +9,7 @@
 #include <kernel/task.h>
 #include <fs/iso9660.h>
 #include <fs/vfs.h>
+#include <arch/acpi.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
@@ -208,6 +209,28 @@ static long sys_handle_iso_read(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint
     return (long)vfs_read_file((const char *)a1, (void *)a2, (uint32)a3);
 }
 
+// AP test: function dispatched to each AP, returns cpu index
+static uint64 ap_test_fn(uint64 arg) {
+    (void)arg;
+    // Just return a magic value to prove we ran
+    return 0xA000 + arg;
+}
+
+static long sys_handle_test_ap(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    kprint("AP test: dispatching to all APs...\n");
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (!percpu[i].running) continue;
+        uint64 result = ap_dispatch(i, ap_test_fn, i);
+        kprint("  CPU ");
+        kprint_dec(i);
+        kprint(": result=");
+        kprint_long2hex(result, "\n");
+    }
+    kprint("AP test: done\n");
+    return 0;
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -237,6 +260,7 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_TASK_EXIT]   = sys_handle_task_exit,
     [SYS_ISO_LS]      = sys_handle_iso_ls,
     [SYS_ISO_READ]    = sys_handle_iso_read,
+    [SYS_TEST_AP]     = sys_handle_test_ap,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {

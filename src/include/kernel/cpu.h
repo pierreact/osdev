@@ -27,6 +27,33 @@ typedef struct {
 
 extern PerCPU percpu[MAX_CPUS];
 
+// AP work dispatch: BSP sets ready=1, AP polls and calls fn(arg),
+// sets result and done=1.
+typedef struct {
+    volatile uint8  ready;      // offset 0: BSP sets to 1 to dispatch
+    volatile uint8  done;       // offset 1: AP sets to 1 when finished
+    uint8           reserved[6];// offset 2-7
+    uint64          fn;         // offset 8: function pointer
+    uint64          arg;        // offset 16: argument
+    uint64          result;     // offset 24: return value from fn
+} APWork;
+
+#define APWORK_SIZE       32
+#define APWORK_OFF_READY   0
+#define APWORK_OFF_DONE    1
+#define APWORK_OFF_FN      8
+#define APWORK_OFF_ARG    16
+#define APWORK_OFF_RESULT 24
+
+extern APWork ap_work[MAX_CPUS];
+
+// Dispatch a function to an AP. Blocks until the AP completes.
+// Returns the function's return value.
+uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg);
+
+// Dispatch to all APs, wait for all to complete.
+void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg);
+
 // Thread metadata: per-CPU snapshot of "what does this core/thread see?"
 // Filled at boot by nic_assign(). When ring 3 AP threads land, this
 // struct will be mapped read-only into each thread's address space at

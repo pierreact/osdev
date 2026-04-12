@@ -29,7 +29,8 @@
 #define SYS_TASK_EXIT     22
 #define SYS_ISO_LS        23
 #define SYS_ISO_READ      24
-#define SYS_NR_MAX        25
+#define SYS_TEST_AP       25
+#define SYS_NR_MAX        26
 
 // User-side syscall wrappers
 static inline long sys_syscall0(long nr) {
@@ -83,6 +84,7 @@ static inline void sys_yield(void)               { sys_syscall0(SYS_YIELD); }
 static inline void sys_task_exit(void)           { sys_syscall0(SYS_TASK_EXIT); }
 static inline void sys_iso_ls(const char *path)  { sys_syscall1(SYS_ISO_LS, (long)path); }
 static inline int  sys_iso_read(const char *path, void *buf, uint32 max) { return (int)sys_syscall3(SYS_ISO_READ, (long)path, (long)buf, (long)max); }
+static inline void sys_test_ap(void)                    { sys_syscall0(SYS_TEST_AP); }
 
 // Per-CPU info returned by SYS_CPU_INFO
 typedef struct {

@@ -10,6 +10,7 @@ _Static_assert(sizeof(PerCPU) == PERCPU_SIZE,
 
 PerCPU percpu[MAX_CPUS];
 ThreadMeta thread_meta[MAX_CPUS];
+APWork ap_work[MAX_CPUS];
 
 extern uint32 PML4T_LOCATION;
 
@@ -47,4 +48,54 @@ void cpu_init(void) {
 ThreadMeta *thread_meta_get(uint32 cpu_idx) {
     if (cpu_idx >= MAX_CPUS) return NULL;
     return &thread_meta[cpu_idx];
+}
+
+_Static_assert(sizeof(APWork) == APWORK_SIZE,
+    "APWork size mismatch: update APWORK_SIZE and ap_trampoline.asm");
+
+uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg) {
+    if (cpu_idx == 0 || cpu_idx >= cpu_count) return (uint64)-1;
+    if (!percpu[cpu_idx].running) return (uint64)-1;
+
+    APWork *w = &ap_work[cpu_idx];
+    w->fn = (uint64)fn;
+    w->arg = arg;
+    w->result = 0;
+    w->done = 0;
+
+    // Memory barrier before signaling ready
+    __asm__ volatile("" ::: "memory");
+    w->ready = 1;
+
+    // Poll for completion
+    while (!w->done) {
+        __asm__ volatile("pause" ::: "memory");
+    }
+
+    return w->result;
+}
+
+void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg) {
+    // Signal all APs
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (!percpu[i].running) continue;
+        APWork *w = &ap_work[i];
+        w->fn = (uint64)fn;
+        w->arg = arg;
+        w->result = 0;
+        w->done = 0;
+    }
+    __asm__ volatile("" ::: "memory");
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (!percpu[i].running) continue;
+        ap_work[i].ready = 1;
+    }
+
+    // Wait for all to complete
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (!percpu[i].running) continue;
+        while (!ap_work[i].done) {
+            __asm__ volatile("pause" ::: "memory");
+        }
+    }
 }

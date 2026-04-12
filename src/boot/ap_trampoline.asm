@@ -86,11 +86,10 @@ ap_long_mode:
     ; Find our index in percpu array
     mov rbx, [TRAMPOLINE_BASE + 0xFF8]                  ; percpu base (patched by BSP)
     mov rsi, rbx
+    xor r12d, r12d                                      ; r12 = cpu index counter
 
 .find_cpu:
-    mov rcx, rsi
-    sub rcx, rbx                                        ; byte offset from base
-    cmp rcx, 16 * PERCPU_SIZE                            ; MAX_CPUS * sizeof(PerCPU)
+    cmp r12d, 16                                        ; MAX_CPUS
     jge .halt                                           ; Not found, halt
 
     movzx edx, byte [rsi]                               ; percpu[i].lapic_id
@@ -98,9 +97,12 @@ ap_long_mode:
     je .found
 
     add rsi, PERCPU_SIZE                                ; Next entry (sizeof PerCPU)
+    inc r12d
     jmp .find_cpu
 
 .found:
+    ; r12 = cpu index, rsi = &percpu[cpu_index]
+
     ; Load our stack from percpu[i].stack_top (offset 8)
     mov rsp, [rsi + 8]
 
@@ -110,13 +112,33 @@ ap_long_mode:
     or eax, 0x1FF                                       ; Enable + spurious vector 0xFF
     mov dword [rdi + 0xF0], eax                         ; Write SVR
 
+    ; Compute pointer to our APWork entry: ap_work[cpu_index]
+    ; ap_work base is patched by BSP at TRAMPOLINE_BASE + 0xFE8
+    mov r13, [TRAMPOLINE_BASE + 0xFE8]                  ; ap_work base
+    imul r14, r12, 32                                   ; APWORK_SIZE = 32
+    add r13, r14                                        ; r13 = &ap_work[cpu_index]
+
     ; Signal that we're online: percpu[i].running = 1 (offset 1)
     mov byte [rsi + 1], 1
 
-    ; Park: APs never handle interrupts (BSP owns all IRQs).
+    ; Work-polling loop: check ap_work[cpu_index].ready,
+    ; call fn(arg) when set, signal done, repeat.
     cli
 .park:
-    hlt
+    pause                                               ; spin-wait hint
+    movzx eax, byte [r13]                               ; ap_work.ready (offset 0)
+    test al, al
+    jz .park                                            ; not ready, keep polling
+
+    ; Work ready: call fn(arg)
+    mov rdi, [r13 + 16]                                 ; ap_work.arg (offset 16)
+    call [r13 + 8]                                      ; ap_work.fn (offset 8)
+    mov [r13 + 24], rax                                 ; ap_work.result (offset 24)
+
+    ; Signal completion and clear ready
+    mov byte [r13 + 1], 1                               ; ap_work.done = 1
+    mov byte [r13], 0                                   ; ap_work.ready = 0
+
     jmp .park
 
 .halt:
