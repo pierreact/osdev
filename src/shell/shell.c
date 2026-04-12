@@ -40,6 +40,7 @@ static const char *commands[] = {
     "sys.nic.mode",
     "sys.thread.ls",
     "sys.test.ap",
+    "demo_app",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -953,6 +954,9 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "sys.thread.ls") == 0) cmd_thread_ls();
     else if (strcmp(cmd_buffer, "sys.test.ap") == 0) {
         if (use_syscalls) sys_test_ap();
+    }
+    else if (strcmp(cmd_buffer, "demo_app") == 0) {
+        if (use_syscalls) sys_exec("/BIN/DEMO_APP");
     }
     else {
         sh_print("Unknown command: ");

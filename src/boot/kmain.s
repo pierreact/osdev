@@ -699,6 +699,8 @@ GDT64:                                                  ; Global Descriptor Tabl
     dd 0                                                ; Reserved
                                                         ;
     .Pointer:                                           ; The GDT-pointer.
+GLOBAL GDT64_Pointer
+GDT64_Pointer:
     dw $ - GDT64 - 1                                    ; Limit.
     dq GDT64                                            ; Base.
                                                         ;

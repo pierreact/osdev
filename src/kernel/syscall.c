@@ -10,6 +10,7 @@
 #include <fs/iso9660.h>
 #include <fs/vfs.h>
 #include <arch/acpi.h>
+#include <kernel/loader.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
@@ -192,8 +193,24 @@ static long sys_handle_yield(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 
     return 0;
 }
 
+// ap_jmpbuf: defined in loader.c, used by ap_run_ring3 / sys_handle_task_exit
+extern void *ap_jmpbuf[MAX_CPUS][5];
+
 static long sys_handle_task_exit(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+
+    // Determine which CPU we're on by checking percpu[i].in_usermode.
+    // Only one AP at a time can be in_usermode (they're dispatched).
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (percpu[i].in_usermode) {
+            // AP returning from ring 3: longjmp back to ap_run_ring3
+            // which will return 0 to the trampoline park loop.
+            __builtin_longjmp(ap_jmpbuf[i], 1);
+            // unreachable
+        }
+    }
+
+    // BSP: normal task exit
     task_exit();
     return 0;
 }
@@ -231,6 +248,11 @@ static long sys_handle_test_ap(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint6
     return 0;
 }
 
+static long sys_handle_exec(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    return (long)loader_exec((const char *)a1);
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -261,6 +283,7 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_ISO_LS]      = sys_handle_iso_ls,
     [SYS_ISO_READ]    = sys_handle_iso_read,
     [SYS_TEST_AP]     = sys_handle_test_ap,
+    [SYS_EXEC]        = sys_handle_exec,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {

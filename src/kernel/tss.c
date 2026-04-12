@@ -88,11 +88,45 @@ static inline uint64 rdmsr_val(uint32 msr) {
 // Syscall entry point (defined in asm64_syscall.inc, linked into kernel)
 extern void syscall_entry(void);
 
+// IDT base (defined in kmain.s BSS, shared by all CPUs)
+extern uint8 IDT64_BASE[];
+// GDT64 and its pointer (defined in kmain.s, shared by all CPUs)
+extern uint8 GDT64_Pointer[];
+
 // Set up ring 3 infrastructure on an AP.
 // This function runs ON the AP via ap_dispatch.
-// Configures SYSCALL/SYSRET MSRs and loads the TSS.
+// Loads the kernel's GDT+IDT, configures TSS, and SYSCALL/SYSRET MSRs.
 uint64 ap_setup_ring3(uint64 cpu_idx) {
     uint32 idx = (uint32)cpu_idx;
+
+    // Ensure interrupts stay disabled during setup
+    __asm__ volatile("cli");
+
+    // Load the kernel's GDT64 (the AP trampoline uses its own temp GDT).
+    // Then reload CS=0x08 via a far return to switch from ap_gdt's CS=0x18
+    // to GDT64's ring 0 code segment.
+    __asm__ volatile("lgdt (%0)" : : "r"(GDT64_Pointer));
+    __asm__ volatile(
+        "pushq $0x08\n"         // new CS = ring 0 code
+        "lea 1f(%%rip), %%rax\n"
+        "push %%rax\n"          // new RIP = label 1
+        "lretq\n"               // far return: loads CS and jumps
+        "1:\n"
+        "mov $0x10, %%ax\n"     // reload data segments
+        "mov %%ax, %%ds\n"
+        "mov %%ax, %%es\n"
+        "mov %%ax, %%ss\n"
+        "xor %%ax, %%ax\n"
+        "mov %%ax, %%fs\n"
+        "mov %%ax, %%gs\n"
+        : : : "rax", "memory"
+    );
+
+    // Load the shared IDT (same table as BSP)
+    struct __attribute__((packed)) { uint16 limit; uint64 base; } idtr;
+    idtr.limit = 256 * 16 - 1;
+    idtr.base = (uint64)IDT64_BASE;
+    __asm__ volatile("lidt %0" : : "m"(idtr));
 
     // Set TSS RSP0 to this AP's kernel stack
     tss[idx].rsp0 = percpu[idx].stack_top;

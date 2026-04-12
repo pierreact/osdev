@@ -61,10 +61,11 @@ static int name_match(const char *iso_name, uint8 iso_len,
 
     // ISO names may have ";1" version suffix — strip it
     uint8 ilen = iso_len;
-    while (ilen > 0 && iso_name[ilen - 1] == ';') ilen--;
-    if (ilen > 0 && iso_name[ilen - 1] >= '0' && iso_name[ilen - 1] <= '9' &&
-        ilen > 1 && iso_name[ilen - 2] == ';')
+    if (ilen > 1 && iso_name[ilen - 1] >= '0' && iso_name[ilen - 1] <= '9' &&
+        iso_name[ilen - 2] == ';')
         ilen -= 2;
+    // Strip trailing dot (ISO 9660 Level 1: files without extension get "NAME.")
+    while (ilen > 0 && iso_name[ilen - 1] == '.') ilen--;
 
     if (ilen != tlen) return 0;
 
