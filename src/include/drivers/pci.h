@@ -44,6 +44,7 @@ uint16          pci_config_read16(const PCIDevice *dev, uint16 offset);
 void            pci_config_write16(const PCIDevice *dev, uint16 offset, uint16 val);
 uint8           pci_config_read8(const PCIDevice *dev, uint16 offset);
 
+void        pci_ids_init(void);    // load names from /DATA/PCI.IDS on ISO
 const char *pci_vendor_name(uint16 vendor_id);     // returns NULL if unknown
 const char *pci_class_name(uint8 class_code, uint8 subclass);
 

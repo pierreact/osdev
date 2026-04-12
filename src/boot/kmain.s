@@ -62,6 +62,7 @@ EXTERN ap_startup                                       ; Wake Application Proce
 EXTERN pci_init                                         ; Enumerate PCI devices.
 EXTERN ahci_init                                        ; Initialize AHCI SATA controller.
 EXTERN bootmedia_init                                   ; Discover and mount boot ISO.
+EXTERN pci_ids_init                                     ; Load PCI vendor/class names from ISO.
 EXTERN nic_init                                         ; Initialize NIC drivers.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
@@ -586,6 +587,7 @@ include_64bits_functions:                               ; /include
     call pci_init                                       ; Enumerate PCI devices.
     call ahci_init                                      ; Initialize AHCI SATA controller.
     call bootmedia_init                                 ; Discover and mount boot ISO.
+    call pci_ids_init                                   ; Load PCI vendor/class names from ISO.
     call nic_init                                       ; Initialize NIC drivers.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------

@@ -52,8 +52,10 @@ echo "[compile] Preparing ISO tree..."
 rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot"
 mkdir -p "$ISO_ROOT/bin"
+mkdir -p "$ISO_ROOT/data"
 cp "$OBJ" "$ISO_ROOT/boot/os.bin"
 cp apps/demo_app/demo_app "$ISO_ROOT/bin/demo_app" 2>/dev/null || true
+cp data/pci.ids "$ISO_ROOT/data/pci.ids" 2>/dev/null || true
 
 # No-emulation El Torito: BIOS loads boot-load-size x 512 bytes to 0:7C00h.
 # Bootsector is sector 0; kernel follows at sector 1.  The bootsector detects
