@@ -33,29 +33,37 @@
 #define SYS_EXEC          26
 #define SYS_NR_MAX        27
 
-// User-side syscall wrappers
+// SYSCALL clobbers: RCX (saved RIP), R11 (saved RFLAGS).
+// The kernel's syscall_entry also clobbers RDI, RSI, RDX, R8, R9, R10
+// when remapping registers for the C calling convention, and does not
+// restore them before SYSRET. All must be declared as clobbers (except
+// those already used as input constraints).
 static inline long sys_syscall0(long nr) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr)
+        : "rcx", "r11", "rdi", "rsi", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall1(long nr, long a1) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1)
+        : "rcx", "r11", "rsi", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall2(long nr, long a1, long a2) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2)
+        : "rcx", "r11", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall3(long nr, long a1, long a2, long a3) {
     long ret;
     register long r10 __asm__("r10") = a3;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2), "r"(r10) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2), "r"(r10)
+        : "rcx", "r11", "rdx", "r8", "r9", "memory");
     return ret;
 }
 
