@@ -43,6 +43,14 @@ D - Virtio-net driver (virtqueue TX/RX, MAC, link status).
 D - NIC abstraction layer (vtable dispatch, multiple driver support).
 D - Q35 machine type for PCIe support.
 D - IDE controller detection skip on Q35/AHCI.
+D - PCI device NUMA proximity (SRAT Type 5 + AML _BBN/_PXM walker).
+D - Subset AML walker (DSDT/SSDT) for Device(_BBN, _PXM) extraction.
+D - Bootsector chunked memcopy (supports kernels >64KB).
+D - Pin MEMMAP_START at fixed address 0x500 to free 16-bit relocation budget.
+D - PCI vendor and class name lookup (embedded pci.ids subset).
+D - NIC assignment modes: per-numa, per-core, with auto-detected default.
+D - Per-CPU ThreadMeta struct with NUMA node and assigned NIC info.
+D - sys.thread.ls and sys.nic.mode shell commands.
 
 ## Upcoming work
 

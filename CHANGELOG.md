@@ -1,5 +1,57 @@
 # Changelog
 
+## [2026-04-12] - NIC assignment modes and per-CPU thread metadata
+
+### Added
+- ThreadMeta struct in kernel/cpu.h: per-CPU snapshot of cpu_index, NUMA node, assigned NIC (PCI BDF + MAC). Will be mapped read-only into ring 3 thread address space when AP threads are implemented.
+- NIC assignment modes: per-numa (one NIC per NUMA node, shared) and per-core (one NIC per core, locality-respecting)
+- BSP_NIC_COUNT (=2) reserves the first 2 NICs in enumeration order for BSP use (mgmt + inter-node), excluded from the AP assignment pool
+- nic_assign() recomputes the per-CPU assignment respecting NUMA locality strictly (no fallback to non-local NICs)
+- Auto-detected default mode at boot: per-core if AP NICs >= AP cores, otherwise per-numa
+- sys.nic.mode [per-numa|per-core] - show or set the assignment mode
+- sys.thread.ls - per-CPU table with NUMA, NIC name, PCI BDF, MAC
+
+## [2026-04-11] - PCI vendor and class name lookup
+
+### Added
+- scripts/gen_pci_ids.sh fetches pci.ids from pci-ids.ucw.cz and generates src/drivers/pci_ids.c
+- Vendor whitelist (~25 entries) keeps the embedded table small
+- pci_vendor_name() and pci_class_name() lookup functions
+- sys.pci.ls now shows vendor and class names after the NUMA column
+
+## [2026-04-11] - Pin MEMMAP_START at fixed address
+
+### Changed
+- MEMMAP_START moved from .bss to absolute address 0x500 (defined in link.ld)
+- Removes 16-bit relocation overflow that prevented growing the kernel beyond ~64KB total
+- The 1024-byte E820 buffer overlaps the relocated bootsector area at 0x600-0x7FF (unused after kernel takes over)
+
+## [2026-04-11] - Bootsector chunked memcopy
+
+### Changed
+- CD-ROM memcopy path now uses NASM %rep to unroll 64KB chunks, advancing ES/DS between iterations
+- Supports kernels of any size, not limited to 64KB by 16-bit DI/SI register width
+
+## [2026-04-11] - AML subset walker for DSDT/SSDT
+
+### Added
+- src/arch/aml.c: ~400-line AML grammar walker for extracting Device(_BBN, _PXM) declarations from DSDT/SSDT
+- Parses Scope, Device, Method, Name with PkgLength and NameString grammar
+- Skips opcodes it doesn't understand using PkgLength when possible
+- Handles Method(_PXM, 0) {Return(constant)} as well as Name(_PXM, X)
+- Used as a fallback in acpi_pci_to_node() to discover PCI host bridge proximity from DSDT _PXM (which QEMU's pxb-pcie uses instead of SRAT Type 5)
+
+## [2026-04-11] - PCI device NUMA proximity
+
+### Added
+- SRAT Type 5 (Generic Initiator Affinity) parsing in arch/acpi.c
+- ACPINumaPCIAffinity struct and acpi_pci_to_node() with three lookup paths: SRAT Type 5, AML _BBN/_PXM walk, and ECAM base address inference from SRAT memory affinities
+- numa_node field in PCIDevice, populated during enumeration
+- numa_node field in NICSlot, copied from underlying PCIDevice
+- nic_get_numa_node() and nic_find_for_node() in the NIC API
+- sys.pci.ls and sys.nic.ls show NUMA proximity per device
+- QEMU scripts use pxb-pcie + pcie-root-port to give each NIC a NUMA affinity
+
 ## [2026-04-11] - Reorganize src/ by subsystem
 
 ### Changed

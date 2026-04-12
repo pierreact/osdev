@@ -67,14 +67,42 @@ GDT layout (GDT64 in kmain.s):
 
 ## Device assignment
 
-Devices (NICs, storage controllers) are assigned either per NUMA node or per core, at the user's discretion. Both modes are supported:
+Devices (NICs, storage controllers) are assigned either per NUMA node or per core. Both modes are supported:
 
 - **Per NUMA node:** one device shared by all cores on that node via hardware queues (e.g. RSS/VMDq for NICs). No locking between threads.
 - **Per core:** one device per thread. No sharing, maximum throughput.
 
 This applies uniformly to NICs (DPDK) and storage controllers (SPDK, planned).
 
-BSP has 2 additional NICs (inter-node + management). These are separate from the application devices.
+BSP has 2 additional NICs (inter-node + management). These are separate from the application devices and are reserved as the first 2 NICs in PCI enumeration order (`BSP_NIC_COUNT = 2`). They are not part of the AP assignment pool.
+
+### NIC NUMA proximity discovery
+
+The kernel discovers each PCI device's NUMA proximity from ACPI:
+
+1. **SRAT Type 5** (Generic Initiator Affinity, ACPI 6.3+) — direct (segment, BDF) -> proximity_domain mapping. The proper modern mechanism.
+2. **DSDT/SSDT AML walker** — for firmware (e.g. QEMU's `pxb-pcie`) that encodes host bridge proximity via `_PXM` in DSDT instead of SRAT. A subset AML walker in `src/arch/aml.c` extracts `Device(_BBN, _PXM)` declarations and the kernel matches a PCI bus to the largest `_BBN <= bus`.
+3. **MCFG ECAM base address fallback** — looks up the segment's ECAM base in SRAT memory affinity entries.
+
+### NIC assignment modes
+
+The mode is auto-selected at boot based on resource counts:
+
+- If `AP_NIC_COUNT >= AP_CORE_COUNT`: default is **per-core**
+- Otherwise: default is **per-numa**
+
+Where `AP_NIC_COUNT = total_nics - BSP_NIC_COUNT` and `AP_CORE_COUNT = total_cpus - 1`.
+
+The mode can be overridden at runtime via `sys.nic.mode per-core|per-numa`. Both modes respect locality strictly: an AP CPU only ever gets a NIC on its own NUMA node. If no NIC matches, the CPU's `nic_index` is left as `NIC_NONE`.
+
+### ThreadMeta
+
+`src/include/kernel/cpu.h` defines a `ThreadMeta` struct, one per CPU, containing:
+
+- `cpu_index`, `numa_node`
+- `nic_index`, `nic_segment`, `nic_bus`, `nic_dev`, `nic_func`, `nic_mac[6]`
+
+This struct is filled at boot by `nic_assign()`. When ring 3 AP threads are implemented, the per-CPU `ThreadMeta` will be mapped read-only into each thread's address space at a fixed virtual address so threads can read their own metadata without syscalls. Currently visible from the BSP shell via `sys.thread.ls`.
 
 All devices are accessed via polling from userspace (ring 3). No interrupts. BSP handles all interrupts in the system. Device MMIO is mapped into the thread's address space by the kernel.
 

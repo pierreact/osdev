@@ -131,10 +131,25 @@ For dynamic shared allocation (rare), your thread requests memory from BSP via s
 
 ## Device access
 
-Devices (NICs, storage controllers) can be assigned per NUMA node or per core, at your discretion:
+Devices (NICs, storage controllers) are assigned per NUMA node or per core. The mode is auto-selected at boot from the resource counts (per-core when there are enough NICs for every core, otherwise per-numa) and can be overridden at runtime via `sys.nic.mode per-core|per-numa`.
 
 - **Per NUMA node:** one device shared by all threads on that node via hardware queues (e.g. RSS/VMDq for NICs). No locking between threads.
 - **Per core:** one device per thread. No sharing, so less induced latency and maximum throughput.
+
+The first 2 NICs (in PCI enumeration order) are reserved as BSP NICs (management + inter-node) and excluded from the AP assignment pool. Both modes respect locality strictly: a thread on NUMA node N only ever gets a NIC on NUMA node N. If no matching NIC is available, the thread has no NIC.
+
+### Thread metadata (ThreadMeta)
+
+Each thread can read its own `ThreadMeta` to learn its placement:
+
+- `cpu_index` — which core it runs on
+- `numa_node` — which NUMA node that core belongs to
+- `nic_index`, `nic_segment`/`nic_bus`/`nic_dev`/`nic_func` — the assigned NIC's PCI address
+- `nic_mac[6]` — the MAC address of the assigned NIC
+
+When ring 3 AP threads are implemented, this struct will be mapped read-only into each thread's address space at a fixed virtual address. Currently inspectable from the BSP shell via `sys.thread.ls`.
+
+### Polling and zero-copy
 
 All devices are accessed via polling from userspace. No interrupts, no syscalls. The kernel maps device MMIO into your thread's address space. You drive the device through the provided libraries:
 
