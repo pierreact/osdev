@@ -16,6 +16,9 @@
 ## For Application Developers
 
 - [Application Model](user/application-model.md) -- execution model, memory model, device access, thread placement, fault tolerance, comparison with Linux for HPC
+- [Tutorial](user/tutorial.md) -- write, build, and run your first Isurus application
+- [Libc Reference](user/libc-reference.md) -- userland C library API (stdio, string, isurus.h)
+- [Syscall Reference](user/syscall-reference.md) -- complete syscall table with numbers and arguments
 
 ## For Kernel Developers
 

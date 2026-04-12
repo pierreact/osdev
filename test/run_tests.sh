@@ -148,6 +148,26 @@ check "PCI devices found" "1af4"
 send_cmd "sys.nic.ls"
 check "NIC interface listed" "virtio-net"
 
+# Test: sys.nic.mode
+send_cmd "sys.nic.mode"
+check "NIC mode displayed" "mode:"
+
+# Test: sys.thread.ls
+send_cmd "sys.thread.ls"
+check "Thread metadata displayed" "CPU"
+
+# Test: sys.disk.ls (AHCI devices)
+send_cmd "sys.disk.ls"
+check "AHCI devices listed" "sata"
+
+# Test: VFS / ISO filesystem
+send_cmd "sys.fs.ls /"
+check "ISO root listed" "BOOT"
+
+# Test: demo app binary on ISO
+send_cmd "sys.fs.ls /bin"
+check "Demo app on ISO" "DEMO_APP"
+
 # Summary
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
