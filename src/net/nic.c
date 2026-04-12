@@ -39,9 +39,19 @@ static const NICOps virtio_net_ops = {
     .link_status = vnet_link_status,
 };
 
-static const char *vnet_names[] = {
-    "virtio-net0", "virtio-net1", "virtio-net2", "virtio-net3"
-};
+// Per-NIC name buffer, generated at init from driver type + global index
+static char nic_name_bufs[MAX_NICS][16];
+
+static void gen_nic_name(uint32 idx, const char *prefix) {
+    char *buf = nic_name_bufs[idx];
+    uint32 i = 0;
+    while (*prefix && i < 12) buf[i++] = *prefix++;
+    // Append decimal index
+    if (idx >= 100) buf[i++] = '0' + (idx / 100) % 10;
+    if (idx >= 10) buf[i++] = '0' + (idx / 10) % 10;
+    buf[i++] = '0' + idx % 10;
+    buf[i] = '\0';
+}
 
 void nic_init(void) {
     nic_count = 0;
@@ -71,7 +81,8 @@ void nic_init(void) {
             }
 
             NICSlot *slot = &nics[nic_count];
-            slot->name = vnet_names[nic_count];
+            gen_nic_name(nic_count, "virtio-net");
+            slot->name = nic_name_bufs[nic_count];
             slot->ops = virtio_net_ops;
             slot->dev = vnet;
             slot->active = 1;
@@ -89,6 +100,28 @@ void nic_init(void) {
     kprint("NIC: assignment mode ");
     kprint(current_mode == NIC_MODE_PER_CORE ? "per-core" : "per-numa");
     kprint("\n");
+
+    // Dump NIC pool and per-CPU assignment
+    for (uint32 i = 0; i < nic_count; i++) {
+        kprint("NIC: slot ");
+        kprint_dec(i);
+        kprint(" NUMA ");
+        if (nics[i].numa_node == PCI_NUMA_UNKNOWN) kprint("-");
+        else kprint_dec(nics[i].numa_node);
+        kprint(i < BSP_NIC_COUNT ? " (BSP)\n" : " (AP pool)\n");
+    }
+    for (uint32 i = 0; i < cpu_count; i++) {
+        kprint("NIC: CPU ");
+        kprint_dec(i);
+        kprint(" NUMA ");
+        kprint_dec(thread_meta[i].numa_node);
+        kprint(" -> NIC ");
+        if (thread_meta[i].nic_index == NIC_NONE)
+            kprint("none");
+        else
+            kprint_dec(thread_meta[i].nic_index);
+        kprint("\n");
+    }
 }
 
 int nic_send(uint32 idx, const uint8 *data, uint32 len) {

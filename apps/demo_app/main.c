@@ -1,8 +1,8 @@
 // Isurus Demo App
 //
-// First userland application for Isurus. Runs in ring 3 on each
-// application core. Each thread reads its own ThreadMeta and reports
-// CPU index, NUMA node, and assigned NIC information.
+// Runs in ring 3 on each application core. The kernel passes a pointer
+// to this core's ThreadMeta in RDI (_start's first argument).
+// Prints CPU index, NUMA node, and assigned NIC information.
 //
 // This is a template for how to write Isurus applications. Future
 // extensions will demonstrate DPDK polling, SPDK storage access,
@@ -10,23 +10,36 @@
 
 #include "../libc/isurus.h"
 #include "../libc/stdio.h"
-#include "../libc/string.h"
 
-// Entry point. The kernel drops each AP to ring 3 at _start.
-// ThreadMeta pointer will be passed in RDI by the kernel.
-void _start(void) {
-    // TODO: When the kernel implements AP ring 3 dispatch, ThreadMeta
-    // will be at a fixed VA or passed as an argument. For now, this
-    // is a placeholder that prints a message and exits.
+static void print_mac(uint8 *mac) {
+    for (int i = 0; i < 6; i++) {
+        print_hex8(mac[i]);
+        if (i < 5) putc(':');
+    }
+}
 
-    puts("=== Isurus Demo App ===\n");
-    puts("Running in ring 3.\n");
+void _start(ThreadMeta *meta) {
+    puts("  CPU ");
+    print_dec(meta->cpu_index);
+    puts("  NUMA ");
+    if (meta->numa_node == THREAD_NUMA_UNKNOWN)
+        puts("-");
+    else
+        print_dec(meta->numa_node);
 
-    // Future: read ThreadMeta, print per-core info
-    // ThreadMeta *meta = (ThreadMeta *)THREAD_META_VA;
-    // puts("CPU "); print_dec(meta->cpu_index);
-    // puts("  NUMA "); print_dec(meta->numa_node);
-    // ...
+    puts("  NIC ");
+    if (meta->nic_index == NIC_NONE) {
+        puts("(none)");
+    } else {
+        print_hex8(meta->nic_bus);
+        putc(':');
+        print_hex8(meta->nic_dev);
+        putc('.');
+        print_dec(meta->nic_func);
+        puts("  MAC ");
+        print_mac(meta->nic_mac);
+    }
 
+    putc('\n');
     exit();
 }

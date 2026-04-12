@@ -3,7 +3,7 @@
 
 #include <types.h>
 
-#define MAX_NICS 4
+#define MAX_NICS 8
 #define NIC_NONE 0xFFFFFFFFu
 
 // First N NICs (in enumeration order) are reserved as BSP NICs

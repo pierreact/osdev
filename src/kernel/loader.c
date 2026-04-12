@@ -9,49 +9,32 @@
 // Per-AP state for ring 3 execution
 static uint64 ap_user_stacks[MAX_CPUS];
 
-// setjmp buffer per AP: when ring 3 code does SYSCALL(SYS_TASK_EXIT),
-// the handler longjmps back here so ap_run_ring3 returns normally
-// to the trampoline park loop.
-void *ap_jmpbuf[MAX_CPUS][5];
-
 // AP ring 3 launcher. Called on each AP via ap_dispatch.
-// Uses setjmp to save the return point, then IRETQ to ring 3.
-// When the ring 3 code calls exit (SYS_TASK_EXIT), the syscall
-// handler does longjmp back here.
+// Does IRETQ to ring 3 — does NOT return. When the ring 3 code
+// calls exit (SYS_TASK_EXIT), the syscall handler resets the AP's
+// stack and enters a new park loop. BSP sees done=1.
 static uint64 ap_run_ring3(uint64 cpu_idx) {
     uint32 idx = (uint32)cpu_idx;
 
-    if (__builtin_setjmp(ap_jmpbuf[idx]) != 0) {
-        // Returned via longjmp from sys_handle_task_exit
-        percpu[idx].in_usermode = 0;
-        return 0;
-    }
-
-    // First time: drop to ring 3.
-    // Use volatile to prevent __builtin_setjmp from interfering
-    // with register allocation for these values.
-    volatile uint64 user_stack_top = ap_user_stacks[idx] + USER_STACK_SIZE;
-    volatile uint64 entry = USER_LOAD_ADDR;
+    uint64 user_stack_top = ap_user_stacks[idx] + USER_STACK_SIZE;
+    uint64 entry_addr = USER_LOAD_ADDR;
+    uint64 meta_ptr = (uint64)&thread_meta[idx];
     percpu[idx].in_usermode = 1;
 
-    // Build IRETQ frame on the stack and jump.
-    // Load values into registers explicitly before the asm block
-    // to avoid __builtin_setjmp clobbering them.
-    uint64 rsp_val = user_stack_top;
-    uint64 rip_val = entry;
     __asm__ volatile(
         "cli\n"
-        "mov %0, %%rax\n"
-        "mov %1, %%rbx\n"
+        "mov %0, %%rax\n"       // user RSP
+        "mov %1, %%rbx\n"       // entry point
+        "mov %2, %%rdi\n"       // _start(ThreadMeta *meta)
         "push $0x23\n"          // SS (ring 3 data)
         "push %%rax\n"          // RSP
         "push $0x202\n"         // RFLAGS (IF=1)
         "push $0x2B\n"          // CS (ring 3 code 64-bit)
-        "push %%rbx\n"          // RIP (entry point)
+        "push %%rbx\n"          // RIP
         "iretq\n"
         :
-        : "r"(rsp_val), "r"(rip_val)
-        : "rax", "rbx", "memory"
+        : "r"(user_stack_top), "r"(entry_addr), "r"(meta_ptr)
+        : "rax", "rbx", "rdi", "memory"
     );
 
     __builtin_unreachable();
@@ -97,7 +80,13 @@ int loader_exec(const char *iso_path) {
     // Sequential because each AP needs its own jmpbuf and percpu.
     for (uint32 i = 1; i < cpu_count; i++) {
         if (!percpu[i].running) continue;
+        kprint("LOADER: dispatching to CPU ");
+        kprint_dec(i);
+        kprint("...\n");
         ap_dispatch(i, ap_run_ring3, i);
+        kprint("LOADER: CPU ");
+        kprint_dec(i);
+        kprint(" done\n");
     }
 
     kprint("LOADER: all APs done\n");

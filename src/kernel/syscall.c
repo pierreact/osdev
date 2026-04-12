@@ -193,20 +193,48 @@ static long sys_handle_yield(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 
     return 0;
 }
 
-// ap_jmpbuf: defined in loader.c, used by ap_run_ring3 / sys_handle_task_exit
-extern void *ap_jmpbuf[MAX_CPUS][5];
-
 static long sys_handle_task_exit(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
 
-    // Determine which CPU we're on by checking percpu[i].in_usermode.
-    // Only one AP at a time can be in_usermode (they're dispatched).
+    // Check if this is an AP returning from ring 3.
     for (uint32 i = 1; i < cpu_count; i++) {
         if (percpu[i].in_usermode) {
-            // AP returning from ring 3: longjmp back to ap_run_ring3
-            // which will return 0 to the trampoline park loop.
-            __builtin_longjmp(ap_jmpbuf[i], 1);
-            // unreachable
+            // AP done with ring 3: signal completion, reset kernel stack,
+            // and enter a new park loop. No longjmp — we bypass SYSRET
+            // entirely and never return to the old call chain.
+            percpu[i].in_usermode = 0;
+            ap_work[i].result = 0;
+            ap_work[i].done = 1;
+            ap_work[i].ready = 0;
+
+            // Reset stack to the clean top and spin-wait for next dispatch.
+            // This replaces the trampoline's park loop for this AP.
+            // The APWork pointer is saved on the stack because all registers
+            // get clobbered during the IRETQ -> SYSCALL -> stack-reset cycle.
+            uint64 stack_top = percpu[i].stack_top;
+            APWork *w = &ap_work[i];
+            __asm__ volatile(
+                "cli\n"
+                "mov %0, %%rsp\n"
+                "push %1\n"                // save APWork* at [rsp]
+                "1:\n"
+                "mov (%%rsp), %%r12\n"     // reload APWork* each iteration
+                "pause\n"
+                "movzbl (%%r12), %%eax\n"  // ready?
+                "test %%al, %%al\n"
+                "jz 1b\n"
+                "mov 16(%%r12), %%rdi\n"   // arg
+                "call *8(%%r12)\n"         // fn (does not return for ring 3)
+                "mov (%%rsp), %%r12\n"     // reload after call returns (ring 0 work)
+                "mov %%rax, 24(%%r12)\n"   // result
+                "movb $1, 1(%%r12)\n"      // done
+                "movb $0, (%%r12)\n"       // ready
+                "jmp 1b\n"
+                :
+                : "r"(stack_top), "r"(w)
+                : "rax", "rdi", "r12", "memory"
+            );
+            __builtin_unreachable();
         }
     }
 
