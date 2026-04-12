@@ -4,6 +4,7 @@ set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
+
 scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
@@ -12,12 +13,16 @@ if [ ! -f "$ISO" ]; then
 fi
 
 mkdir -p logs
-rm -f logs/qemu.log
+rm -f logs/qemu.log logs/serial.log
+
 echo "========================================"
-echo "QEMU Running - logs in logs/qemu.log"
-echo "Serial output: logs/serial.log"
-echo "Press Ctrl+C to exit"
+echo "QEMU Running"
+echo "  Serial:  logs/serial.log"
+echo "  QEMU:    logs/qemu.log"
+echo "  Compile: logs/compile.log"
+echo "  Press Ctrl+C to exit"
 echo "========================================"
+
 QEMU_ARGS=(
     -machine q35
     -m 2G

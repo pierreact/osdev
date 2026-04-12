@@ -5,6 +5,7 @@ set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
+
 scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
@@ -13,13 +14,16 @@ if [ ! -f "$ISO" ]; then
 fi
 
 mkdir -p logs
-rm -f logs/qemu.log
+rm -f logs/qemu.log logs/serial.log
+
 echo "========================================"
-echo "QEMU DEBUG Mode - logs in logs/qemu.log"
-echo "Serial output: logs/serial.log"
-echo "Reboot disabled for debugging"
-echo "Press Ctrl+C to exit"
+echo "QEMU DEBUG Mode (no-reboot, no-shutdown)"
+echo "  Serial:  logs/serial.log"
+echo "  QEMU:    logs/qemu.log"
+echo "  Compile: logs/compile.log"
+echo "  Press Ctrl+C to exit"
 echo "========================================"
+
 QEMU_ARGS=(
     -machine q35
     -m 2G
@@ -52,8 +56,7 @@ QEMU_ARGS=(
     -boot order=d
     -cdrom "$ISO"
     -D logs/qemu.log
-    -d in_asm,int,cpu_reset,guest_errors
-    -dfilter 0x600+0x200
+    -d "int,cpu_reset,guest_errors"
     -no-reboot
     -no-shutdown
 )
@@ -65,4 +68,3 @@ else
 fi
 
 qemu-system-x86_64 "${QEMU_ARGS[@]}"
-

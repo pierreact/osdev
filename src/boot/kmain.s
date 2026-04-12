@@ -716,6 +716,7 @@ ap_trampoline_end:                                      ;
 [SECTION .bss]
 align 16
 IDT32_BASE:
+GLOBAL IDT64_BASE
 IDT64_BASE:
 RESB 0x1000
 

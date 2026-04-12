@@ -1,11 +1,11 @@
 #!/bin/bash
 # Interactive serial mode: OS shell on stdio, no VGA window.
-# Use this to interact with the OS over COM1.
 cd "$(dirname "$0")/.."
 set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
+
 scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
@@ -15,10 +15,14 @@ fi
 
 mkdir -p logs
 rm -f logs/qemu.log
+
 echo "========================================"
 echo "QEMU Serial Mode - OS shell on stdio"
-echo "Press Ctrl-A X to exit QEMU"
+echo "  QEMU:    logs/qemu.log"
+echo "  Compile: logs/compile.log"
+echo "  Press Ctrl-A X to exit QEMU"
 echo "========================================"
+
 QEMU_ARGS=(
     -machine q35
     -m 2G

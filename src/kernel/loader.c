@@ -27,23 +27,31 @@ static uint64 ap_run_ring3(uint64 cpu_idx) {
         return 0;
     }
 
-    // First time: drop to ring 3
-    uint64 user_stack_top = ap_user_stacks[idx] + USER_STACK_SIZE;
-    uint64 entry = USER_LOAD_ADDR;
+    // First time: drop to ring 3.
+    // Use volatile to prevent __builtin_setjmp from interfering
+    // with register allocation for these values.
+    volatile uint64 user_stack_top = ap_user_stacks[idx] + USER_STACK_SIZE;
+    volatile uint64 entry = USER_LOAD_ADDR;
     percpu[idx].in_usermode = 1;
 
-    // IRETQ to ring 3
+    // Build IRETQ frame on the stack and jump.
+    // Load values into registers explicitly before the asm block
+    // to avoid __builtin_setjmp clobbering them.
+    uint64 rsp_val = user_stack_top;
+    uint64 rip_val = entry;
     __asm__ volatile(
         "cli\n"
+        "mov %0, %%rax\n"
+        "mov %1, %%rbx\n"
         "push $0x23\n"          // SS (ring 3 data)
-        "push %0\n"             // RSP
+        "push %%rax\n"          // RSP
         "push $0x202\n"         // RFLAGS (IF=1)
         "push $0x2B\n"          // CS (ring 3 code 64-bit)
-        "push %1\n"             // RIP (entry point)
+        "push %%rbx\n"          // RIP (entry point)
         "iretq\n"
         :
-        : "r"(user_stack_top), "r"(entry)
-        : "memory"
+        : "r"(rsp_val), "r"(rip_val)
+        : "rax", "rbx", "memory"
     );
 
     __builtin_unreachable();
@@ -71,11 +79,10 @@ int loader_exec(const char *iso_path) {
     kprint(" bytes) at ");
     kprint_long2hex(USER_LOAD_ADDR, "\n");
 
-    // Allocate user stacks for each AP (once)
+    // Allocate user stacks for each AP
     for (uint32 i = 1; i < cpu_count; i++) {
         if (!percpu[i].running) continue;
-        if (ap_user_stacks[i] == 0)
-            ap_user_stacks[i] = alloc_pages(USER_STACK_SIZE / 4096);
+        ap_user_stacks[i] = alloc_pages(USER_STACK_SIZE / 4096);
     }
 
     // Set up ring 3 on each AP (sequentially — shared TSS descriptor)
