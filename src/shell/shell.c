@@ -8,6 +8,7 @@
 #include <kernel/cpu.h>
 #include <drivers/pci.h>
 #include <drivers/ahci.h>
+#include <fs/vfs.h>
 #include <net/nic.h>
 #include <syscall.h>
 
@@ -274,8 +275,8 @@ void cmd_help() {
     sh_print("  sys.disk.info   - Show disk information\n");
     sh_print("  sys.disk.read   - Read disk sectors\n");
     sh_print("  sys.disk.write  - Write disk sectors\n");
-    sh_print("  sys.fs.ls       - List files on FAT32 disk\n");
-    sh_print("  sys.fs.cat <f>  - Print file contents\n");
+    sh_print("  sys.fs.ls [p]   - List directory (/ = ISO root, /mnt/* = FAT32)\n");
+    sh_print("  sys.fs.cat <p>  - Print file contents\n");
     sh_print("  sys.pci.ls      - List PCI devices\n");
     sh_print("  sys.nic.ls      - List network interfaces\n");
     sh_print("  sys.nic.mode    - Show or set NIC assignment mode (per-numa|per-core)\n");
@@ -911,12 +912,39 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "sys.disk.info") == 0) cmd_diskinfo();
     else if (starts_with(cmd_buffer, "sys.disk.read")) cmd_diskread();
     else if (starts_with(cmd_buffer, "sys.disk.write")) cmd_diskwrite();
-    else if (strcmp(cmd_buffer, "sys.fs.ls") == 0) sh_fat32_ls();
-    else if (starts_with(cmd_buffer, "sys.fs.cat ")) {
-        char *args = cmd_buffer + 11;
+    else if (starts_with(cmd_buffer, "sys.fs.ls")) {
+        char *args = cmd_buffer + 9;
         while (*args == ' ') args++;
-        if (*args) sh_fat32_cat(args);
-        else sh_print("Usage: sys.fs.cat <filename>\n");
+        if (use_syscalls)
+            sys_iso_ls(*args ? args : "/");
+        else
+            vfs_ls(*args ? args : "/");
+    }
+    else if (starts_with(cmd_buffer, "sys.fs.cat")) {
+        char *args = cmd_buffer + 10;
+        while (*args == ' ') args++;
+        if (*args == '\0') {
+            sh_print("Usage: sys.fs.cat <path>\n");
+        } else {
+            uint8 *buf = (uint8 *)sh_malloc(65536);
+            if (!buf) {
+                sh_print("Out of memory\n");
+            } else {
+                int rd;
+                if (use_syscalls)
+                    rd = sys_iso_read(args, buf, 65536);
+                else
+                    rd = vfs_read_file(args, buf, 65536);
+                if (rd > 0) {
+                    for (int i = 0; i < rd; i++)
+                        sh_putc((char)buf[i]);
+                    sh_putc('\n');
+                } else {
+                    sh_print("File not found\n");
+                }
+                sh_free(buf);
+            }
+        }
     }
     else if (strcmp(cmd_buffer, "sys.pci.ls") == 0) cmd_lspci();
     else if (strcmp(cmd_buffer, "sys.nic.ls") == 0) cmd_lsnic();

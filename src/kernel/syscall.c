@@ -7,6 +7,8 @@
 #include <arch/acpi.h>
 #include <kernel/cpu.h>
 #include <kernel/task.h>
+#include <fs/iso9660.h>
+#include <fs/vfs.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
@@ -195,6 +197,17 @@ static long sys_handle_task_exit(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uin
     return 0;
 }
 
+static long sys_handle_iso_ls(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    vfs_ls((const char *)a1);
+    return 0;
+}
+
+static long sys_handle_iso_read(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a4; (void)a5;
+    return (long)vfs_read_file((const char *)a1, (void *)a2, (uint32)a3);
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -222,6 +235,8 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_WAIT_INPUT]  = sys_handle_wait_input,
     [SYS_YIELD]       = sys_handle_yield,
     [SYS_TASK_EXIT]   = sys_handle_task_exit,
+    [SYS_ISO_LS]      = sys_handle_iso_ls,
+    [SYS_ISO_READ]    = sys_handle_iso_read,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {

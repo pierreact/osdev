@@ -17,6 +17,7 @@ OBJECTS=    boot/kmain.o \
             kernel/tss.o \
             kernel/syscall.o \
             kernel/stack_protector.o \
+            kernel/bootmedia.o \
             drivers/serial.o \
             drivers/monitor.o \
             drivers/keyboard.o \
@@ -28,6 +29,8 @@ OBJECTS=    boot/kmain.o \
             net/virtio.o \
             net/virtio_net.o \
             fs/fat32.o \
+            fs/iso9660.o \
+            fs/vfs.o \
             shell/shell.o
 
 CFLAGS=     -m64 \

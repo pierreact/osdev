@@ -61,6 +61,7 @@ EXTERN shell_ring3_entry                                ; Shell entry point for 
 EXTERN ap_startup                                       ; Wake Application Processors.
 EXTERN pci_init                                         ; Enumerate PCI devices.
 EXTERN ahci_init                                        ; Initialize AHCI SATA controller.
+EXTERN bootmedia_init                                   ; Discover and mount boot ISO.
 EXTERN nic_init                                         ; Initialize NIC drivers.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
@@ -584,6 +585,7 @@ include_64bits_functions:                               ; /include
     call fat32_init                                     ; Initialize FAT32 filesystem.
     call pci_init                                       ; Enumerate PCI devices.
     call ahci_init                                      ; Initialize AHCI SATA controller.
+    call bootmedia_init                                 ; Discover and mount boot ISO.
     call nic_init                                       ; Initialize NIC drivers.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
