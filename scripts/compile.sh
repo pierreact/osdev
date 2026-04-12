@@ -23,6 +23,10 @@ run_with_env() {
 run_with_env make -C src clean
 run_with_env make -C src
 
+echo "[compile] Building user applications..."
+run_with_env make -C apps clean
+run_with_env make -C apps
+
 mkdir -p bin
 echo "[compile] Building raw boot image..."
 # Build fixed-size raw image without a pipe (avoids pipefail/SIGPIPE exits).
@@ -42,7 +46,9 @@ fi
 echo "[compile] Preparing ISO tree..."
 rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot"
+mkdir -p "$ISO_ROOT/bin"
 cp "$OBJ" "$ISO_ROOT/boot/os.bin"
+cp apps/demo_app/demo_app "$ISO_ROOT/bin/demo_app" 2>/dev/null || true
 
 if run_with_env command -v xorriso >/dev/null 2>&1; then
     # No-emulation El Torito: BIOS loads boot-load-size × 512 bytes to 0:7C00h.
