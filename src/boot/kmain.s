@@ -60,6 +60,7 @@ EXTERN task_run_first                                   ; Start first BSP task (
 EXTERN shell_ring3_entry                                ; Shell entry point for ring 3.
 EXTERN ap_startup                                       ; Wake Application Processors.
 EXTERN pci_init                                         ; Enumerate PCI devices.
+EXTERN ahci_init                                        ; Initialize AHCI SATA controller.
 EXTERN nic_init                                         ; Initialize NIC drivers.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
@@ -582,6 +583,7 @@ include_64bits_functions:                               ; /include
     call ide_init                                       ; Initialize IDE controller.
     call fat32_init                                     ; Initialize FAT32 filesystem.
     call pci_init                                       ; Enumerate PCI devices.
+    call ahci_init                                      ; Initialize AHCI SATA controller.
     call nic_init                                       ; Initialize NIC drivers.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------

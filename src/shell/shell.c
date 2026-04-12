@@ -7,6 +7,7 @@
 #include <arch/acpi.h>
 #include <kernel/cpu.h>
 #include <drivers/pci.h>
+#include <drivers/ahci.h>
 #include <net/nic.h>
 #include <syscall.h>
 
@@ -343,16 +344,47 @@ void cmd_memtest() {
 }
 
 void cmd_lsblk() {
-    sh_print("NAME  SIZE    TYPE\n");
+    sh_print("NAME    TYPE     SIZE       MODEL\n");
+    int found = 0;
+
+    // IDE devices
     uint32 sectors = sh_ide_sectors();
-    if (sectors == 0) {
-        sh_print("No drives detected\n");
-        return;
+    if (sectors > 0) {
+        uint32 size_mb = sectors / 2048;
+        sh_print("hda     disk     ");
+        sh_print_dec(size_mb);
+        sh_print(" MB     ");
+        sh_print(sh_ide_model());
+        sh_putc('\n');
+        found++;
     }
-    uint32 size_mb = sectors / 2048;
-    sh_print("hda   ");
-    sh_print_dec(size_mb);
-    sh_print("MB  disk\n");
+
+    // AHCI devices
+    uint32 ahci_count = ahci_device_count();
+    for (uint32 i = 0; i < ahci_count; i++) {
+        const AHCIDevice *dev = ahci_get_device(i);
+        if (!dev || !dev->present) continue;
+        sh_print("sata");
+        sh_print_dec(i);
+        if (dev->type == AHCI_DEV_SATAPI)
+            sh_print("   cdrom    ");
+        else {
+            sh_print("   disk     ");
+        }
+        if (dev->sector_count > 0) {
+            uint64 size_mb = (dev->sector_count * dev->sector_size) / (1024 * 1024);
+            sh_print_dec(size_mb);
+            sh_print(" MB     ");
+        } else {
+            sh_print("-          ");
+        }
+        sh_print(dev->model[0] ? (char *)dev->model : "?");
+        sh_putc('\n');
+        found++;
+    }
+
+    if (found == 0)
+        sh_print("No drives detected\n");
 }
 
 void cmd_diskinfo() {

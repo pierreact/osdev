@@ -23,6 +23,7 @@ OBJECTS=    boot/kmain.o \
             drivers/ide.o \
             drivers/pci.o \
             drivers/pci_ids.o \
+            drivers/ahci.o \
             net/nic.o \
             net/virtio.o \
             net/virtio_net.o \
