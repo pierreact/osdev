@@ -70,3 +70,57 @@ void tss_init(void) {
 void tss_set_rsp0(uint32 cpu_idx, uint64 rsp0) {
     tss[cpu_idx].rsp0 = rsp0;
 }
+
+// Helper: write an MSR
+static inline void wrmsr_val(uint32 msr, uint64 val) {
+    uint32 lo = (uint32)(val & 0xFFFFFFFF);
+    uint32 hi = (uint32)(val >> 32);
+    __asm__ volatile("wrmsr" : : "c"(msr), "a"(lo), "d"(hi));
+}
+
+// Helper: read an MSR
+static inline uint64 rdmsr_val(uint32 msr) {
+    uint32 lo, hi;
+    __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    return ((uint64)hi << 32) | lo;
+}
+
+// Syscall entry point (defined in asm64_syscall.inc, linked into kernel)
+extern void syscall_entry(void);
+
+// Set up ring 3 infrastructure on an AP.
+// This function runs ON the AP via ap_dispatch.
+// Configures SYSCALL/SYSRET MSRs and loads the TSS.
+uint64 ap_setup_ring3(uint64 cpu_idx) {
+    uint32 idx = (uint32)cpu_idx;
+
+    // Set TSS RSP0 to this AP's kernel stack
+    tss[idx].rsp0 = percpu[idx].stack_top;
+
+    // Patch GDT TSS descriptor to point to this AP's TSS.
+    // Safe because ap_setup_ring3 is dispatched sequentially per AP.
+    uint64 tss_addr = (uint64)&tss[idx];
+    patch_tss_descriptor(tss_addr, TSS_SIZE - 1);
+
+    // Load Task Register
+    __asm__ volatile("ltr %w0" : : "r"((uint16)0x30));
+
+    // Enable SCE (System Call Extensions) in EFER
+    uint64 efer = rdmsr_val(0xC0000080);
+    efer |= 1;  // SCE bit
+    wrmsr_val(0xC0000080, efer);
+
+    // IA32_STAR: SYSCALL CS=0x08, SYSRET CS base=0x18
+    wrmsr_val(0xC0000081, ((uint64)0x00180008 << 32));
+
+    // IA32_LSTAR: SYSCALL entry point (shared with BSP)
+    wrmsr_val(0xC0000082, (uint64)syscall_entry);
+
+    // IA32_SFMASK: clear IF on SYSCALL entry
+    wrmsr_val(0xC0000084, 0x200);
+
+    // IA32_KERNEL_GS_BASE: this AP's percpu for SWAPGS
+    wrmsr_val(0xC0000102, (uint64)&percpu[idx]);
+
+    return 0;
+}

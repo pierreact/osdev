@@ -2,6 +2,7 @@
 ; Included from kmain.s in the 64-bit code section.
 
 EXTERN syscall_dispatch
+GLOBAL syscall_entry
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ; syscall_init - Configure SYSCALL/SYSRET MSRs

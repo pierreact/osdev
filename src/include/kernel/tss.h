@@ -26,4 +26,9 @@ typedef struct __attribute__((packed)) {
 void tss_init(void);
 void tss_set_rsp0(uint32 cpu_idx, uint64 rsp0);
 
+// Set up ring 3 infrastructure on an AP: TSS + SYSCALL MSRs.
+// Must be called ON the AP (via ap_dispatch) since it writes
+// per-CPU MSRs and loads TR. cpu_idx is passed as the argument.
+uint64 ap_setup_ring3(uint64 cpu_idx);
+
 #endif
