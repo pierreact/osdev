@@ -17,7 +17,7 @@ Or manually: `gcc`, `ld` (binutils), `make`.
 
 ```
 apps/
-  link.ld               # Userland linker script (binary at 0x400000)
+  link.ld               # Userland linker script (binary at 0x2000000)
   Makefile              # Top-level: builds libc, then all apps
   libc/                 # Minimal C library wrapping Isurus syscalls
     types.h             # uint8, uint16, uint32, uint64, size_t
@@ -57,7 +57,7 @@ The entry point is `_start()` (not `main`). The linker script expects this symbo
 #include "../libc/isurus.h"
 #include "../libc/stdio.h"
 
-void _start(void) {
+void _start(ThreadMeta *meta) {
     puts("Hello from ring 3\n");
     exit();
 }
@@ -77,7 +77,7 @@ Key functions:
 
 ### ThreadMeta
 
-Each thread has access to a `ThreadMeta` struct describing its CPU, NUMA node, and assigned NIC. When AP ring 3 execution is implemented, this will be at a fixed virtual address. The struct layout is in `libc/isurus.h`.
+Each thread has access to a `ThreadMeta` struct describing its CPU, NUMA node, and assigned NIC. The kernel passes a pointer to `ThreadMeta` in RDI as the first argument to `_start()`. The struct layout is in `libc/isurus.h`.
 
 ```c
 typedef struct {
@@ -100,7 +100,7 @@ Applications use the SYSCALL instruction to request kernel services. The `libc/s
 
 ### Linking
 
-Apps are linked as flat binaries (not ELF) via `apps/link.ld`. The load address is `0x400000`. The kernel's binary loader reads the flat binary from the ISO and maps it at that address before dropping to ring 3.
+Apps are linked as flat binaries (not ELF) via `apps/link.ld`. The load address is `0x2000000` (32 MB). The kernel's binary loader reads the flat binary from the ISO and maps it at that address before dropping to ring 3.
 
 ### Adding a new app
 

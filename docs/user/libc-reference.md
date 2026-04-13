@@ -88,6 +88,6 @@ Raw SYSCALL instruction wrappers. Use these only if libc doesn't provide a highe
 | `long syscall1(long nr, long a1)` | Syscall with 1 arg (RDI) |
 | `long syscall2(long nr, long a1, long a2)` | Syscall with 2 args (RDI, RSI) |
 
-Register convention: RAX = syscall number, RDI = arg1, RSI = arg2, RDX = arg3, R10 = arg4. Return value in RAX. RCX and R11 are clobbered by SYSCALL.
+Register convention: RAX = syscall number, RDI = arg1, RSI = arg2, RDX = arg3, R10 = arg4. Return value in RAX. RCX and R11 are clobbered by SYSCALL hardware. The kernel also clobbers RDI, RSI, RDX, R8, R9, and R10 (not restored before SYSRET). The syscall wrappers declare all kernel-clobbered registers (RDI, RSI, RDX, R8, R9, R10 in addition to RCX, R11) to prevent the compiler from keeping live values across the SYSCALL instruction.
 
 See [syscall-reference.md](syscall-reference.md) for the complete syscall table.

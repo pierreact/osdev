@@ -15,7 +15,7 @@ System calls are the interface between ring 3 user code and the ring 0 kernel. I
 | R9 | Argument 6 |
 | RAX (return) | Return value |
 
-RCX and R11 are clobbered by SYSCALL (hardware saves RIP to RCX, RFLAGS to R11).
+RCX and R11 are clobbered by SYSCALL (hardware saves RIP to RCX, RFLAGS to R11). The kernel also clobbers RDI, RSI, RDX, R8, R9, and R10 (they are not restored before SYSRET). Callers must declare these as clobbers in inline asm.
 
 ## Syscall Table
 
@@ -46,3 +46,5 @@ RCX and R11 are clobbered by SYSCALL (hardware saves RIP to RCX, RFLAGS to R11).
 | 22 | SYS_TASK_EXIT | - | (no return) | Exit current task/thread |
 | 23 | SYS_ISO_LS | RDI=path_ptr | - | List VFS directory |
 | 24 | SYS_ISO_READ | RDI=path_ptr, RSI=buf, RDX=max | bytes_read or -1 | Read file from VFS |
+| 25 | SYS_TEST_AP | - | 0 | Dispatch test function to all APs |
+| 26 | SYS_EXEC | RDI=iso_path_ptr | 0 or -1 | Load and execute binary from ISO on all APs |

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2026-04-13] - AP ring 3 execution, binary loader, PCI IDs on ISO
+
+### Added
+- AHCI SATA controller driver (SATA + SATAPI/CD-ROM)
+- ISO 9660 read-only filesystem
+- VFS layer: ISO mounted at /, FAT32 at /mnt/IDE
+- Boot media discovery: auto-mount ISO from AHCI SATAPI
+- User application build system: apps/ directory with libc and linker script
+- Binary loader: reads flat binaries from ISO, executes in ring 3 on APs
+- Demo app: per-core ThreadMeta reporter running in ring 3
+- AP ring 3 infrastructure: SYSCALL MSRs, TSS, GDT/IDT per AP
+- AP work dispatch: BSP can execute functions on any AP via polling
+- SYS_TEST_AP and SYS_EXEC syscalls
+- PCI vendor/class names loaded at runtime from /DATA/PCI.IDS on boot ISO
+
+### Fixed
+- Syscall wrappers: declare all kernel-clobbered registers (RDI, RSI, RDX, R8, R9, R10) preventing compiler from keeping live values across SYSCALL
+
+### Changed
+- PCI IDs moved from compiled-in rodata to text file on ISO (shrinks kernel binary)
+- gen_pci_ids.sh generates data/pci.ids text file instead of C source
+
 ## [2026-04-12] - NIC assignment modes and per-CPU thread metadata
 
 ### Added

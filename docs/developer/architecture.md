@@ -18,6 +18,12 @@ It's meant to live in an isolated environment.
 - Runtime disk access is separate from boot: `bin/fat32.img` is attached as an optional data disk during QEMU runs.
 - Operational benefit: testing and rollback are version-based (swap ISO), while data disk lifecycle remains independent.
 
+### AHCI, ISO 9660, and VFS
+
+An AHCI SATA controller driver (`src/drivers/ahci.c`) provides access to SATA disks and SATAPI CD-ROM devices. An ISO 9660 read-only filesystem (`src/fs/iso9660.c`) reads files from the boot CD-ROM. A VFS layer (`src/fs/vfs.c`) mounts the ISO at `/` and FAT32 at `/mnt/IDE`. Boot media discovery (`src/kernel/bootmedia.c`) auto-detects and mounts the AHCI SATAPI device at startup.
+
+PCI vendor and class names are loaded at runtime from `/DATA/PCI.IDS` on the boot ISO, rather than compiled into the kernel binary. This keeps the kernel small and allows updating PCI IDs without recompiling.
+
 ### Future alternative: GRUB + Multiboot2 (not implemented)
 
 If a GRUB menu or ecosystem integration is required later, the supported approach is **Multiboot2**: link the kernel as **ELF**, add a **Multiboot2 header**, provide a **32-bit protected-mode entry** (per spec), then transition to long mode and reuse the 64-bit bring-up. That implies replacing or bypassing early **BIOS-only** setup (E820, INT 10h) with **Multiboot2 info** (memory map, optional framebuffer). This is a large bootstrap refactor; the El Torito no-emul path remains the default for the current flat-binary, real-mode `kmain` entry.
@@ -102,7 +108,9 @@ The mode can be overridden at runtime via `sys.nic.mode per-core|per-numa`. Both
 - `cpu_index`, `numa_node`
 - `nic_index`, `nic_segment`, `nic_bus`, `nic_dev`, `nic_func`, `nic_mac[6]`
 
-This struct is filled at boot by `nic_assign()`. When ring 3 AP threads are implemented, the per-CPU `ThreadMeta` will be mapped read-only into each thread's address space at a fixed virtual address so threads can read their own metadata without syscalls. Currently visible from the BSP shell via `sys.thread.ls`.
+This struct is filled at boot by `nic_assign()`. The kernel passes a pointer to the per-CPU `ThreadMeta` in RDI as the first argument to each AP's `_start()` function, so threads can read their own metadata without syscalls. Also visible from the BSP shell via `sys.thread.ls`.
+
+The binary loader (`loader_exec` in `src/kernel/loader.c`) reads a flat binary from the ISO via VFS, loads it at `0x2000000` (32 MB), and dispatches it to all APs via IRETQ. Each AP has its own TSS, GDT/IDT, and SYSCALL MSRs configured during AP startup.
 
 All devices are accessed via polling from userspace (ring 3). No interrupts. BSP handles all interrupts in the system. Device MMIO is mapped into the thread's address space by the kernel.
 
