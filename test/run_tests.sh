@@ -168,6 +168,35 @@ check "ISO root listed" "BOOT"
 send_cmd "sys.fs.ls /bin"
 check "Demo app on ISO" "DEMO_APP"
 
+# Test: PCI NUMA shown in sys.pci.ls (already sent above)
+check "PCI NUMA shown" "NUMA"
+
+# Test: PCI vendor names loaded from ISO
+check "PCI vendor names" "Red Hat"
+
+# Test: NIC mode switch to per-core
+send_cmd "sys.nic.mode per-core"
+check "Mode set to per-core" "per-core"
+
+# Test: NIC mode switch to per-numa
+send_cmd "sys.nic.mode per-numa"
+check "Mode set to per-numa" "per-numa"
+
+# Test: Thread metadata shows NIC assignment (sys.thread.ls already sent)
+check "Thread NIC assignment" "NIC"
+
+# Test: PCI IDs loaded from ISO
+check "PCI IDs loaded from ISO" "PCI-IDS:"
+
+# Test: Demo app
+send_cmd "demo_app" 5
+check "Demo app ran" "LOADER: all APs done"
+check "Demo app NIC info" "MAC"
+
+# Test: Data directory on ISO
+send_cmd "sys.fs.ls /data"
+check "PCI IDs file on ISO" "PCI"
+
 # Summary
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
