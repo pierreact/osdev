@@ -4,6 +4,8 @@
 
 Boot from ISO. The build system produces `bin/os.iso`, a BIOS-bootable ISO built with xorriso (El Torito no-emulation boot). Flash it to USB, mount it in a VM, or pass it to QEMU with `-cdrom`.
 
+At boot, the kernel scans AHCI SATAPI ports for a volume labeled "ISURUS_OS" and auto-mounts the matching ISO as the root filesystem.
+
 See [Building and Running](../getting-started/building.md) for build instructions.
 
 ## Cluster

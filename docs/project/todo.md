@@ -51,6 +51,16 @@ D - PCI vendor and class name lookup (embedded pci.ids subset).
 D - NIC assignment modes: per-numa, per-core, with auto-detected default.
 D - Per-CPU ThreadMeta struct with NUMA node and assigned NIC info.
 D - sys.thread.ls and sys.nic.mode shell commands.
+D - AHCI SATA controller driver (SATA + SATAPI/CD-ROM).
+D - ISO 9660 read-only filesystem.
+D - VFS layer (ISO at /, FAT32 at /mnt/IDE).
+D - Boot media discovery (auto-mount ISO from AHCI SATAPI).
+D - User app build system (apps/ directory, libc, flat binary linker script).
+D - Binary loader (reads flat binaries from ISO, executes in ring 3 on APs).
+D - Ring 3 thread execution on AP cores (SYSCALL MSRs, TSS, GDT/IDT per AP).
+D - Demo app: per-core ThreadMeta reporter running in ring 3.
+D - PCI vendor/class names loaded from /DATA/PCI.IDS on boot ISO.
+D - Syscall clobber fix (full register clobber list in wrappers).
 
 ## Upcoming work
 
@@ -75,10 +85,8 @@ T - Default linker script for Isurus userland binaries.
 ### Kernel improvements
 T - FAT32 write support (BSP system disk: /bin, /conf, /home, /log).
 T - Slab allocator (replace O(n) bitmap scan for frequent small allocations).
-T - Ring 3 thread execution on AP cores.
 T - Per-thread page tables (CR3 per AP).
 T - User program coordinator task on BSP (master for threads spanning APs).
-T - Binary loader (load and execute /bin commands from FAT32).
 T - Shared memory region mapping.
 T - Locality map generation.
 

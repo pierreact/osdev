@@ -1,6 +1,6 @@
 # Writing Applications for Isurus
 
-> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell runs in ring 3 with SYSCALL/SYSRET. AP ring 3 threads, multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
+> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell and AP threads run in ring 3 with SYSCALL/SYSRET. Multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
 
 **Audience:** Application developers writing code against Isurus. For kernel design rationale, see [Architecture](../developer/architecture.md). For research context and project overview, see [Research Overview](../research/overview.md).
 
@@ -147,7 +147,7 @@ Each thread can read its own `ThreadMeta` to learn its placement:
 - `nic_index`, `nic_segment`/`nic_bus`/`nic_dev`/`nic_func` — the assigned NIC's PCI address
 - `nic_mac[6]` — the MAC address of the assigned NIC
 
-When ring 3 AP threads are implemented, this struct will be mapped read-only into each thread's address space at a fixed virtual address. Currently inspectable from the BSP shell via `sys.thread.ls`.
+The kernel passes a pointer to the per-CPU `ThreadMeta` in RDI when launching each AP's `_start` function. Also inspectable from the BSP shell via `sys.thread.ls`. See [Writing Your First Isurus Application](tutorial.md) for how to use it.
 
 ### Polling and zero-copy
 

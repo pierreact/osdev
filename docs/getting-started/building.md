@@ -41,12 +41,14 @@ Produces:
 - `bin/os.iso` -- BIOS-bootable ISO (El Torito no-emulation boot via xorriso)
 - `bin/fat32.img` -- optional FAT32 data disk (if `scripts/create_fat32_disk.sh` succeeds)
 
+The ISO also contains `apps/demo_app/demo_app` (at `/bin/demo_app`) and `data/pci.ids` (at `/data/pci.ids`).
+
 ## QEMU configuration
 
 The QEMU scripts use Q35 machine type with:
 - 2GB RAM, 2 NUMA nodes (1GB each)
 - 4 CPUs (2 sockets, 2 cores)
-- 4 virtio-net-pci devices (2 BSP NICs + 1 per NUMA node)
+- 5 virtio-net-pci devices (2 BSP + 3 AP pool) on 6 pcie-root-port devices via 2 pxb-pcie host bridges
 - ISO boot (`-boot order=d`)
 
 ## Running tests
