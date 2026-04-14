@@ -82,6 +82,10 @@ T - Default linker script for Isurus userland binaries.
 ### Future consideration
 - Time-bound cluster utilisation per user. Policy-based scheduling: after a defined period, user A's jobs stop to let user B's jobs start. Users can pre-configure job definitions so the system starts them automatically when their time slot begins. Enables unattended time slicing of cluster resources.
 
+### Application runtime
+T - ELF64 loader: replace flat binary loader with minimal ELF64 (PT_LOAD segments, entry point from header, BSS zeroing, per-section permissions).
+T - Fiber library: cooperative userland coroutines with work-stealing scheduler in apps/libc. One core, multiple tasks, explicit yield. For multiplexing NIC poll, disk poll, and compute without kernel threads.
+
 ### Kernel improvements
 T - FAT32 write support (BSP system disk: /bin, /conf, /home, /log).
 T - Slab allocator (replace O(n) bitmap scan for frequent small allocations).
