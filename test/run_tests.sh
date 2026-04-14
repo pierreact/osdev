@@ -43,14 +43,24 @@ qemu-system-x86_64 \
     -object "memory-backend-ram,id=mem1,size=1G" \
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0" \
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1" \
+    -device pxb-pcie,id=pcie.1,bus_nr=10,bus=pcie.0,numa_node=0 \
+    -device pxb-pcie,id=pcie.2,bus_nr=20,bus=pcie.0,numa_node=1 \
+    -device pcie-root-port,id=rp1,bus=pcie.1,chassis=1 \
+    -device pcie-root-port,id=rp2,bus=pcie.1,chassis=2 \
+    -device pcie-root-port,id=rp3,bus=pcie.1,chassis=3 \
+    -device pcie-root-port,id=rp4,bus=pcie.2,chassis=4 \
+    -device pcie-root-port,id=rp5,bus=pcie.2,chassis=5 \
+    -device pcie-root-port,id=rp6,bus=pcie.2,chassis=6 \
     -netdev user,id=mgmt0 \
-    -device virtio-net-pci,netdev=mgmt0,romfile= \
+    -device virtio-net-pci,netdev=mgmt0,romfile=,bus=rp1 \
     -netdev user,id=inter0 \
-    -device virtio-net-pci,netdev=inter0,romfile= \
+    -device virtio-net-pci,netdev=inter0,romfile=,bus=rp2 \
     -netdev user,id=dpdk0 \
-    -device virtio-net-pci,netdev=dpdk0,romfile= \
+    -device virtio-net-pci,netdev=dpdk0,romfile=,bus=rp3 \
     -netdev user,id=dpdk1 \
-    -device virtio-net-pci,netdev=dpdk1,romfile= \
+    -device virtio-net-pci,netdev=dpdk1,romfile=,bus=rp4 \
+    -netdev user,id=dpdk2 \
+    -device virtio-net-pci,netdev=dpdk2,romfile=,bus=rp5 \
     -boot order=d \
     -cdrom "$ISO" \
     -no-reboot &
@@ -137,6 +147,55 @@ check "PCI devices found" "1af4"
 # Test: sys.nic.ls
 send_cmd "sys.nic.ls"
 check "NIC interface listed" "virtio-net"
+
+# Test: sys.nic.mode
+send_cmd "sys.nic.mode"
+check "NIC mode displayed" "mode:"
+
+# Test: sys.thread.ls
+send_cmd "sys.thread.ls"
+check "Thread metadata displayed" "CPU"
+
+# Test: sys.disk.ls (AHCI devices)
+send_cmd "sys.disk.ls"
+check "AHCI devices listed" "sata"
+
+# Test: VFS / ISO filesystem
+send_cmd "sys.fs.ls /"
+check "ISO root listed" "BOOT"
+
+# Test: demo app binary on ISO
+send_cmd "sys.fs.ls /bin"
+check "Demo app on ISO" "DEMO_APP"
+
+# Test: PCI NUMA shown in sys.pci.ls (already sent above)
+check "PCI NUMA shown" "NUMA"
+
+# Test: PCI vendor names loaded from ISO
+check "PCI vendor names" "Red Hat"
+
+# Test: NIC mode switch to per-core
+send_cmd "sys.nic.mode per-core"
+check "Mode set to per-core" "per-core"
+
+# Test: NIC mode switch to per-numa
+send_cmd "sys.nic.mode per-numa"
+check "Mode set to per-numa" "per-numa"
+
+# Test: Thread metadata shows NIC assignment (sys.thread.ls already sent)
+check "Thread NIC assignment" "NIC"
+
+# Test: PCI IDs loaded from ISO
+check "PCI IDs loaded from ISO" "PCI-IDS:"
+
+# Test: Demo app
+send_cmd "demo_app" 5
+check "Demo app ran" "LOADER: all APs done"
+check "Demo app NIC info" "MAC"
+
+# Test: Data directory on ISO
+send_cmd "sys.fs.ls /data"
+check "PCI IDs file on ISO" "PCI"
 
 # Summary
 echo ""

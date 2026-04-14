@@ -3,7 +3,7 @@
 *.o
 *.so
 *.bin
-src/kernel
+*.map
 
 # Packages #
 ############

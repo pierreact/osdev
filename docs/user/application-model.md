@@ -1,6 +1,6 @@
 # Writing Applications for Isurus
 
-> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell runs in ring 3 with SYSCALL/SYSRET. AP ring 3 threads, multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
+> **Note:** This document describes the target architecture. The kernel currently runs on a single node. The BSP shell and AP threads run in ring 3 with SYSCALL/SYSRET. Multi-node features (DSM, cross-machine memory, thread placement across machines, DPDK, SPDK) are not yet implemented.
 
 **Audience:** Application developers writing code against Isurus. For kernel design rationale, see [Architecture](../developer/architecture.md). For research context and project overview, see [Research Overview](../research/overview.md).
 
@@ -131,10 +131,25 @@ For dynamic shared allocation (rare), your thread requests memory from BSP via s
 
 ## Device access
 
-Devices (NICs, storage controllers) can be assigned per NUMA node or per core, at your discretion:
+Devices (NICs, storage controllers) are assigned per NUMA node or per core. The mode is auto-selected at boot from the resource counts (per-core when there are enough NICs for every core, otherwise per-numa) and can be overridden at runtime via `sys.nic.mode per-core|per-numa`.
 
 - **Per NUMA node:** one device shared by all threads on that node via hardware queues (e.g. RSS/VMDq for NICs). No locking between threads.
 - **Per core:** one device per thread. No sharing, so less induced latency and maximum throughput.
+
+The first 2 NICs (in PCI enumeration order) are reserved as BSP NICs (management + inter-node) and excluded from the AP assignment pool. Both modes respect locality strictly: a thread on NUMA node N only ever gets a NIC on NUMA node N. If no matching NIC is available, the thread has no NIC.
+
+### Thread metadata (ThreadMeta)
+
+Each thread can read its own `ThreadMeta` to learn its placement:
+
+- `cpu_index` — which core it runs on
+- `numa_node` — which NUMA node that core belongs to
+- `nic_index`, `nic_segment`/`nic_bus`/`nic_dev`/`nic_func` — the assigned NIC's PCI address
+- `nic_mac[6]` — the MAC address of the assigned NIC
+
+The kernel passes a pointer to the per-CPU `ThreadMeta` in RDI when launching each AP's `_start` function. Also inspectable from the BSP shell via `sys.thread.ls`. See [Writing Your First Isurus Application](tutorial.md) for how to use it.
+
+### Polling and zero-copy
 
 All devices are accessed via polling from userspace. No interrupts, no syscalls. The kernel maps device MMIO into your thread's address space. You drive the device through the provided libraries:
 

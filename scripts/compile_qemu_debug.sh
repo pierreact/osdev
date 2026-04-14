@@ -5,6 +5,7 @@ set -euo pipefail
 
 ISO=bin/os.iso
 DATA_DISK=bin/fat32.img
+
 scripts/compile.sh
 
 if [ ! -f "$ISO" ]; then
@@ -13,13 +14,16 @@ if [ ! -f "$ISO" ]; then
 fi
 
 mkdir -p logs
-rm -f logs/qemu.log
+rm -f logs/qemu.log logs/serial.log
+
 echo "========================================"
-echo "QEMU DEBUG Mode - logs in logs/qemu.log"
-echo "Serial output: logs/serial.log"
-echo "Reboot disabled for debugging"
-echo "Press Ctrl+C to exit"
+echo "QEMU DEBUG Mode (no-reboot, no-shutdown)"
+echo "  Serial:  logs/serial.log"
+echo "  QEMU:    logs/qemu.log"
+echo "  Compile: logs/compile.log"
+echo "  Press Ctrl+C to exit"
 echo "========================================"
+
 QEMU_ARGS=(
     -machine q35
     -m 2G
@@ -29,21 +33,30 @@ QEMU_ARGS=(
     -object "memory-backend-ram,id=mem1,size=1G"
     -numa "node,nodeid=0,cpus=0-1,memdev=mem0"
     -numa "node,nodeid=1,cpus=2-3,memdev=mem1"
+    -device pxb-pcie,id=pcie.1,bus_nr=10,bus=pcie.0,numa_node=0
+    -device pxb-pcie,id=pcie.2,bus_nr=20,bus=pcie.0,numa_node=1
+    -device pcie-root-port,id=rp1,bus=pcie.1,chassis=1
+    -device pcie-root-port,id=rp2,bus=pcie.1,chassis=2
+    -device pcie-root-port,id=rp3,bus=pcie.1,chassis=3
+    -device pcie-root-port,id=rp4,bus=pcie.2,chassis=4
+    -device pcie-root-port,id=rp5,bus=pcie.2,chassis=5
+    -device pcie-root-port,id=rp6,bus=pcie.2,chassis=6
     -netdev user,id=mgmt0
-    -device virtio-net-pci,netdev=mgmt0,romfile=
+    -device virtio-net-pci,netdev=mgmt0,romfile=,bus=rp1
     -netdev user,id=inter0
-    -device virtio-net-pci,netdev=inter0,romfile=
+    -device virtio-net-pci,netdev=inter0,romfile=,bus=rp2
     -netdev user,id=dpdk0
-    -device virtio-net-pci,netdev=dpdk0,romfile=
+    -device virtio-net-pci,netdev=dpdk0,romfile=,bus=rp3
     -netdev user,id=dpdk1
-    -device virtio-net-pci,netdev=dpdk1,romfile=
+    -device virtio-net-pci,netdev=dpdk1,romfile=,bus=rp4
+    -netdev user,id=dpdk2
+    -device virtio-net-pci,netdev=dpdk2,romfile=,bus=rp5
     -s
     -monitor stdio
     -boot order=d
     -cdrom "$ISO"
     -D logs/qemu.log
-    -d in_asm,int,cpu_reset,guest_errors
-    -dfilter 0x600+0x200
+    -d "int,cpu_reset,guest_errors"
     -no-reboot
     -no-shutdown
 )
@@ -55,4 +68,3 @@ else
 fi
 
 qemu-system-x86_64 "${QEMU_ARGS[@]}"
-

@@ -27,31 +27,43 @@
 #define SYS_WAIT_INPUT    20
 #define SYS_YIELD         21
 #define SYS_TASK_EXIT     22
-#define SYS_NR_MAX        23
+#define SYS_ISO_LS        23
+#define SYS_ISO_READ      24
+#define SYS_TEST_AP       25
+#define SYS_EXEC          26
+#define SYS_NR_MAX        27
 
-// User-side syscall wrappers
+// SYSCALL clobbers: RCX (saved RIP), R11 (saved RFLAGS).
+// The kernel's syscall_entry also clobbers RDI, RSI, RDX, R8, R9, R10
+// when remapping registers for the C calling convention, and does not
+// restore them before SYSRET. All must be declared as clobbers (except
+// those already used as input constraints).
 static inline long sys_syscall0(long nr) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr)
+        : "rcx", "r11", "rdi", "rsi", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall1(long nr, long a1) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1)
+        : "rcx", "r11", "rsi", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall2(long nr, long a1, long a2) {
     long ret;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2)
+        : "rcx", "r11", "rdx", "r8", "r9", "r10", "memory");
     return ret;
 }
 
 static inline long sys_syscall3(long nr, long a1, long a2, long a3) {
     long ret;
     register long r10 __asm__("r10") = a3;
-    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2), "r"(r10) : "rcx", "r11", "memory");
+    __asm__ volatile("syscall" : "=a"(ret) : "a"(nr), "D"(a1), "S"(a2), "r"(r10)
+        : "rcx", "r11", "rdx", "r8", "r9", "memory");
     return ret;
 }
 
@@ -79,6 +91,10 @@ static inline int  sys_readchar(void)            { return (int)sys_syscall0(SYS_
 static inline int  sys_wait_input(void)          { return (int)sys_syscall0(SYS_WAIT_INPUT); }
 static inline void sys_yield(void)               { sys_syscall0(SYS_YIELD); }
 static inline void sys_task_exit(void)           { sys_syscall0(SYS_TASK_EXIT); }
+static inline void sys_iso_ls(const char *path)  { sys_syscall1(SYS_ISO_LS, (long)path); }
+static inline int  sys_iso_read(const char *path, void *buf, uint32 max) { return (int)sys_syscall3(SYS_ISO_READ, (long)path, (long)buf, (long)max); }
+static inline void sys_test_ap(void)                    { sys_syscall0(SYS_TEST_AP); }
+static inline int  sys_exec(const char *path)           { return (int)sys_syscall1(SYS_EXEC, (long)path); }
 
 // Per-CPU info returned by SYS_CPU_INFO
 typedef struct {

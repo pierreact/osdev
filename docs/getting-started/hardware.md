@@ -21,3 +21,7 @@ This is not a correctness issue. A non-coherent system would still work with pro
 **Userspace direct access.** Isurus maps device MMIO and DMA buffers directly into ring 3 (userspace). Some cache management instructions (`wbinvd`) are ring 0 only and cannot be executed from userspace. `clflush` is available in ring 3 but adds per-cache-line overhead to the userspace hot path. The DPDK library would need explicit cache management on every TX/RX operation, complicating the code and the data path.
 
 A kernel that uses bounce buffers or kernel-managed DMA could work on non-coherent hardware. But that is the opposite of what Isurus does.
+
+## Storage controller: AHCI required
+
+SATA controllers must be in AHCI mode. IDE compatibility mode is not supported. AHCI is the default on all modern hardware (post-2012), QEMU Q35, and cloud instances. If your BIOS is set to "IDE" or "Legacy" SATA mode, switch it to "AHCI" before booting Isurus.

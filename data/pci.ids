@@ -1,0 +1,163 @@
+V 1002 Advanced Micro Devices, Inc. [AMD/ATI]
+V 1022 Advanced Micro Devices, Inc. [AMD]
+V 10de NVIDIA Corporation
+V 10ec Realtek Semiconductor Co., Ltd.
+V 1106 VIA Technologies, Inc.
+V 1131 Philips Semiconductors
+V 1180 Ricoh Co Ltd
+V 11ab Marvell Technology Group Ltd.
+V 126f Silicon Motion, Inc.
+V 144d Samsung Electronics Co Ltd
+V 14e4 Broadcom Inc. and subsidiaries
+V 15b3 Mellanox Technologies
+V 168c Qualcomm Atheros
+V 1969 Qualcomm Atheros
+V 1af4 Red Hat, Inc.
+V 1b21 ASMedia Technology Inc.
+V 1b36 Red Hat, Inc.
+V 1b73 Fresco Logic
+V 1c5c SK hynix
+V 1cc1 ADATA Technology Co., Ltd.
+V 1cc4 Shenzhen Unionmemory Information System Ltd.
+V 1e0f KIOXIA Corporation
+V 8086 Intel Corporation
+C 00 ff Unclassified device
+C 00 00 Non-VGA unclassified device
+C 00 01 VGA compatible unclassified device
+C 00 05 Image coprocessor
+C 01 ff Mass storage controller
+C 01 00 SCSI storage controller
+C 01 01 IDE interface
+C 01 02 Floppy disk controller
+C 01 03 IPI bus controller
+C 01 04 RAID bus controller
+C 01 05 ATA controller
+C 01 06 SATA controller
+C 01 07 Serial Attached SCSI controller
+C 01 08 Non-Volatile memory controller
+C 01 09 Universal Flash Storage controller
+C 01 80 Mass storage controller
+C 02 ff Network controller
+C 02 00 Ethernet controller
+C 02 01 Token ring network controller
+C 02 02 FDDI network controller
+C 02 03 ATM network controller
+C 02 04 ISDN controller
+C 02 05 WorldFip controller
+C 02 06 PICMG controller
+C 02 07 Infiniband controller
+C 02 08 Fabric controller
+C 02 80 Network controller
+C 03 ff Display controller
+C 03 00 VGA compatible controller
+C 03 01 XGA compatible controller
+C 03 02 3D controller
+C 03 80 Display controller
+C 04 ff Multimedia controller
+C 04 00 Multimedia video controller
+C 04 01 Multimedia audio controller
+C 04 02 Computer telephony device
+C 04 03 Audio device
+C 04 80 Multimedia controller
+C 05 ff Memory controller
+C 05 00 RAM memory
+C 05 01 FLASH memory
+C 05 02 CXL
+C 05 80 Memory controller
+C 06 ff Bridge
+C 06 00 Host bridge
+C 06 01 ISA bridge
+C 06 02 EISA bridge
+C 06 03 MicroChannel bridge
+C 06 04 PCI bridge
+C 06 05 PCMCIA bridge
+C 06 06 NuBus bridge
+C 06 07 CardBus bridge
+C 06 08 RACEway bridge
+C 06 09 Semi-transparent PCI-to-PCI bridge
+C 06 0a InfiniBand to PCI host bridge
+C 06 80 Bridge
+C 07 ff Communication controller
+C 07 00 Serial controller
+C 07 01 Parallel controller
+C 07 02 Multiport serial controller
+C 07 03 Modem
+C 07 04 GPIB controller
+C 07 05 Smard Card controller
+C 07 80 Communication controller
+C 08 ff Generic system peripheral
+C 08 00 PIC
+C 08 01 DMA controller
+C 08 02 Timer
+C 08 03 RTC
+C 08 04 PCI Hot-plug controller
+C 08 05 SD Host controller
+C 08 06 IOMMU
+C 08 07 Root Complex Event Collector
+C 08 80 System peripheral
+C 08 99 Timing Card
+C 09 ff Input device controller
+C 09 00 Keyboard controller
+C 09 01 Digitizer Pen
+C 09 02 Mouse controller
+C 09 03 Scanner controller
+C 09 04 Gameport controller
+C 09 80 Input device controller
+C 0a ff Docking station
+C 0a 00 Generic Docking Station
+C 0a 80 Docking Station
+C 0b ff Processor
+C 0b 00 386
+C 0b 01 486
+C 0b 02 Pentium
+C 0b 10 Alpha
+C 0b 20 Power PC
+C 0b 30 MIPS
+C 0b 40 Co-processor
+C 0c ff Serial bus controller
+C 0c 00 FireWire (IEEE 1394)
+C 0c 01 ACCESS Bus
+C 0c 02 SSA
+C 0c 03 USB controller
+C 0c 04 Fibre Channel
+C 0c 05 SMBus
+C 0c 06 InfiniBand
+C 0c 07 IPMI Interface
+C 0c 08 SERCOS interface
+C 0c 09 CANBUS
+C 0c 0a MIPI I3C
+C 0c 80 Serial bus controller
+C 0d ff Wireless controller
+C 0d 00 IRDA controller
+C 0d 01 Consumer IR controller
+C 0d 10 RF controller
+C 0d 11 Bluetooth
+C 0d 12 Broadband
+C 0d 20 802.11a 5 GHz controller
+C 0d 21 802.11b 2.4 GHz controller
+C 0d 40 Cellular controller/modem
+C 0d 41 Cellular controller/modem plus Ethernet (802.11)
+C 0d 80 Wireless controller
+C 0e ff Intelligent controller
+C 0e 00 I2O
+C 0f ff Satellite communications controller
+C 0f 01 Satellite TV controller
+C 0f 02 Satellite audio communication controller
+C 0f 03 Satellite voice communication controller
+C 0f 04 Satellite data communication controller
+C 10 ff Encryption controller
+C 10 00 Network and computing encryption device
+C 10 10 Entertainment encryption device
+C 10 80 Encryption controller
+C 11 ff Signal processing controller
+C 11 00 DPIO module
+C 11 01 Performance counters
+C 11 10 Communication synchronizer
+C 11 20 Signal processing management
+C 11 80 Signal processing controller
+C 12 ff Processing accelerators
+C 12 00 Processing accelerators
+C 12 01 SNIA Smart Data Accelerator Interface (SDXI) controller
+C 13 ff Non-Essential Instrumentation
+C 40 ff Coprocessor
+C ff ff Unassigned class

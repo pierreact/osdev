@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.0/.schema/devbox.schema.json",
+  "packages": [
+    "bash",
+    "gnumake",
+    "gcc",
+    "binutils"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo \"Devbox shell ready for Isurus user app builds.\"",
+      "echo \"Tools: gcc (freestanding x86-64), ld, make\""
+    ]
+  }
+}
