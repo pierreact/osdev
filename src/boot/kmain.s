@@ -64,6 +64,7 @@ EXTERN ahci_init                                        ; Initialize AHCI SATA c
 EXTERN bootmedia_init                                   ; Discover and mount boot ISO.
 EXTERN pci_ids_init                                     ; Load PCI vendor/class names from ISO.
 EXTERN nic_init                                         ; Initialize NIC drivers.
+EXTERN l2_kern_init                                     ; Initialize L2 Ethernet on BSP NICs.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -589,6 +590,7 @@ include_64bits_functions:                               ; /include
     call bootmedia_init                                 ; Discover and mount boot ISO.
     call pci_ids_init                                   ; Load PCI vendor/class names from ISO.
     call nic_init                                       ; Initialize NIC drivers.
+    call l2_kern_init                                   ; Initialize L2 Ethernet on BSP NICs.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -600,9 +602,13 @@ include_64bits_functions:                               ; /include
     call task_run_first                                 ; Drop to ring 3 (does not return)
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-[SECTION .data]
-
-shell_task_name:        db 'shell', 0
+;----------------------------------------------------------------------------------------------------------------------------------------
+; Boot message strings.
+; These MUST stay in .text (not .data) so that 16-bit and 32-bit code can
+; reference them with 16-bit relocations. The .data section grows as C code
+; adds rodata and can exceed 0xFFFF, breaking 16-bit mov si,msg instructions.
+;----------------------------------------------------------------------------------------------------------------------------------------
+[SECTION .text]
 
 msg16_nommap:           db 'K16 - No memory map, dying here.', 0
 msg16_mmap_ok:          db 'K16 - Memory map found, continuing.', 0
@@ -631,6 +637,13 @@ msg_enable_paging:         db 'K32 ', 0x1A, ' Paging enabled about to jump in tr
 msg_64_bits:            db 'K64 ', 0x1A, ' Kernel 64 bits enabled and active.', 0
 
 msg_c64_function:       db 'K64 ', 0x1A, ' Processor initialization done.', 10, 0
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+; Mutable data in .data section (only data that must be writable goes here)
+;----------------------------------------------------------------------------------------------------------------------------------------
+[SECTION .data]
+
+shell_task_name:        db 'shell', 0
 ;----------------------------------------------------------------------------------------------------------------------------------------
                                                         ; GDT32
 gdtptr:                                                 ;

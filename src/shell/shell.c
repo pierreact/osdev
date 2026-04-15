@@ -10,6 +10,8 @@
 #include <drivers/ahci.h>
 #include <fs/vfs.h>
 #include <net/nic.h>
+#include <net/l2_kern.h>
+#include <net/pktrace.h>
 #include <syscall.h>
 
 // Command buffer
@@ -40,6 +42,10 @@ static const char *commands[] = {
     "sys.nic.mode",
     "sys.thread.ls",
     "sys.test.ap",
+    "sys.net.arp",
+    "sys.net.arping",
+    "sys.net.stats",
+    "sys.net.trace",
     "demo_app",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
@@ -283,6 +289,10 @@ void cmd_help() {
     sh_print("  sys.nic.ls      - List network interfaces\n");
     sh_print("  sys.nic.mode    - Show or set NIC assignment mode (per-numa|per-core)\n");
     sh_print("  sys.thread.ls   - Show per-CPU thread metadata (NUMA, NIC)\n");
+    sh_print("  sys.net.arp     - Show ARP table (mgmt NIC)\n");
+    sh_print("  sys.net.arping  - Send ARP request for IP address\n");
+    sh_print("  sys.net.stats   - Show L2 frame counters\n");
+    sh_print("  sys.net.trace   - Show packet trace log\n");
 }
 
 void cmd_clear() {
@@ -890,6 +900,161 @@ void cmd_lsnic() {
     }
 }
 
+// Parse a dotted-decimal IPv4 address string into network byte order.
+// Returns 0 on failure.
+static uint32 parse_ipv4(const char *s) {
+    uint32 octets[4] = {0, 0, 0, 0};
+    int idx = 0;
+    while (*s && idx < 4) {
+        if (*s >= '0' && *s <= '9') {
+            octets[idx] = octets[idx] * 10 + (*s - '0');
+        } else if (*s == '.') {
+            idx++;
+        } else {
+            return 0;
+        }
+        s++;
+    }
+    if (idx != 3) return 0;
+    for (int i = 0; i < 4; i++)
+        if (octets[i] > 255) return 0;
+    // Network byte order (big-endian)
+    return (octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3];
+}
+
+static void print_ipv4(uint32 ip_net) {
+    uint32 ip = ntohl(ip_net);
+    sh_print_dec((ip >> 24) & 0xFF); sh_putc('.');
+    sh_print_dec((ip >> 16) & 0xFF); sh_putc('.');
+    sh_print_dec((ip >> 8) & 0xFF);  sh_putc('.');
+    sh_print_dec(ip & 0xFF);
+}
+
+void cmd_net_arp(void) {
+    L2Context *ctx = l2_kern_mgmt();
+    sh_print("ARP table (mgmt NIC 0):\n");
+    for (uint32 i = 0; i < ARP_TABLE_SIZE; i++) {
+        ArpEntry *e = &ctx->arp.entries[i];
+        if (!e->valid) continue;
+        sh_print("  ");
+        print_ipv4(e->ip);
+        sh_print("  ");
+        for (int j = 0; j < 6; j++) {
+            sh_print_hex8(e->mac[j]);
+            if (j < 5) sh_putc(':');
+        }
+        sh_putc('\n');
+    }
+}
+
+void cmd_net_arping(void) {
+    // Parse IP from command: "sys.net.arping 10.0.2.2"
+    const char *args = cmd_buffer + 15;  // skip "sys.net.arping "
+    while (*args == ' ') args++;
+    if (*args == '\0') {
+        sh_print("Usage: sys.net.arping <ip>\n");
+        return;
+    }
+
+    uint32 ip = htonl(parse_ipv4(args));
+    if (ip == 0) {
+        sh_print("Invalid IP\n");
+        return;
+    }
+
+    L2Context *ctx = l2_kern_mgmt();
+    sh_print("ARPING ");
+    print_ipv4(ip);
+    sh_putc('\n');
+
+    uint64 tsc_start = rdtsc();
+    arp_request(ctx, ip);
+
+    // Poll for reply (timeout ~1 second at ~2GHz)
+    uint64 timeout = 2000000000ULL;
+    while (rdtsc() - tsc_start < timeout) {
+        uint16 etype;
+        uint8 *payload;
+        uint32 plen;
+        l2_poll(ctx, &etype, &payload, &plen, NULL);
+
+        const uint8 *mac = arp_lookup(&ctx->arp, ip);
+        if (mac) {
+            uint64 elapsed = rdtsc() - tsc_start;
+            sh_print("  Reply: ");
+            for (int j = 0; j < 6; j++) {
+                sh_print_hex8(mac[j]);
+                if (j < 5) sh_putc(':');
+            }
+            sh_print("  ");
+            sh_print_dec(elapsed);
+            sh_print(" cycles\n");
+            return;
+        }
+    }
+
+    sh_print("  Timeout\n");
+}
+
+void cmd_net_stats(void) {
+    L2Context *ctx = l2_kern_mgmt();
+    L2Stats st;
+    l2_get_stats(ctx, &st);
+    sh_print("L2 stats (mgmt NIC 0):\n");
+    sh_print("  rx_frames: ");      sh_print_dec(st.rx_frames);      sh_putc('\n');
+    sh_print("  tx_frames: ");      sh_print_dec(st.tx_frames);      sh_putc('\n');
+    sh_print("  rx_bytes:  ");      sh_print_dec(st.rx_bytes);       sh_putc('\n');
+    sh_print("  tx_bytes:  ");      sh_print_dec(st.tx_bytes);       sh_putc('\n');
+    sh_print("  arp_req:   ");      sh_print_dec(st.arp_requests_sent); sh_putc('\n');
+    sh_print("  arp_reply: ");      sh_print_dec(st.arp_replies_sent);  sh_putc('\n');
+}
+
+void cmd_net_trace(void) {
+    // Read trace log directly (kernel memory is readable from ring 3)
+    // but print via sh_print (syscalls) since kprint GPFs from ring 3.
+    extern PkTrace *pktrace_get_log(uint32 *count_out, uint32 *head_out);
+    uint32 count, head;
+    PkTrace *log = pktrace_get_log(&count, &head);
+    if (count == 0) {
+        sh_print("TRACE: no records\n");
+        return;
+    }
+    sh_print("TRACE: ");
+    sh_print_dec(count);
+    sh_print(" record(s)\n");
+
+    uint32 start = 0;
+    if (head > count) start = head - count;
+
+    for (uint32 i = start; i < head; i++) {
+        PkTrace *t = &log[i % PKTRACE_LOG_SIZE];
+        if (t->stamp_count == 0) continue;
+
+        sh_print_hex(t->tag, "");
+        sh_print(" s");
+        sh_print_dec(t->seq);
+        sh_putc('\n');
+
+        uint64 prev_tsc = 0;
+        for (uint8 j = 0; j < t->stamp_count; j++) {
+            PkTraceStamp *s = &t->stamps[j];
+            uint64 delta = (prev_tsc > 0) ? (s->tsc - prev_tsc) : 0;
+            sh_print("  ");
+            sh_print((char *)pktrace_point_name(s->point));
+            sh_print("  +");
+            sh_print_dec(delta);
+            sh_print(" cyc  buf ");
+            sh_print_dec(s->buf_used);
+            sh_putc('/');
+            sh_print_dec(s->buf_capacity);
+            sh_print("  len ");
+            sh_print_dec(s->payload_len);
+            sh_putc('\n');
+            prev_tsc = s->tsc;
+        }
+    }
+}
+
 void shell_execute_command() {
     while (cmd_index > 0 && cmd_buffer[cmd_index - 1] == ' ') {
         cmd_index--;
@@ -955,6 +1120,10 @@ void shell_execute_command() {
     else if (strcmp(cmd_buffer, "sys.test.ap") == 0) {
         if (use_syscalls) sys_test_ap();
     }
+    else if (strcmp(cmd_buffer, "sys.net.arp") == 0) cmd_net_arp();
+    else if (starts_with(cmd_buffer, "sys.net.arping")) cmd_net_arping();
+    else if (strcmp(cmd_buffer, "sys.net.stats") == 0) cmd_net_stats();
+    else if (strcmp(cmd_buffer, "sys.net.trace") == 0) cmd_net_trace();
     else if (strcmp(cmd_buffer, "demo_app") == 0) {
         if (use_syscalls) sys_exec("/BIN/DEMO_APP");
     }

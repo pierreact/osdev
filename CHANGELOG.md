@@ -1,5 +1,19 @@
 # Changelog
 
+## [2026-04-15] - Ethernet L2, ARP, packet tracing
+
+### Added
+- Ethernet L2 layer: frame parsing/construction with NetBackend vtable for dual kernel/userland compilation
+- ARP: 32-entry static table, request/reply handling, gratuitous learning
+- Packet tracing: application-driven PkTrace with TSC timestamps, buffer occupancy, per-stage latency
+- L2 kernel backend: BSP management NIC (IP 10.0.2.15, ARP active) and inter-node NIC (no IP)
+- Shell commands: sys.net.arp, sys.net.arping, sys.net.stats, sys.net.trace
+- SYS_NIC_SEND and SYS_NIC_RECV syscalls for userland NIC access
+- Userland L2 library (apps/libc/net/) for DPDK applications
+
+### Fixed
+- Boot message strings moved from .data to .text, permanently fixing 16-bit relocation overflow when kernel .data/.rodata grows
+
 ## [2026-04-13] - AP ring 3 execution, binary loader, PCI IDs on ISO
 
 ### Added

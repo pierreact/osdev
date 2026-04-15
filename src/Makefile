@@ -29,6 +29,11 @@ OBJECTS=    boot/kmain.o \
             net/nic.o \
             net/virtio.o \
             net/virtio_net.o \
+            net/eth.o \
+            net/arp.o \
+            net/l2.o \
+            net/pktrace.o \
+            net/l2_kern.o \
             fs/fat32.o \
             fs/iso9660.o \
             fs/vfs.o \

@@ -197,6 +197,17 @@ check "Demo app NIC info" "MAC"
 send_cmd "sys.fs.ls /data"
 check "PCI IDs file on ISO" "PCI"
 
+# Test: L2 networking initialized
+check "L2 initialized" "L2: mgmt"
+
+# Test: L2 stats command
+send_cmd "sys.net.stats"
+check "L2 stats displayed" "rx_frames"
+
+# Test: ARP table command
+send_cmd "sys.net.arp"
+check "ARP table displayed" "ARP"
+
 # Summary
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
