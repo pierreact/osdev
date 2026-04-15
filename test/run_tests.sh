@@ -208,6 +208,19 @@ check "L2 stats displayed" "rx_frames"
 send_cmd "sys.net.arp"
 check "ARP table displayed" "ARP"
 
+# L2 network tests (requires tap0 -- skip if not available)
+if ip link show tap0 >/dev/null 2>&1; then
+    echo "Running L2 network tests (tap0 detected)..."
+    arping -c 1 -I tap0 -w 5 10.0.2.15 > /dev/null 2>&1 || true
+    sleep 1
+    send_cmd "sys.net.stats"
+    check "L2 RX from host" "rx_frames"
+    send_cmd "sys.net.arp"
+    check "Host in ARP table" "10.0.2.2"
+else
+    echo "Skipping L2 network tests (tap0 not found -- run scripts/setup_tap.sh)"
+fi
+
 # Summary
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
