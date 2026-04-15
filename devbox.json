@@ -11,12 +11,14 @@
     "xorriso",
     "mtools",
     "dosfstools",
-    "gdb"
+    "gdb",
+    "iputils",
+    "tcpdump"
   ],
   "shell": {
     "init_hook": [
       "echo \"Devbox shell ready for Isurus builds.\"",
-      "echo \"Tools: gcc, ld, nasm, xorriso (ISO), qemu-system-x86_64, mkfs.fat, mcopy\""
+      "echo \"Tools: gcc, ld, nasm, xorriso (ISO), qemu-system-x86_64, mkfs.fat, mcopy, arping, tcpdump\""
     ]
   }
 }
