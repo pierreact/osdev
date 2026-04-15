@@ -1007,6 +1007,11 @@ void cmd_net_stats(void) {
     sh_print("  tx_bytes:  ");      sh_print_dec(st.tx_bytes);       sh_putc('\n');
     sh_print("  arp_req:   ");      sh_print_dec(st.arp_requests_sent); sh_putc('\n');
     sh_print("  arp_reply: ");      sh_print_dec(st.arp_replies_sent);  sh_putc('\n');
+    sh_print("  pool:      ");
+    sh_print_dec(pktbuf_pool_used(&ctx->pool));
+    sh_putc('/');
+    sh_print_dec(pktbuf_pool_total(&ctx->pool));
+    sh_print(" bufs\n");
 }
 
 void cmd_net_trace(void) {

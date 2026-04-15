@@ -16,7 +16,7 @@ CFLAGS= -m64 \
         -nostdinc \
         -I .
 
-OBJECTS= stdio.o string.o net_eth.o net_arp.o net_l2.o net_pktrace.o
+OBJECTS= stdio.o string.o net_eth.o net_arp.o net_pktbuf.o net_l2.o net_pktrace.o
 
 all: libc.a
 

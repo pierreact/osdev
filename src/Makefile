@@ -31,6 +31,7 @@ OBJECTS=    boot/kmain.o \
             net/virtio_net.o \
             net/eth.o \
             net/arp.o \
+            net/pktbuf.o \
             net/l2.o \
             net/pktrace.o \
             net/l2_kern.o \

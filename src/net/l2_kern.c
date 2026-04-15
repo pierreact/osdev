@@ -1,6 +1,12 @@
 #include <net/l2.h>
 #include <net/nic.h>
+#include <kernel/mem.h>
 #include <drivers/monitor.h>
+
+// Pool backing memory for BSP NICs (8 pages = 16 buffers each)
+#define BSP_POOL_PAGES 8
+static uint8 *mgmt_pool_mem;
+static uint8 *inter_pool_mem;
 
 // BSP L2 contexts (management + inter-node)
 static L2Context bsp_mgmt;
@@ -32,12 +38,17 @@ void l2_kern_init(void) {
         .send = kern_send,
         .recv = kern_recv,
         .get_mac = kern_get_mac,
+        .recv_batch = NULL,     // no batch at NIC layer yet
     };
 
     // NIC 0: management (has IP, ARP active)
     if (nic_count > 0) {
-        l2_init(&bsp_mgmt, kern_backend, (void *)(uint64)0, htonl(MGMT_IP_DEFAULT));
-        kprint("L2: mgmt NIC 0 IP 10.0.2.15 MAC ");
+        mgmt_pool_mem = (uint8 *)alloc_pages(BSP_POOL_PAGES);
+        l2_init(&bsp_mgmt, kern_backend, (void *)(uint64)0,
+                htonl(MGMT_IP_DEFAULT), BSP_POOL_PAGES, mgmt_pool_mem);
+        kprint("L2: mgmt NIC 0 IP 10.0.2.15 pool ");
+        kprint_dec(pktbuf_pool_total(&bsp_mgmt.pool));
+        kprint(" bufs MAC ");
         for (int i = 0; i < 6; i++) {
             if (i > 0) putc(':');
             putc("0123456789abcdef"[(bsp_mgmt.mac[i] >> 4) & 0xF]);
@@ -48,8 +59,12 @@ void l2_kern_init(void) {
 
     // NIC 1: inter-node DSM (no IP, no ARP replies)
     if (nic_count > 1) {
-        l2_init(&bsp_inter, kern_backend, (void *)(uint64)1, 0);
-        kprint("L2: inter NIC 1 (no IP)\n");
+        inter_pool_mem = (uint8 *)alloc_pages(BSP_POOL_PAGES);
+        l2_init(&bsp_inter, kern_backend, (void *)(uint64)1,
+                0, BSP_POOL_PAGES, inter_pool_mem);
+        kprint("L2: inter NIC 1 pool ");
+        kprint_dec(pktbuf_pool_total(&bsp_inter.pool));
+        kprint(" bufs (no IP)\n");
     }
 }
 
