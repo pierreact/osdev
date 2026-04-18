@@ -17,7 +17,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq nasm gcc xorriso qemu-system-x86 mtools
+          sudo apt-get install -y -qq nasm gcc xorriso qemu-system-x86 mtools iputils-arping tcpdump
 
       - name: Build
         run: scripts/compile.sh
@@ -25,9 +25,13 @@ jobs:
       - name: Boot and test
         run: ./test/run_tests.sh
 
-      - name: Upload serial log on failure
+      - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: serial-output
-          path: test/serial_output.log
+          name: test-logs
+          path: |
+            test/serial_output.log
+            test/serial_l2.log
+            logs/tap0_capture.txt
+            logs/tests.log
