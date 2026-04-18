@@ -188,17 +188,13 @@ void shell_prompt() {
 }
 
 static void shell_tab_complete(void) {
-    sh_putc('1');
     if (cmd_index == 0) return;
-    sh_putc('2');
 
     const char *first_match = NULL;
     uint32 match_count = 0;
     uint32 common_len = 0;
 
-    sh_putc('3');
     for (uint32 i = 0; i < NUM_COMMANDS; i++) {
-        sh_putc('a');
         if (starts_with(commands[i], cmd_buffer)) {
             match_count++;
             if (first_match == NULL) {
