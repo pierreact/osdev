@@ -57,8 +57,10 @@ CFLAGS=     -m64 \
             -fstrength-reduce \
             -fomit-frame-pointer \
             -finline-functions \
-            -fstack-protector-strong \
-            -mstack-protector-guard=global \
+            -fno-stack-protector \
+            -fzero-call-used-regs=skip \
+            -fcf-protection=none \
+            -fno-asynchronous-unwind-tables \
             -fno-PIC \
             -nostdinc
 

@@ -132,9 +132,9 @@ hlt ;LEAVE THIS                                         ; Die.
 ;################                                       ;
                                                         ;
 memmap_ok:                                              ;
-mov [data_counter_mmap_entries], ax                     ; Now the memory map is stored at 0x8000 (linear, not seg:offset) and has $data_counter_mmap_entries of 24 bytes each
+a32 mov [data_counter_mmap_entries], ax                  ; 32-bit addr: .data may be past 0xFFFF
                                                         ;
-mov si, msg16_mmap_ok                                   ; Memory map is loaded.
+mov si, msg16_mmap_ok                                   ; .text string, always below 0xFFFF
 call asm16_display_writestring                          ; Call display function
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
@@ -162,10 +162,10 @@ call asm16_display_writestring                          ; Call display function
                                                         ;--------------------------------------------------------------------------------
                                                         ; Setup of the GDT means you need the GDT address and it's size
                                                         ; 
-mov ax, gdtend                                          ; Calculate GDT size (gdtend - gdt)
-mov bx, gdt                                             ;
-sub ax, bx                                              ;
-mov word [gdtptr], ax                                   ; Sets gdtptr limit.
+mov eax, gdtend                                         ; Calculate GDT size (32-bit: .data past 0xFFFF)
+mov ebx, gdt                                            ;
+sub eax, ebx                                            ;
+a32 mov word [gdtptr], ax                               ; Sets gdtptr limit.
                                                         ;
 xor eax, eax                                            ; calculate GDT address
 xor ebx, ebx                                            ;
@@ -176,9 +176,9 @@ mov ax, ds                                              ;
 mov ecx, eax                                            ;
 shl ecx, 4                                              ; Still is 0
                                                         ;
-mov bx, gdt                                             ; Address of gdt
+mov ebx, gdt                                            ; Address of gdt (32-bit)
 add ecx, ebx                                            ;
-mov dword [gdtptr+2], ecx                               ; Sets gtrptr base
+a32 mov dword [gdtptr+2], ecx                           ; Sets gdtptr base
                                                         ;
                                                         ; This is the correct way to do it, however, in our case.
                                                         ; mov dword [gdtptr+2], gdt          would have worked.
@@ -188,7 +188,7 @@ mov dword [gdtptr+2], ecx                               ; Sets gtrptr base
                                                         ; We now inform the processor of the location of the GDT in memory.
 cli                                                     ; Disable interrupts
 cld                                                     ; Clear direction flag
-lgdt [gdtptr]                                           ; Loads GDT   
+a32 lgdt [gdtptr]                                       ; Loads GDT (32-bit addr)
                                                         ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------

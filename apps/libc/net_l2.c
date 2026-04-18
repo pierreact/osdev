@@ -40,27 +40,27 @@ int l2_poll(L2Context *ctx, uint16 *ethertype, uint8 **payload,
             uint32 *payload_len, PkTrace *trace) {
     uint32 frame_len = 0;
     int rc = ctx->backend.recv(ctx->backend_ctx, ctx->frame_buf, &frame_len);
-    if (rc < 0 || frame_len == 0) return -1;
+    if (rc < 0 || frame_len == 0) return L2_EMPTY;
     PKT_STAMP(trace, PKT_NIC_RX, 0, 0, frame_len);
     ctx->stats.rx_frames++;
     ctx->stats.rx_bytes += frame_len;
     EthHdr *hdr = eth_hdr(ctx->frame_buf, frame_len);
-    if (!hdr) return -1;
+    if (!hdr) return L2_CONSUMED;
     uint16 etype = ntohs(hdr->ethertype);
     uint32 plen = eth_payload_len(frame_len);
     PKT_STAMP(trace, PKT_L2_PARSE, 0, 0, plen);
     if (!eth_mac_eq(hdr->dst, ctx->mac) && !eth_is_broadcast(hdr->dst))
-        return -1;
+        return L2_CONSUMED;
     if (etype == ETH_TYPE_ARP) {
         PKT_STAMP(trace, PKT_ARP_PROCESS, 0, 0, plen);
         arp_process(ctx, &ctx->arp, ctx->frame_buf, frame_len);
-        return -1;
+        return L2_CONSUMED;
     }
     PKT_STAMP(trace, PKT_L2_DELIVER, 0, 0, plen);
     *ethertype = etype;
     *payload = eth_payload(ctx->frame_buf);
     *payload_len = plen;
-    return 0;
+    return L2_OK;
 }
 
 int l2_poll_batch(L2Context *ctx, PktBuf **out_bufs, uint16 *out_etypes,

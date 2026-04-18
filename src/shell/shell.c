@@ -188,13 +188,17 @@ void shell_prompt() {
 }
 
 static void shell_tab_complete(void) {
+    sh_putc('1');
     if (cmd_index == 0) return;
+    sh_putc('2');
 
     const char *first_match = NULL;
     uint32 match_count = 0;
     uint32 common_len = 0;
 
+    sh_putc('3');
     for (uint32 i = 0; i < NUM_COMMANDS; i++) {
+        sh_putc('a');
         if (starts_with(commands[i], cmd_buffer)) {
             match_count++;
             if (first_match == NULL) {
@@ -930,8 +934,24 @@ static void print_ipv4(uint32 ip_net) {
     sh_print_dec(ip & 0xFF);
 }
 
+// Drain pending frames on the management NIC. Processes ARP internally,
+// updates stats. Called from net shell commands to reflect current state.
+static void drain_mgmt_nic(L2Context *ctx) {
+    uint16 etype;
+    uint8 *payload;
+    uint32 plen;
+    for (int i = 0; i < 128; i++) {
+        int rc = l2_poll(ctx, &etype, &payload, &plen, NULL);
+        if (rc == L2_EMPTY)
+            break;   // no more frames from NIC
+        // L2_CONSUMED (ARP handled, multicast dropped) or
+        // L2_OK (non-ARP delivered) — keep draining either way
+    }
+}
+
 void cmd_net_arp(void) {
     L2Context *ctx = l2_kern_mgmt();
+    drain_mgmt_nic(ctx);
     sh_print("ARP table (mgmt NIC 0):\n");
     for (uint32 i = 0; i < ARP_TABLE_SIZE; i++) {
         ArpEntry *e = &ctx->arp.entries[i];
@@ -998,6 +1018,7 @@ void cmd_net_arping(void) {
 
 void cmd_net_stats(void) {
     L2Context *ctx = l2_kern_mgmt();
+    drain_mgmt_nic(ctx);
     L2Stats st;
     l2_get_stats(ctx, &st);
     sh_print("L2 stats (mgmt NIC 0):\n");
@@ -1005,6 +1026,8 @@ void cmd_net_stats(void) {
     sh_print("  tx_frames: ");      sh_print_dec(st.tx_frames);      sh_putc('\n');
     sh_print("  rx_bytes:  ");      sh_print_dec(st.rx_bytes);       sh_putc('\n');
     sh_print("  tx_bytes:  ");      sh_print_dec(st.tx_bytes);       sh_putc('\n');
+    sh_print("  rx_drop:   ");      sh_print_dec(st.rx_dropped);        sh_putc('\n');
+    sh_print("  rx_arp:    ");      sh_print_dec(st.rx_arp);            sh_putc('\n');
     sh_print("  arp_req:   ");      sh_print_dec(st.arp_requests_sent); sh_putc('\n');
     sh_print("  arp_reply: ");      sh_print_dec(st.arp_replies_sent);  sh_putc('\n');
     sh_print("  pool:      ");

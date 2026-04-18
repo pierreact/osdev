@@ -24,6 +24,8 @@ typedef struct {
     uint64 tx_frames;
     uint64 rx_bytes;
     uint64 tx_bytes;
+    uint64 rx_dropped;          // not for us (wrong MAC, not broadcast)
+    uint64 rx_arp;              // frames that entered arp_process
     uint64 arp_requests_sent;
     uint64 arp_replies_sent;
 } L2Stats;
@@ -49,10 +51,13 @@ typedef struct {
 void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
              uint32 pool_pages, uint8 *pool_memory);
 
+// Poll return codes
+#define L2_OK        0   // Non-ARP frame delivered (ethertype/payload filled)
+#define L2_EMPTY    -1   // No frame available from NIC
+#define L2_CONSUMED -2   // Frame handled internally (ARP) or not for us
+
 // Poll: receive one frame, dispatch by ethertype.
 // ARP frames handled internally (updates table, sends replies).
-// Returns 0 and fills ethertype/payload/payload_len for non-ARP frames.
-// Returns -1 if no frame or frame consumed internally (ARP).
 // trace may be NULL for untraced polling.
 int l2_poll(L2Context *ctx, uint16 *ethertype, uint8 **payload,
             uint32 *payload_len, PkTrace *trace);

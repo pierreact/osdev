@@ -57,7 +57,22 @@ The QEMU scripts use Q35 machine type with:
 ./test/run_tests.sh
 ```
 
-Boots QEMU headless, sends shell commands over serial, verifies output. Requires a built ISO at `bin/os.iso`.
+Boots QEMU headless, sends shell commands over serial, verifies output. The
+test runner auto-creates a `tap0` interface (10.0.2.2/24) on first run for L2
+network testing -- this requires sudo (interactive prompt acceptable).
+
+To configure passwordless sudo for `ip tuntap` on Ubuntu (CI use), add to
+`/etc/sudoers.d/isurus-tap`:
+
+```
+%sudo ALL=(ALL) NOPASSWD: /sbin/ip tuntap, /sbin/ip addr, /sbin/ip link
+```
+
+To remove tap0:
+
+```bash
+scripts/teardown_tap.sh
+```
 
 ## Checking logs
 

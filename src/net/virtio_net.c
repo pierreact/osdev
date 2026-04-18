@@ -18,7 +18,9 @@ static void print_hex8(uint8 val) {
 #define TXQ 1
 
 // Features we want from the device
-#define DRIVER_FEATURES (VIRTIO_NET_F_MAC | VIRTIO_NET_F_STATUS)
+// MRG_RXBUF: device includes num_buffers in the 12-byte virtio-net header.
+// Without it the header is only 10 bytes, but our VirtioNetHdr struct is 12.
+#define DRIVER_FEATURES (VIRTIO_NET_F_MAC | VIRTIO_NET_F_STATUS | VIRTIO_NET_F_MRG_RXBUF)
 
 static void read_mac(VirtioNetDevice *dev) {
     volatile uint8 *cfg = dev->vdev.device_cfg;

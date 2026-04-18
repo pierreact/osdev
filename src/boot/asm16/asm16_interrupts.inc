@@ -83,7 +83,7 @@ asm16_isr_handler:                                      ;
                                                         ;
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
-[SECTION .data]                                         ;
+[SECTION .text]                                         ;
 msg_16bits_irq_called: db 'K16 - 16 bits interrupt called, IVT is initialized.', 0
 
 

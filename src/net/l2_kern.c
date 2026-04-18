@@ -29,7 +29,9 @@ static void kern_get_mac(void *ctx, uint8 *mac) {
 }
 
 // Default management IP for QEMU user-mode networking (host byte order)
-#define MGMT_IP_DEFAULT  0x0A00020Fu    // 10.0.2.15
+// 10.0.2.15 in host byte order. htonl() converts to network byte order
+// for comparison with ARP packet fields (which are network byte order).
+#define MGMT_IP_DEFAULT  0x0A00020Fu
 
 void l2_kern_init(void) {
     uint32 nic_count = nic_get_count();
