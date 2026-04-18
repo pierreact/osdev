@@ -90,4 +90,15 @@ Raw SYSCALL instruction wrappers. Use these only if libc doesn't provide a highe
 
 Register convention: RAX = syscall number, RDI = arg1, RSI = arg2, RDX = arg3, R10 = arg4. Return value in RAX. RCX and R11 are clobbered by SYSCALL hardware. The kernel also clobbers RDI, RSI, RDX, R8, R9, and R10 (not restored before SYSRET). The syscall wrappers declare all kernel-clobbered registers (RDI, RSI, RDX, R8, R9, R10 in addition to RCX, R11) to prevent the compiler from keeping live values across the SYSCALL instruction.
 
+## net/ headers
+
+Network protocol library for direct device access (DPDK pattern). Located in `apps/libc/net/`.
+
+| Header | Contents |
+|--------|----------|
+| `net/eth.h` | Ethernet header struct, constants, byte-order helpers, frame parse/build |
+| `net/arp.h` | ARP packet struct, table, request/reply |
+| `net/l2.h` | NetBackend vtable, L2Context, l2_init/l2_poll/l2_send |
+| `net/pktrace.h` | PkTrace struct, TSC stamps, trace lifecycle |
+
 See [syscall-reference.md](syscall-reference.md) for the complete syscall table.

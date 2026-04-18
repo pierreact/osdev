@@ -48,3 +48,5 @@ RCX and R11 are clobbered by SYSCALL (hardware saves RIP to RCX, RFLAGS to R11).
 | 24 | SYS_ISO_READ | RDI=path_ptr, RSI=buf, RDX=max | bytes_read or -1 | Read file from VFS |
 | 25 | SYS_TEST_AP | - | 0 | Dispatch test function to all APs |
 | 26 | SYS_EXEC | RDI=iso_path_ptr | 0 or -1 | Load and execute binary from ISO on all APs |
+| 27 | SYS_NIC_SEND | RDI=data_ptr, RSI=len | 0 or -1 | Send raw frame on caller's assigned NIC |
+| 28 | SYS_NIC_RECV | RDI=buf_ptr, RSI=&len | 0 or -1 | Receive raw frame from caller's assigned NIC |

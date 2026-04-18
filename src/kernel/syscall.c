@@ -11,6 +11,7 @@
 #include <fs/vfs.h>
 #include <arch/acpi.h>
 #include <kernel/loader.h>
+#include <net/nic.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
@@ -281,6 +282,33 @@ static long sys_handle_exec(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a
     return (long)loader_exec((const char *)a1);
 }
 
+// NIC send: uses the calling CPU's assigned NIC from thread_meta
+static long sys_handle_nic_send(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a3; (void)a4; (void)a5;
+    // Determine which CPU is calling (scan percpu for in_usermode)
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (percpu[i].in_usermode) {
+            uint32 nic_idx = thread_meta[i].nic_index;
+            if (nic_idx == NIC_NONE) return -1;
+            return nic_send(nic_idx, (const uint8 *)a1, (uint32)a2);
+        }
+    }
+    return -1;
+}
+
+// NIC recv: uses the calling CPU's assigned NIC from thread_meta
+static long sys_handle_nic_recv(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a3; (void)a4; (void)a5;
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (percpu[i].in_usermode) {
+            uint32 nic_idx = thread_meta[i].nic_index;
+            if (nic_idx == NIC_NONE) return -1;
+            return nic_recv(nic_idx, (uint8 *)a1, (uint32 *)a2);
+        }
+    }
+    return -1;
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -312,6 +340,8 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_ISO_READ]    = sys_handle_iso_read,
     [SYS_TEST_AP]     = sys_handle_test_ap,
     [SYS_EXEC]        = sys_handle_exec,
+    [SYS_NIC_SEND]    = sys_handle_nic_send,
+    [SYS_NIC_RECV]    = sys_handle_nic_recv,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {

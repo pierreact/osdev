@@ -29,6 +29,12 @@ OBJECTS=    boot/kmain.o \
             net/nic.o \
             net/virtio.o \
             net/virtio_net.o \
+            net/eth.o \
+            net/arp.o \
+            net/pktbuf.o \
+            net/l2.o \
+            net/pktrace.o \
+            net/l2_kern.o \
             fs/fat32.o \
             fs/iso9660.o \
             fs/vfs.o \
@@ -51,8 +57,10 @@ CFLAGS=     -m64 \
             -fstrength-reduce \
             -fomit-frame-pointer \
             -finline-functions \
-            -fstack-protector-strong \
-            -mstack-protector-guard=global \
+            -fno-stack-protector \
+            -fzero-call-used-regs=skip \
+            -fcf-protection=none \
+            -fno-asynchronous-unwind-tables \
             -fno-PIC \
             -nostdinc
 

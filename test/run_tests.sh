@@ -9,20 +9,60 @@ set -euo pipefail
 ISO="${1:-bin/os.iso}"
 TIMEOUT=30
 SERIAL_LOG="test/serial_output.log"
+TEST_LOG="logs/tests.log"
 QEMU_PID=""
+TAP_CREATED_BY_TEST=0
+
+mkdir -p logs
+# Tee all output (PASS/FAIL lines, build, etc.) to logs/tests.log
+exec > >(tee "$TEST_LOG") 2>&1
+
+# Build first to ensure ISO is up to date
+echo "Building..."
+scripts/compile.sh
+
+KEEPALIVE_PID=""
 
 cleanup() {
+    if [ -n "$KEEPALIVE_PID" ] && kill -0 "$KEEPALIVE_PID" 2>/dev/null; then
+        kill "$KEEPALIVE_PID" 2>/dev/null
+    fi
     if [ -n "$QEMU_PID" ] && kill -0 "$QEMU_PID" 2>/dev/null; then
         kill "$QEMU_PID" 2>/dev/null
         wait "$QEMU_PID" 2>/dev/null || true
     fi
     rm -f test/qemu.in test/qemu.out
+    # Tear down tap0 only if we created it
+    if [ "$TAP_CREATED_BY_TEST" = "1" ]; then
+        echo "Tearing down tap0..."
+        scripts/teardown_tap.sh >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
 
 if [ ! -f "$ISO" ]; then
     echo "FAIL: ISO not found: $ISO" >&2
     echo "Run ./compile.sh first." >&2
+    exit 1
+fi
+
+# tap0 is required for L2 network testing (mandatory).
+# If missing, create it now (sudo prompt happens up-front, before the
+# unprivileged test loop). Tear down at exit if we created it.
+if ! ip link show tap0 >/dev/null 2>&1; then
+    echo "Creating tap0 for L2 testing (sudo required)..."
+    if ! scripts/setup_tap.sh; then
+        echo "FAIL: could not create tap0." >&2
+        echo "Manually: sudo scripts/setup_tap.sh" >&2
+        exit 1
+    fi
+    TAP_CREATED_BY_TEST=1
+fi
+
+# Verify tap0 is up with the expected IP
+if ! ip addr show tap0 | grep -q "10.0.2.2"; then
+    echo "FAIL: tap0 exists but missing 10.0.2.2/24" >&2
+    echo "Recreate: scripts/teardown_tap.sh && scripts/setup_tap.sh" >&2
     exit 1
 fi
 
@@ -67,21 +107,26 @@ qemu-system-x86_64 \
 QEMU_PID=$!
 
 # Capture serial output in background (QEMU writes to .out)
-cat test/qemu.out > "$SERIAL_LOG" &
+stdbuf -o0 cat test/qemu.out > "$SERIAL_LOG" &
 CAT_PID=$!
 
-# Send a command and wait for output
+# Keep a writer open on the input FIFO indefinitely so QEMU never sees EOF.
+# sleep infinity holds its stdout open without writing anything; redirected
+# to the FIFO it acts as a permanent (silent) writer.
+sleep infinity > test/qemu.in &
+KEEPALIVE_PID=$!
+
 send_cmd() {
     local cmd="$1"
     local wait_secs="${2:-3}"
-    # Send command + newline
+    echo "  [send_cmd] $cmd" >&2
     printf "%s\r" "$cmd" > test/qemu.in
     sleep "$wait_secs"
 }
 
 # Wait for shell prompt (boot complete)
 echo "Waiting for boot..."
-sleep 8
+sleep 12
 
 PASS=0
 FAIL=0
@@ -197,15 +242,127 @@ check "Demo app NIC info" "MAC"
 send_cmd "sys.fs.ls /data"
 check "PCI IDs file on ISO" "PCI"
 
+# Test: L2 networking initialized
+check "L2 initialized" "L2: mgmt"
+
+# Test: L2 stats command
+send_cmd "sys.net.stats"
+check "L2 stats displayed" "rx_frames"
+
+# Test: ARP table command
+send_cmd "sys.net.arp"
+check "ARP table displayed" "ARP"
+
+# Stop the main QEMU instance before starting the L2 test instance.
+kill "$KEEPALIVE_PID" 2>/dev/null || true
+KEEPALIVE_PID=""
+kill "$CAT_PID" 2>/dev/null || true
+if kill -0 "$QEMU_PID" 2>/dev/null; then
+    kill "$QEMU_PID" 2>/dev/null
+    wait "$QEMU_PID" 2>/dev/null || true
+fi
+QEMU_PID=""
+rm -f test/qemu.in test/qemu.out
+
+# ============================================================================
+# Phase 2: L2 network tests via TAP (separate QEMU run)
+# ============================================================================
+echo ""
+echo "Phase 2: L2 network tests (TAP)..."
+
+L2_SERIAL_LOG="test/serial_l2.log"
+mkfifo test/qemu.in test/qemu.out
+
+qemu-system-x86_64 \
+    -machine q35 \
+    -m 2G \
+    -display none \
+    -monitor none \
+    -serial pipe:test/qemu \
+    -smp "4,sockets=2,cores=2,threads=1" \
+    -object "memory-backend-ram,id=mem0,size=1G" \
+    -object "memory-backend-ram,id=mem1,size=1G" \
+    -numa "node,nodeid=0,cpus=0-1,memdev=mem0" \
+    -numa "node,nodeid=1,cpus=2-3,memdev=mem1" \
+    -device pxb-pcie,id=pcie.1,bus_nr=10,bus=pcie.0,numa_node=0 \
+    -device pxb-pcie,id=pcie.2,bus_nr=20,bus=pcie.0,numa_node=1 \
+    -device pcie-root-port,id=rp1,bus=pcie.1,chassis=1 \
+    -device pcie-root-port,id=rp2,bus=pcie.1,chassis=2 \
+    -device pcie-root-port,id=rp3,bus=pcie.1,chassis=3 \
+    -device pcie-root-port,id=rp4,bus=pcie.2,chassis=4 \
+    -device pcie-root-port,id=rp5,bus=pcie.2,chassis=5 \
+    -device pcie-root-port,id=rp6,bus=pcie.2,chassis=6 \
+    -netdev tap,id=mgmt0,ifname=tap0,script=no,downscript=no \
+    -device virtio-net-pci,netdev=mgmt0,romfile=,bus=rp1 \
+    -netdev user,id=inter0 \
+    -device virtio-net-pci,netdev=inter0,romfile=,bus=rp2 \
+    -netdev user,id=dpdk0 \
+    -device virtio-net-pci,netdev=dpdk0,romfile=,bus=rp3 \
+    -netdev user,id=dpdk1 \
+    -device virtio-net-pci,netdev=dpdk1,romfile=,bus=rp4 \
+    -netdev user,id=dpdk2 \
+    -device virtio-net-pci,netdev=dpdk2,romfile=,bus=rp5 \
+    -boot order=d \
+    -cdrom "$ISO" \
+    -no-reboot &
+QEMU_PID=$!
+
+stdbuf -o0 cat test/qemu.out > "$L2_SERIAL_LOG" &
+CAT_PID=$!
+
+# Re-establish keepalive writer for phase 2
+sleep infinity > test/qemu.in &
+KEEPALIVE_PID=$!
+
+# Wait for boot
+SERIAL_LOG_BACKUP="$SERIAL_LOG"
+SERIAL_LOG="$L2_SERIAL_LOG"
+echo "Waiting for L2 phase boot..."
+sleep 12
+
+# Debug: capture what's actually on tap0 during ARP test.
+# arping and tcpdump need raw sockets (sudo) so they must be
+# system-installed (apt-get install iputils-arping tcpdump), NOT
+# from devbox nix store (root can't access NFS due to root_squash).
+L2_TAP_LOG="logs/tap0_capture.txt"
+
+if ! command -v arping >/dev/null 2>&1; then
+    echo "FAIL: arping not found. Install: sudo apt-get install arping" >&2
+    exit 1
+fi
+if ! command -v tcpdump >/dev/null 2>&1; then
+    echo "FAIL: tcpdump not found. Install: sudo apt-get install tcpdump" >&2
+    exit 1
+fi
+
+sudo tcpdump -i tap0 -n -c 20 > "$L2_TAP_LOG" 2>&1 &
+TCPDUMP_PID=$!
+sleep 1
+
+sudo arping -c 3 -I tap0 -w 5 10.0.2.15 >> "$L2_TAP_LOG" 2>&1 || true
+sleep 2
+
+sudo kill $TCPDUMP_PID 2>/dev/null || true
+wait $TCPDUMP_PID 2>/dev/null || true
+
+echo "  [tap0 capture saved to $L2_TAP_LOG]"
+
+# Now poll kernel-side and check
+send_cmd "sys.net.stats"
+send_cmd "sys.net.arp"
+check "L2 ARP reply sent" "arp_reply: [1-9]"
+check "Host in ARP table" "10.0.2.2"
+
+SERIAL_LOG="$SERIAL_LOG_BACKUP"
+
 # Summary
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 
-# Cleanup
-kill "$CAT_PID" 2>/dev/null || true
+# Cleanup of L2 phase QEMU happens via trap
 
 if [ "$FAIL" -gt 0 ]; then
-    echo "Serial output saved to: $SERIAL_LOG"
+    echo "Serial output: $SERIAL_LOG and $L2_SERIAL_LOG"
     exit 1
 fi
 exit 0

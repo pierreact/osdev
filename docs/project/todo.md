@@ -61,6 +61,10 @@ D - Ring 3 thread execution on AP cores (SYSCALL MSRs, TSS, GDT/IDT per AP).
 D - Demo app: per-core ThreadMeta reporter running in ring 3.
 D - PCI vendor/class names loaded from /DATA/PCI.IDS on boot ISO.
 D - Syscall clobber fix (full register clobber list in wrappers).
+D - Ethernet L2 layer with NetBackend vtable (dual kernel/userland).
+D - ARP table, request/reply, gratuitous learning.
+D - Packet tracing infrastructure (PkTrace with TSC timestamps and buffer stats).
+D - Boot message strings in .text (permanent fix for 16-bit relocation overflow).
 
 ## Upcoming work
 
