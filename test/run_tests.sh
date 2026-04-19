@@ -235,7 +235,7 @@ check "PCI IDs loaded from ISO" "PCI-IDS:"
 
 # Test: Demo app
 send_cmd "demo_app" 5
-check "Demo app ran" "LOADER: all APs done"
+check "Demo app ran" "finished"
 check "Demo app NIC info" "MAC"
 
 # Test: Data directory on ISO

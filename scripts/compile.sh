@@ -53,9 +53,13 @@ rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot"
 mkdir -p "$ISO_ROOT/bin"
 mkdir -p "$ISO_ROOT/data"
+mkdir -p "$ISO_ROOT/conf"
 cp "$OBJ" "$ISO_ROOT/boot/os.bin"
 cp apps/demo_app/demo_app "$ISO_ROOT/bin/demo_app" 2>/dev/null || true
 cp data/pci.ids "$ISO_ROOT/data/pci.ids" 2>/dev/null || true
+for ini in conf/*.ini; do
+    [ -f "$ini" ] && cp "$ini" "$ISO_ROOT/conf/" 2>/dev/null || true
+done
 
 # No-emulation El Torito: BIOS loads boot-load-size x 512 bytes to 0:7C00h.
 # Bootsector is sector 0; kernel follows at sector 1.  The bootsector detects

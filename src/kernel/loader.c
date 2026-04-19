@@ -7,17 +7,18 @@
 #include <arch/acpi.h>
 
 // Per-AP state for ring 3 execution
-static uint64 ap_user_stacks[MAX_CPUS];
+uint64 ap_user_stacks[MAX_CPUS];
+uint64 ap_entry_addrs[MAX_CPUS];
 
 // AP ring 3 launcher. Called on each AP via ap_dispatch.
-// Does IRETQ to ring 3 — does NOT return. When the ring 3 code
+// Does IRETQ to ring 3 -- does NOT return. When the ring 3 code
 // calls exit (SYS_TASK_EXIT), the syscall handler resets the AP's
 // stack and enters a new park loop. BSP sees done=1.
-static uint64 ap_run_ring3(uint64 cpu_idx) {
+uint64 ap_run_ring3(uint64 cpu_idx) {
     uint32 idx = (uint32)cpu_idx;
 
     uint64 user_stack_top = ap_user_stacks[idx] + USER_STACK_SIZE;
-    uint64 entry_addr = USER_LOAD_ADDR;
+    uint64 entry_addr = ap_entry_addrs[idx];
     uint64 meta_ptr = (uint64)&thread_meta[idx];
     percpu[idx].in_usermode = 1;
 
@@ -62,10 +63,11 @@ int loader_exec(const char *iso_path) {
     kprint(" bytes) at ");
     kprint_long2hex(USER_LOAD_ADDR, "\n");
 
-    // Allocate user stacks for each AP
+    // Allocate user stacks and set entry address for each AP
     for (uint32 i = 1; i < cpu_count; i++) {
         if (!percpu[i].running) continue;
         ap_user_stacks[i] = alloc_pages(USER_STACK_SIZE / 4096);
+        ap_entry_addrs[i] = USER_LOAD_ADDR;
     }
 
     // Set up ring 3 on each AP (sequentially — shared TSS descriptor)

@@ -11,6 +11,7 @@
 #include <fs/vfs.h>
 #include <arch/acpi.h>
 #include <kernel/loader.h>
+#include <kernel/app.h>
 #include <net/nic.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
@@ -309,6 +310,17 @@ static long sys_handle_nic_recv(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint
     return -1;
 }
 
+static long sys_handle_app_launch(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    return (long)app_launch((const char *)a1);
+}
+
+static long sys_handle_app_list(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    app_list();
+    return 0;
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -342,6 +354,8 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_EXEC]        = sys_handle_exec,
     [SYS_NIC_SEND]    = sys_handle_nic_send,
     [SYS_NIC_RECV]    = sys_handle_nic_recv,
+    [SYS_APP_LAUNCH]  = sys_handle_app_launch,
+    [SYS_APP_LIST]    = sys_handle_app_list,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
