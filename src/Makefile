@@ -10,6 +10,10 @@ OBJECTS=    boot/kmain.o \
             arch/ports.o \
             arch/apic.o \
             arch/acpi.o \
+            arch/acpi_madt.o \
+            arch/acpi_numa.o \
+            arch/acpi_platform.o \
+            arch/acpi_lsacpi.o \
             arch/aml.o \
             kernel/mem.o \
             kernel/cpu.o \
