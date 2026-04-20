@@ -18,10 +18,35 @@ extern uint8 kbscancode;
 #define RELEASE 0x80
 uint8 kb_flags = 0;
 
+// 0xE0 is a one-byte prefix introducing an extended-key scancode (arrow
+// keys, numpad, etc). When set, the next scancode is the real key.
+static uint8 kb_extended = 0;
+
+// Feed a standard ANSI CSI sequence (ESC [ final) into the input ring,
+// byte by byte, matching what serial and telnet produce for arrows.
+static void push_csi(char final) {
+    input_buf_push(0x1B);
+    input_buf_push('[');
+    input_buf_push(final);
+}
 
 void keyboard_driver() {
-   
+
     char character = 0x00;
+
+    if (kbscancode == 0xE0) { kb_extended = 1; return; }
+    if (kb_extended) {
+        kb_extended = 0;
+        if (kbscancode & 0x80) return;   // release codes ignored
+        switch (kbscancode) {
+            case 0x48: push_csi('A'); return;   // up
+            case 0x50: push_csi('B'); return;   // down
+            case 0x4D: push_csi('C'); return;   // right
+            case 0x4B: push_csi('D'); return;   // left
+        }
+        return;  // other extended keys ignored for now
+    }
+
     if(kbscancode == 0x2A) kb_flags |= SHIFT; // Left Shift
     if(kbscancode == 0x36) kb_flags |= SHIFT; // Right Shift
     if(kbscancode == 0xAA) kb_flags &= ~SHIFT; // Release Left Shift

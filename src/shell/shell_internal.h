@@ -13,7 +13,8 @@
 // ============================================================================
 #define CMD_BUFFER_SIZE 80
 extern char  cmd_buffer[CMD_BUFFER_SIZE];
-extern uint8 cmd_index;
+extern uint8 cmd_len;        // bytes currently in cmd_buffer
+extern uint8 cmd_cursor;     // cursor position in [0, cmd_len]
 extern uint8 use_syscalls;   // 1 = ring 3 (syscall wrappers), 0 = ring 0
 
 // ============================================================================
@@ -41,6 +42,13 @@ void sh_print_hex16(uint16 val);
 void hex_dump(uint8 *data, uint32 len);
 void print_ipv4(uint32 ip_net);
 void print_mode(NicAssignmentMode m);
+
+// Redraw the current input line in-place. Walks the cursor back to
+// just-after-prompt, prints the new buffer, erases any stale trailing
+// chars, then moves the cursor to its new position. Uses only \b and
+// spaces so it works on serial, telnet, and the VGA monitor.
+void sh_redraw_line(const char *buf, uint8 new_len, uint8 new_cursor,
+                    uint8 old_len, uint8 old_cursor);
 
 // ============================================================================
 // String / parse utilities (shell_util.c)

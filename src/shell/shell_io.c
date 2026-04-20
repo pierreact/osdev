@@ -135,3 +135,31 @@ void print_ipv4(uint32 ip_net) {
 void print_mode(NicAssignmentMode m) {
     sh_print(m == NIC_MODE_PER_CORE ? "per-core" : "per-numa");
 }
+
+// Redraw the current input line in place. Uses only \b and spaces so
+// it works uniformly over serial, telnet, and the VGA monitor
+// (src/drivers/monitor.c: putc handles both and mirrors to COM1).
+//
+// Step 1: walk the cursor left back to just-after-prompt (old_cursor
+//         backspaces).
+// Step 2: print the new buffer (new_len chars).
+// Step 3: if the new buffer is shorter, erase the stale trailing chars
+//         by printing spaces, then backing up over them.
+// Step 4: if the cursor should end up mid-line, back up the right
+//         number of positions from end-of-buffer.
+void sh_redraw_line(const char *buf, uint8 new_len, uint8 new_cursor,
+                    uint8 old_len, uint8 old_cursor) {
+    for (uint8 i = 0; i < old_cursor; i++) sh_putc('\b');
+    for (uint8 i = 0; i < new_len; i++)    sh_putc(buf[i]);
+
+    if (new_len < old_len) {
+        uint8 diff = (uint8)(old_len - new_len);
+        for (uint8 i = 0; i < diff; i++) sh_putc(' ');
+        for (uint8 i = 0; i < diff; i++) sh_putc('\b');
+    }
+
+    if (new_cursor < new_len) {
+        uint8 back = (uint8)(new_len - new_cursor);
+        for (uint8 i = 0; i < back; i++) sh_putc('\b');
+    }
+}
