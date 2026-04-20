@@ -36,7 +36,7 @@ void vfs_init(void) {
 int vfs_mount(const char *mountpoint, uint8 fs_type, uint32 device) {
     if (mount_count >= VFS_MAX_MOUNTS) return -1;
 
-    // Check for duplicate mountpoint — add numeric suffix if needed
+    // Check for duplicate mountpoint and add numeric suffix if needed
     char final_mp[64];
     str_copy(final_mp, mountpoint, 64);
 

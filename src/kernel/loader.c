@@ -70,7 +70,7 @@ int loader_exec(const char *iso_path) {
         ap_entry_addrs[i] = USER_LOAD_ADDR;
     }
 
-    // Set up ring 3 on each AP (sequentially — shared TSS descriptor)
+    // Set up ring 3 on each AP (sequentially, shared TSS descriptor)
     for (uint32 i = 1; i < cpu_count; i++) {
         if (!percpu[i].running) continue;
         ap_dispatch(i, ap_setup_ring3, i);

@@ -148,8 +148,9 @@ int app_launch(const char *manifest_path) {
         return -1;
     }
 
-    // Fill slot
-    for (int i = 0; i < APP_NAME_LEN && manifest.name[i]; i++)
+    // Fill slot (zero first to avoid stale data from previous use or uninitialized BSS)
+    memset(app, 0, sizeof(AppSlot));
+    for (int i = 0; i < APP_NAME_LEN - 1 && manifest.name[i]; i++)
         app->name[i] = manifest.name[i];
     app->load_addr = load_addr;
     app->file_size = file_size;

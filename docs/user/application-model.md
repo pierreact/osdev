@@ -142,10 +142,10 @@ The first 2 NICs (in PCI enumeration order) are reserved as BSP NICs (management
 
 Each thread can read its own `ThreadMeta` to learn its placement:
 
-- `cpu_index` — which core it runs on
-- `numa_node` — which NUMA node that core belongs to
-- `nic_index`, `nic_segment`/`nic_bus`/`nic_dev`/`nic_func` — the assigned NIC's PCI address
-- `nic_mac[6]` — the MAC address of the assigned NIC
+- `cpu_index`: which core it runs on
+- `numa_node`: which NUMA node that core belongs to
+- `nic_index`, `nic_segment`/`nic_bus`/`nic_dev`/`nic_func`: the assigned NIC's PCI address
+- `nic_mac[6]`: the MAC address of the assigned NIC
 
 The kernel passes a pointer to the per-CPU `ThreadMeta` in RDI when launching each AP's `_start` function. Also inspectable from the BSP shell via `sys.thread.ls`. See [Writing Your First Isurus Application](tutorial.md) for how to use it.
 

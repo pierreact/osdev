@@ -86,9 +86,9 @@ BSP has 2 additional NICs (inter-node + management). These are separate from the
 
 The kernel discovers each PCI device's NUMA proximity from ACPI:
 
-1. **SRAT Type 5** (Generic Initiator Affinity, ACPI 6.3+) — direct (segment, BDF) -> proximity_domain mapping. The proper modern mechanism.
-2. **DSDT/SSDT AML walker** — for firmware (e.g. QEMU's `pxb-pcie`) that encodes host bridge proximity via `_PXM` in DSDT instead of SRAT. A subset AML walker in `src/arch/aml.c` extracts `Device(_BBN, _PXM)` declarations and the kernel matches a PCI bus to the largest `_BBN <= bus`.
-3. **MCFG ECAM base address fallback** — looks up the segment's ECAM base in SRAT memory affinity entries.
+1. **SRAT Type 5** (Generic Initiator Affinity, ACPI 6.3+): direct (segment, BDF) -> proximity_domain mapping. The proper modern mechanism.
+2. **DSDT/SSDT AML walker**: for firmware (e.g. QEMU's `pxb-pcie`) that encodes host bridge proximity via `_PXM` in DSDT instead of SRAT. A subset AML walker in `src/arch/aml.c` extracts `Device(_BBN, _PXM)` declarations and the kernel matches a PCI bus to the largest `_BBN <= bus`.
+3. **MCFG ECAM base address fallback**: looks up the segment's ECAM base in SRAT memory affinity entries.
 
 ### NIC assignment modes
 

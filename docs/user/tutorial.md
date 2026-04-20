@@ -68,12 +68,12 @@ void _start(ThreadMeta *meta) {
 See [libc-reference.md](libc-reference.md) for the full API.
 
 Key functions:
-- `puts(s)` — print a string
-- `putc(c)` — print a character
-- `print_dec(n)` — print a decimal number
-- `print_hex8(n)` / `print_hex16(n)` — print hex
-- `exit()` — terminate the thread
-- `yield()` — yield to next BSP task (no-op on APs)
+- `puts(s)`: print a string
+- `putc(c)`: print a character
+- `print_dec(n)`: print a decimal number
+- `print_hex8(n)` / `print_hex16(n)`: print hex
+- `exit()`: terminate the thread
+- `yield()`: yield to next BSP task (no-op on APs)
 
 ### ThreadMeta
 

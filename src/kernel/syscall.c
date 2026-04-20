@@ -202,7 +202,7 @@ static long sys_handle_task_exit(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uin
     for (uint32 i = 1; i < cpu_count; i++) {
         if (percpu[i].in_usermode) {
             // AP done with ring 3: signal completion, reset kernel stack,
-            // and enter a new park loop. No longjmp — we bypass SYSRET
+            // and enter a new park loop. No longjmp, we bypass SYSRET
             // entirely and never return to the old call chain.
             percpu[i].in_usermode = 0;
             ap_work[i].result = 0;

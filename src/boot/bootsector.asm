@@ -71,7 +71,7 @@ end_define_functions:
     cmp bx, 0xAA55
     jne kernel_read_chs
 
-    ; LBA read via INT 13h/42h — build DAP (Disk Address Packet) at 0x500
+    ; LBA read via INT 13h/42h, build DAP (Disk Address Packet) at 0x500
     xor ax, ax
     mov ds, ax
     mov word  [0x500], 16                               ; DAP size (16 bytes)

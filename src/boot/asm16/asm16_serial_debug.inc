@@ -1,5 +1,5 @@
 [BITS 16]
-; Minimal COM1 (0x3F8) boot trace — single characters, no framing.
+; Minimal COM1 (0x3F8) boot trace, single characters, no framing.
 ; Output: a sequence like "012d3ELJ" read left-to-right.
 ; QEMU: -serial file:./bootserial.log
 ;
@@ -12,7 +12,7 @@
 %if BOOT_DEBUG
 
 ; AL = character to send (clobbers DX on return)
-; No LSR wait — QEMU's 16550 accepts writes immediately.
+; No LSR wait, QEMU's 16550 accepts writes immediately.
 serial_out:
     push dx
     mov dx, 0x3F8

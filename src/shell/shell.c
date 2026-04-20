@@ -944,7 +944,7 @@ static void drain_mgmt_nic(L2Context *ctx) {
         if (rc == L2_EMPTY)
             break;   // no more frames from NIC
         // L2_CONSUMED (ARP handled, multicast dropped) or
-        // L2_OK (non-ARP delivered) — keep draining either way
+        // L2_OK (non-ARP delivered), keep draining either way
     }
 }
 
