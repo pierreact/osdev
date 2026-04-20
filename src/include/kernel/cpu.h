@@ -54,6 +54,9 @@ uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg);
 // Dispatch to all APs, wait for all to complete.
 void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg);
 
+// Get the CPU index of the currently executing core (reads LAPIC ID).
+uint32 get_current_cpu(void);
+
 // Thread metadata: per-CPU snapshot of "what does this core/thread see?"
 // Filled at boot by nic_assign(). When ring 3 AP threads land, this
 // struct will be mapped read-only into each thread's address space at

@@ -12,6 +12,7 @@
 #include <net/nic.h>
 #include <net/l2_kern.h>
 #include <net/pktrace.h>
+#include <kernel/app.h>
 #include <syscall.h>
 
 // Command buffer
@@ -46,7 +47,8 @@ static const char *commands[] = {
     "sys.net.arping",
     "sys.net.stats",
     "sys.net.trace",
-    "demo_app",
+    "sys.proc.run",
+    "sys.proc.ls",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -941,7 +943,7 @@ static void drain_mgmt_nic(L2Context *ctx) {
         if (rc == L2_EMPTY)
             break;   // no more frames from NIC
         // L2_CONSUMED (ARP handled, multicast dropped) or
-        // L2_OK (non-ARP delivered) — keep draining either way
+        // L2_OK (non-ARP delivered), keep draining either way
     }
 }
 
@@ -1079,6 +1081,100 @@ void cmd_net_trace(void) {
     }
 }
 
+// Command dispatch table. Prefix-matched commands have prefix=1.
+typedef struct { const char *name; void (*handler)(void); uint8 prefix; } CmdEntry;
+
+static void cmd_proc_run(void) {
+    char *path = cmd_buffer + 13;  // skip "sys.proc.run "
+    while (*path == ' ') path++;
+    if (*path) {
+        if (use_syscalls) sys_syscall1(SYS_APP_LAUNCH, (long)path);
+    } else {
+        sh_print("Usage: sys.proc.run <manifest_path>\n");
+    }
+}
+
+static void cmd_proc_ls(void) {
+    if (use_syscalls) sys_syscall0(SYS_APP_LIST);
+}
+
+
+static void cmd_reboot_wrap(void) {
+    if (use_syscalls) sys_reboot();
+    else cmd_reboot();
+}
+
+static void cmd_test_ap_wrap(void) {
+    if (use_syscalls) sys_test_ap();
+}
+
+static void cmd_fs_ls(void) {
+    char *args = cmd_buffer + 9;
+    while (*args == ' ') args++;
+    if (use_syscalls)
+        sys_iso_ls(*args ? args : "/");
+    else
+        vfs_ls(*args ? args : "/");
+}
+
+static void cmd_fs_cat(void) {
+    char *args = cmd_buffer + 10;
+    while (*args == ' ') args++;
+    if (*args == '\0') {
+        sh_print("Usage: sys.fs.cat <path>\n");
+    } else {
+        uint8 *buf = (uint8 *)sh_malloc(65536);
+        if (!buf) {
+            sh_print("Out of memory\n");
+        } else {
+            int rd;
+            if (use_syscalls)
+                rd = sys_iso_read(args, buf, 65536);
+            else
+                rd = vfs_read_file(args, buf, 65536);
+            if (rd > 0) {
+                for (int i = 0; i < rd; i++)
+                    sh_putc((char)buf[i]);
+                sh_putc('\n');
+            } else {
+                sh_print("File not found\n");
+            }
+            sh_free(buf);
+        }
+    }
+}
+
+static const CmdEntry cmd_table[] = {
+    {"help",           cmd_help,          0},
+    {"clear",          cmd_clear,         0},
+    {"echo",           cmd_echo,          1},
+    {"sys.reboot",     cmd_reboot_wrap,   0},
+    {"sys.cpu.ls",     cmd_lscpu,         0},
+    {"sys.cpu.ring",   cmd_ring,          0},
+    {"sys.mem.info",   cmd_meminfo,       0},
+    {"sys.mem.free",   cmd_free,          0},
+    {"sys.mem.test",   cmd_memtest,       0},
+    {"sys.acpi.ls",    sh_acpi_ls,        0},
+    {"sys.disk.ls",    cmd_lsblk,         0},
+    {"sys.disk.info",  cmd_diskinfo,      0},
+    {"sys.disk.read",  cmd_diskread,      1},
+    {"sys.disk.write", cmd_diskwrite,     1},
+    {"sys.fs.ls",      cmd_fs_ls,         1},
+    {"sys.fs.cat",     cmd_fs_cat,        1},
+    {"sys.pci.ls",     cmd_lspci,         0},
+    {"sys.nic.ls",     cmd_lsnic,         0},
+    {"sys.nic.mode",   cmd_nic_mode,      1},
+    {"sys.thread.ls",  cmd_thread_ls,     0},
+    {"sys.test.ap",    cmd_test_ap_wrap,  0},
+    {"sys.net.arp",    cmd_net_arp,       0},
+    {"sys.net.arping", cmd_net_arping,    1},
+    {"sys.net.stats",  cmd_net_stats,     0},
+    {"sys.net.trace",  cmd_net_trace,     0},
+    {"sys.proc.run",   cmd_proc_run,      1},
+    {"sys.proc.ls",    cmd_proc_ls,       0},
+    {0, 0, 0}
+};
+
 void shell_execute_command() {
     while (cmd_index > 0 && cmd_buffer[cmd_index - 1] == ' ') {
         cmd_index--;
@@ -1086,76 +1182,17 @@ void shell_execute_command() {
     }
     if (cmd_buffer[0] == '\0') return;
 
-    if (strcmp(cmd_buffer, "help") == 0) cmd_help();
-    else if (strcmp(cmd_buffer, "clear") == 0) cmd_clear();
-    else if (starts_with(cmd_buffer, "echo")) cmd_echo();
-    else if (strcmp(cmd_buffer, "sys.reboot") == 0) {
-        if (use_syscalls) sys_reboot();
-        else cmd_reboot();
-    }
-    else if (strcmp(cmd_buffer, "sys.cpu.ls") == 0) cmd_lscpu();
-    else if (strcmp(cmd_buffer, "sys.cpu.ring") == 0) cmd_ring();
-    else if (strcmp(cmd_buffer, "sys.mem.info") == 0) cmd_meminfo();
-    else if (strcmp(cmd_buffer, "sys.mem.free") == 0) cmd_free();
-    else if (strcmp(cmd_buffer, "sys.mem.test") == 0) cmd_memtest();
-    else if (strcmp(cmd_buffer, "sys.acpi.ls") == 0) sh_acpi_ls();
-    else if (strcmp(cmd_buffer, "sys.disk.ls") == 0) cmd_lsblk();
-    else if (strcmp(cmd_buffer, "sys.disk.info") == 0) cmd_diskinfo();
-    else if (starts_with(cmd_buffer, "sys.disk.read")) cmd_diskread();
-    else if (starts_with(cmd_buffer, "sys.disk.write")) cmd_diskwrite();
-    else if (starts_with(cmd_buffer, "sys.fs.ls")) {
-        char *args = cmd_buffer + 9;
-        while (*args == ' ') args++;
-        if (use_syscalls)
-            sys_iso_ls(*args ? args : "/");
-        else
-            vfs_ls(*args ? args : "/");
-    }
-    else if (starts_with(cmd_buffer, "sys.fs.cat")) {
-        char *args = cmd_buffer + 10;
-        while (*args == ' ') args++;
-        if (*args == '\0') {
-            sh_print("Usage: sys.fs.cat <path>\n");
+    for (const CmdEntry *e = cmd_table; e->name; e++) {
+        if (e->prefix) {
+            if (starts_with(cmd_buffer, e->name)) { e->handler(); return; }
         } else {
-            uint8 *buf = (uint8 *)sh_malloc(65536);
-            if (!buf) {
-                sh_print("Out of memory\n");
-            } else {
-                int rd;
-                if (use_syscalls)
-                    rd = sys_iso_read(args, buf, 65536);
-                else
-                    rd = vfs_read_file(args, buf, 65536);
-                if (rd > 0) {
-                    for (int i = 0; i < rd; i++)
-                        sh_putc((char)buf[i]);
-                    sh_putc('\n');
-                } else {
-                    sh_print("File not found\n");
-                }
-                sh_free(buf);
-            }
+            if (strcmp(cmd_buffer, e->name) == 0) { e->handler(); return; }
         }
     }
-    else if (strcmp(cmd_buffer, "sys.pci.ls") == 0) cmd_lspci();
-    else if (strcmp(cmd_buffer, "sys.nic.ls") == 0) cmd_lsnic();
-    else if (starts_with(cmd_buffer, "sys.nic.mode")) cmd_nic_mode();
-    else if (strcmp(cmd_buffer, "sys.thread.ls") == 0) cmd_thread_ls();
-    else if (strcmp(cmd_buffer, "sys.test.ap") == 0) {
-        if (use_syscalls) sys_test_ap();
-    }
-    else if (strcmp(cmd_buffer, "sys.net.arp") == 0) cmd_net_arp();
-    else if (starts_with(cmd_buffer, "sys.net.arping")) cmd_net_arping();
-    else if (strcmp(cmd_buffer, "sys.net.stats") == 0) cmd_net_stats();
-    else if (strcmp(cmd_buffer, "sys.net.trace") == 0) cmd_net_trace();
-    else if (strcmp(cmd_buffer, "demo_app") == 0) {
-        if (use_syscalls) sys_exec("/BIN/DEMO_APP");
-    }
-    else {
-        sh_print("Unknown command: ");
-        sh_print(cmd_buffer);
-        sh_putc('\n');
-    }
+
+    sh_print("Unknown command: ");
+    sh_print(cmd_buffer);
+    sh_putc('\n');
 }
 
 // Ring 3 entry point -- sets use_syscalls flag and runs the shell loop

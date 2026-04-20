@@ -19,6 +19,14 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq nasm gcc xorriso qemu-system-x86 mtools iputils-arping tcpdump
 
+      - name: Check for non-ASCII characters
+        run: |
+          # Allow specific unicode: therefore sign (e2 88 b4)
+          if LC_ALL=C grep -rPn '[^\x00-\x7F]' . --include='*.c' --include='*.h' --include='*.asm' --include='*.inc' --include='*.s' --include='*.sh' --include='*.ld' --include='*.md' --include='*.ini' --include='*.yml' --include='*.json' | LC_ALL=C grep -Pv '\xe2\x88\xb4'; then
+            echo "FAIL: non-ASCII characters found. Use ASCII only." >&2
+            exit 1
+          fi
+
       - name: Build
         run: scripts/compile.sh
 

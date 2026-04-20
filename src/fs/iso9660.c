@@ -59,7 +59,7 @@ static int name_match(const char *iso_name, uint8 iso_len,
     uint8 tlen = 0;
     while (target[tlen]) tlen++;
 
-    // ISO names may have ";1" version suffix — strip it
+    // ISO names may have ";1" version suffix, we strip it
     uint8 ilen = iso_len;
     if (ilen > 1 && iso_name[ilen - 1] >= '0' && iso_name[ilen - 1] <= '9' &&
         iso_name[ilen - 2] == ';')

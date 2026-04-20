@@ -1,5 +1,23 @@
 # Changelog
 
+## [2026-04-18] - L2 networking fixes, GPU strategy, CI
+
+### Added
+- GPU strategy document (docs/developer/gpu-strategy.md): direct MMIO pass-through for AMD compute GPUs
+- arping and tcpdump in CI (GitHub Actions) and devbox
+- TAP-based L2 network testing infrastructure with automatic tap0 setup/teardown
+- Buffer pool (PktBufPool): pre-allocated 2KB slots for zero-copy TX/RX
+- l2_send_zc (zero-copy send) and l2_poll_batch (batch receive up to 32 frames)
+- L2 poll return codes: L2_OK, L2_EMPTY, L2_CONSUMED (replaces overloaded -1)
+
+### Fixed
+- Virtio-net header size: negotiate VIRTIO_NET_F_MRG_RXBUF for 12-byte headers matching VirtioNetHdr struct
+- ARP IP byte order: MGMT_IP_DEFAULT is host byte order, needs htonl() for wire comparison
+- drain_mgmt_nic: continue past multicast/ARP frames, only stop on L2_EMPTY
+- GCC codegen: -fcf-protection=none prevents endbr64 on CPUs without CET support
+- GCC codegen: -fno-stack-protector removes canary code incompatible with ring 3 shell
+- 16-bit boot code: a32 prefix for .data references past 0xFFFF
+
 ## [2026-04-15] - Ethernet L2, ARP, packet tracing
 
 ### Added
@@ -208,23 +226,115 @@
 - Duplicated boot sequence from CHANGELOG.md
 - Duplicated memory layout from DEBUG.md (now references memory_map.md)
 
-## [2026-02-22] - Boot Fixes
-
-### Fixed
-- Fixed K16 panic on boot: disabled interrupts until IVT setup complete
-- Fixed triple fault on PAE enable: load CR3 before enabling PAE
-- Fixed triple fault on paging enable: disable interrupts before enabling paging
-- Removed scroll() call causing gibberish on screen
-- Fixed reboot command: removed -no-reboot flag from QEMU, added multi-method reset
+## [2026-03-20] - ACPI table parsing and system topology
 
 ### Added
-- Debug scripts: compile_qemu_debug.sh, check_qemu_log.sh, gdb_debug.sh
-- Documentation: DEBUG.md, memory_map.md
+- ACPI table parser framework: RSDT/XSDT root table discovery with checksum validation
+- Parsed tables: MADT (CPU/LAPIC/IOAPIC), SRAT (NUMA affinity), SLIT (distance matrix), HPET, FADT/FACP, MCFG (PCIe ECAM), DMAR/IVRS (IOMMU)
+- Shell topology commands: sys.cpu.ls, sys.numa.ls, sys.acpi.ls
+- Reboot via ACPI FADT reset register
+
+### Fixed
+- IRQ context handling and BSP stack sizing for nested interrupts
+
+## [2026-03-19] - ACPI/APIC/SMP bringup and license
+
+### Added
+- ACPI root table discovery and basic MADT parsing
+- LAPIC and IOAPIC initialization
+- SMP: AP bringup via INIT-SIPI-SIPI with trampoline at 0x9F000
+- AGPL-3.0 license (dual AGPLv3 / commercial)
+
+## [2026-03-09] - 80x28 text mode
+
+### Changed
+- Switched to 80x28 text mode with C-based VGA monitor driver
+
+## [2026-03-08] - FAT32 and IDE support
+
+### Added
+- IDE disk driver with PIO read/write
+- FAT32 read-only driver: directory listing (ls) and file reading (cat)
+- kmalloc/kfree: 4KB-page bitmap allocator
+- kprint: kernel string output to VGA
+
+## [2026-03-07] - Project goals
+
+### Added
+- Initial project goals document for remote NUMA kernel research
+
+## [2026-02-22] - Kernel shell and modernization
+
+### Added
+- Kernel shell with basic commands (help, clear, echo, reboot)
+- Updated build toolchain for modern NASM/GCC
+
+### Fixed
+- K16 panic on boot: disabled interrupts until IVT setup complete
+- Triple fault on PAE enable: load CR3 before enabling PAE
+- Triple fault on paging enable: disable interrupts before enabling paging
+- Removed scroll() call causing screen gibberish
+- Reboot command: multi-method reset
+- Debug scripts: compile_qemu_debug.sh, check_qemu_log.sh
 - QEMU logging with -d int,cpu_reset,guest_errors
 
 ### Changed
 - Reordered long mode init: CR3 - PAE - LME - Paging
-- Reduced reboot wait loops from 10M to 100K iterations
-- Split normal and debug QEMU launch scripts
 
-See `DEBUG.md` for boot sequence details and `memory_map.md` for memory layout.
+## [2014-10-04] - E820 memory map definitions
+
+### Added
+- E820 entry definitions in C
+- True/false constants in C types
+
+## [2014-09-26] - Memory alignment
+
+### Changed
+- Aligned MEMMAP on 16-byte boundary
+
+## [2014-09-23] - Keyboard driver and memory detection
+
+### Added
+- Keyboard driver with scancode handling
+- Fixed physical memory detection and paging structure accuracy
+
+### Fixed
+- Page fault bug: display CR2 value on fault
+
+## [2014-09-18] - Link script and ISR rework
+
+### Added
+- ISRs for CPU exceptions (divide-by-zero, GPF, page fault, etc.)
+
+### Changed
+- Reworked linker script: moved data structures from arbitrary addresses to BSS
+- Kernel binary size reduced by half
+
+## [2014-09-15] - VGA driver in C
+
+### Added
+- Video driver rewritten in C (replacing assembly)
+
+## [2014-09-10] - IDT64 and timer/keyboard ISRs
+
+### Added
+- 64-bit IDT with basic ISRs for timer and keyboard
+- Makefile and build scripts
+- Bochs emulator support
+
+## [2014-09-04] - Interrupts and boot improvements
+
+### Added
+- 64-bit IDT and basic ISR framework
+- Documentation for interrupts and memory layout
+- Bootsector loads multiple sectors
+
+## [2013-08-25] - 64-bit paging
+
+### Added
+- 64-bit long mode with paging enabled
+
+## [2013-06-05] - First commit
+
+### Added
+- Initial project: 16-bit bootsector, 32-bit protected mode transition

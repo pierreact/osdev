@@ -99,3 +99,12 @@ void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg) {
         }
     }
 }
+
+uint32 get_current_cpu(void) {
+    uint32 lapic_id = *(volatile uint32 *)(0xFEE00020) >> 24;
+    for (uint32 i = 0; i < cpu_count; i++) {
+        if (percpu[i].lapic_id == lapic_id)
+            return i;
+    }
+    return 0;
+}

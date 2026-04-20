@@ -65,6 +65,7 @@ EXTERN bootmedia_init                                   ; Discover and mount boo
 EXTERN pci_ids_init                                     ; Load PCI vendor/class names from ISO.
 EXTERN nic_init                                         ; Initialize NIC drivers.
 EXTERN l2_kern_init                                     ; Initialize L2 Ethernet on BSP NICs.
+EXTERN app_init                                         ; Initialize application table.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
 %include "asm16/asm16_display.inc"                      ; Screen functions to display stuff on screen
@@ -591,6 +592,7 @@ include_64bits_functions:                               ; /include
     call pci_ids_init                                   ; Load PCI vendor/class names from ISO.
     call nic_init                                       ; Initialize NIC drivers.
     call l2_kern_init                                   ; Initialize L2 Ethernet on BSP NICs.
+    call app_init                                       ; Initialize application table.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------------------------------------------------

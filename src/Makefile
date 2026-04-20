@@ -19,6 +19,8 @@ OBJECTS=    boot/kmain.o \
             kernel/stack_protector.o \
             kernel/bootmedia.o \
             kernel/loader.o \
+            kernel/ini.o \
+            kernel/app.o \
             drivers/serial.o \
             drivers/monitor.o \
             drivers/keyboard.o \
