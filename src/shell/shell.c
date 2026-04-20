@@ -47,9 +47,8 @@ static const char *commands[] = {
     "sys.net.arping",
     "sys.net.stats",
     "sys.net.trace",
-    "exec",
-    "apps",
-    "demo_app",
+    "sys.proc.run",
+    "sys.proc.ls",
 };
 #define NUM_COMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -1085,23 +1084,20 @@ void cmd_net_trace(void) {
 // Command dispatch table. Prefix-matched commands have prefix=1.
 typedef struct { const char *name; void (*handler)(void); uint8 prefix; } CmdEntry;
 
-static void cmd_exec(void) {
-    char *path = cmd_buffer + 5;
+static void cmd_proc_run(void) {
+    char *path = cmd_buffer + 13;  // skip "sys.proc.run "
     while (*path == ' ') path++;
     if (*path) {
         if (use_syscalls) sys_syscall1(SYS_APP_LAUNCH, (long)path);
     } else {
-        sh_print("Usage: exec <manifest_path>\n");
+        sh_print("Usage: sys.proc.run <manifest_path>\n");
     }
 }
 
-static void cmd_apps(void) {
+static void cmd_proc_ls(void) {
     if (use_syscalls) sys_syscall0(SYS_APP_LIST);
 }
 
-static void cmd_demo_app(void) {
-    if (use_syscalls) sys_syscall1(SYS_APP_LAUNCH, (long)"/CONF/DEMO_APP.INI");
-}
 
 static void cmd_reboot_wrap(void) {
     if (use_syscalls) sys_reboot();
@@ -1174,9 +1170,8 @@ static const CmdEntry cmd_table[] = {
     {"sys.net.arping", cmd_net_arping,    1},
     {"sys.net.stats",  cmd_net_stats,     0},
     {"sys.net.trace",  cmd_net_trace,     0},
-    {"exec",           cmd_exec,          1},
-    {"apps",           cmd_apps,          0},
-    {"demo_app",       cmd_demo_app,      0},
+    {"sys.proc.run",   cmd_proc_run,      1},
+    {"sys.proc.ls",    cmd_proc_ls,       0},
     {0, 0, 0}
 };
 

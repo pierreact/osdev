@@ -234,7 +234,7 @@ check "Thread NIC assignment" "NIC"
 check "PCI IDs loaded from ISO" "PCI-IDS:"
 
 # Test: Demo app
-send_cmd "demo_app" 5
+send_cmd "sys.proc.run /CONF/DEMO_APP.INI" 5
 check "Demo app ran" "finished"
 check "Demo app NIC info" "MAC"
 
