@@ -40,7 +40,15 @@ OBJECTS=    boot/kmain.o \
             fs/fat32.o \
             fs/iso9660.o \
             fs/vfs.o \
-            shell/shell.o
+            shell/shell.o \
+            shell/shell_io.o \
+            shell/shell_util.o \
+            shell/shell_sys.o \
+            shell/shell_mem.o \
+            shell/shell_cpu.o \
+            shell/shell_disk.o \
+            shell/shell_fs.o \
+            shell/shell_net.o
 
 CFLAGS=     -m64 \
             -ffreestanding \
