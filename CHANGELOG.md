@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-04-20] - Shell line editor, module splits
+
+### Added
+- Shell: 4 KB rolling command history (skip consecutive duplicates, evict whole oldest entries on overflow), up/down recall.
+- Shell: full line editing with left/right cursor movement, insert-at-cursor, backspace-before-cursor. Line redraw uses only \b and spaces so it works uniformly on VGA and serial.
+- Keyboard driver: 0xE0-prefix state machine emits ANSI CSI sequences (ESC [ A/B/C/D) for arrow keys, matching the serial/telnet wire format.
+- Tests: up-arrow recall, mid-line insert via left arrow, right-arrow cursor move.
+
+### Changed
+- src/shell/shell.c (1207 lines) split into 9 per-subsystem files: shell.c (core + dispatch), shell_io.c (output wrappers + format helpers), shell_util.c (string/parse), shell_sys.c, shell_mem.c, shell_cpu.c, shell_disk.c, shell_fs.c, shell_net.c. Shared state moved to src/shell/shell_internal.h. No behavior change.
+- src/arch/acpi.c (905 lines) split into 5 per-concern files: acpi.c (RSDP/RSDT/XSDT discovery, utilities, dispatch, orchestration + DSDT/SSDT AML bridge), acpi_madt.c, acpi_numa.c (SRAT+SLIT+accessors+acpi_pci_to_node), acpi_platform.c (FADT/HPET/MCFG/DMAR/IVRS+accessors), acpi_lsacpi.c (sys.acpi.ls output). Shared state moved to src/arch/acpi_internal.h. No behavior change.
+
 ## [2026-04-18] - L2 networking fixes, GPU strategy, CI
 
 ### Added
