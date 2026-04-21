@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-04-21] - DPDK L2 reflector demo app
+
+### Added
+- apps/dpdk_l2: per-core polled L2 reflector for AP threads only (BSP untouched). Each AP polls its assigned local NIC (same CPU, same NUMA node per nic_assign), MAC-swaps every non-ARP frame addressed to it, and re-transmits via SYS_NIC_SEND. Stats line (rx/tx frames and bytes, RX->TX min/avg/max cycles) printed every 2^19 poll iterations. No kernel changes; the path exercises SYS_NIC_SEND / SYS_NIC_RECV as the thin passthrough. Bounded to 2^20 polls per core today because the kernel app dispatcher is still serial (src/kernel/app.c TODO); trivially becomes an infinite poll once dispatch goes non-blocking.
+- apps/libc/nic_backend.[ch]: reusable NetBackend that drives the per-core NIC via SYS_NIC_SEND / SYS_NIC_RECV and pulls MAC from ThreadMeta. Shared glue for future dpdk_l3 / dpdk_l4 apps.
+- conf/dpdk_l2.ini manifest (cores=1,2,3, BSP excluded). Binary at /BIN/DPDK_L2.
+- apps/link.ld: .text.start subsection so the binary's entry-point function is emitted first. _start is tagged with __attribute__((section(".text.start"))); prevents the flat-binary entry byte from landing on an unrelated helper.
+- Tests: dpdk_l2 launches, per-core ready banner, stats line printed.
+
+### Changed
+- apps/libc/Makefile, apps/demo_app/Makefile, apps/dpdk_l2/Makefile: add -fno-stack-protector so libc-linked userland binaries don't require __stack_chk_fail.
+
 ## [2026-04-20] - Shell line editor, module splits
 
 ### Added
