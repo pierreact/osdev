@@ -1,4 +1,5 @@
 CC=gcc
+LD=ld
 
 CFLAGS= -m64 \
         -ffreestanding \
@@ -15,17 +16,17 @@ CFLAGS= -m64 \
         -fno-stack-protector \
         -fno-PIC \
         -nostdinc \
-        -I .
+        -I ../libc
 
-OBJECTS= stdio.o string.o net_eth.o net_arp.o net_pktbuf.o net_l2.o net_pktrace.o nic_backend.o
+LDFLAGS= -nostdlib -T../link.ld
 
-all: libc.a
+all: dpdk_l2
 
-libc.a: $(OBJECTS)
-	ar rcs libc.a $(OBJECTS)
+dpdk_l2: main.o ../libc/libc.a
+	$(LD) $(LDFLAGS) -o dpdk_l2 main.o ../libc/libc.a
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+main.o: main.c
+	$(CC) $(CFLAGS) -c -o main.o main.c
 
 clean:
-	-rm -f *.o libc.a
+	-rm -f *.o dpdk_l2

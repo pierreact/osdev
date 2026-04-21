@@ -10,6 +10,9 @@ SECTIONS
     . = 0x2000000;
 
     .text : {
+        /* Force _start first. .text.start is attached to the
+         * entry point via __attribute__((section(".text.start"))). */
+        *(.text.start)
         *(.text)
         *(.text.*)
     }

@@ -13,6 +13,7 @@ CFLAGS= -m64 \
         -Wall \
         -O \
         -fomit-frame-pointer \
+        -fno-stack-protector \
         -fno-PIC \
         -nostdinc \
         -I ../libc
