@@ -223,8 +223,13 @@ next:                                                   ;
 section .text                                           ;
                                                         ;
 kernel32:                                               ; Yay!
-                                                        ;
-                                                        ;
+    mov esp, 0x80000                                    ; 32-bit stack fix. SP retained from real
+                                                        ; mode (0xF000) with the now-flat SS base
+                                                        ; would put pushes inside kernel .text.
+                                                        ; Point ESP at 0x80000 (above kernel,
+                                                        ; below VGA) before any call or push.
+                                                        ; The 32-bit SS descriptor at gdt[0x10]
+                                                        ; already has G=1, B=1 so ESP is honoured.
 jmp include_32bits_functions                            ; Jump after functions inclusion
                                                         ;
 %include 'asm32/asm32_display.inc'                      ; Screen functions.
@@ -655,7 +660,13 @@ gdtptr:                                                 ;
 gdt:                                                    ;
     dw 0,0,0,0                                          ; null desciptor
     dw 0FFFFh,0,9A00h,0CFh                              ; 32-bit code desciptor (0x8)
-    dw 0FFFFh,0,9200h,08Fh                              ; flat data desciptor   (0x10)
+    dw 0FFFFh,0,9200h,0CFh                              ; flat data desciptor   (0x10)
+                                                        ; Granularity 0xCF: G=1 (4GB limit) AND
+                                                        ; B=1 (32-bit stack uses ESP, not SP).
+                                                        ; Without B=1, 'mov esp, 0x80000' in the
+                                                        ; 32-bit phase would set ESP but pushes
+                                                        ; would still use SP (low 16) and wrap
+                                                        ; around 0 corrupting low memory.
     dw 0FFFFh,0,9A00h,0AFh                              ; 64-bit code desciptor (0x18)
 gdtend:                                                 ;
                                                         ;
