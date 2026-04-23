@@ -16,7 +16,8 @@ CFLAGS= -m64 \
         -fno-stack-protector \
         -fno-PIC \
         -nostdinc \
-        -I ../libc
+        -I ../libc \
+        -I ../../src/include
 
 LDFLAGS= -nostdlib -T../link.ld
 

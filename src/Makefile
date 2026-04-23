@@ -40,6 +40,7 @@ OBJECTS=    boot/kmain.o \
             net/pktbuf.o \
             net/l2.o \
             net/pktrace.o \
+            net/pktrace_kern.o \
             net/l2_kern.o \
             fs/fat32.o \
             fs/iso9660.o \
@@ -84,11 +85,19 @@ LDFLAGS=    -nostdlib \
 ASFLAGS=    -felf64 -I boot/
 
 
-all: ap_trampoline.bin $(OBJECTS) kernel.bin bootsector.bin
+all: ap_trampoline.bin $(OBJECTS) kernel.bin bootsector.bin ../apps/libc/libc.a
+
+# libc.a is built as part of the kernel phase so the shared net sources
+# in src/net/ (compiled into both kernel.bin and libc.a) stay in sync.
+# Apps (demo_app, dpdk_l2) are built in a separate phase (apps/Makefile)
+# and consume this artifact.
+../apps/libc/libc.a: $(OBJECTS)
+	$(MAKE) -C ../apps/libc
 
 clean:
 	-find . -name '*.o' -delete
 	-rm -f kernel.bin bootsector.bin ap_trampoline.bin
+	$(MAKE) -C ../apps/libc clean
 
 # Linked kernel binary (size drives bootsector KSIZE).
 kernel.bin: $(OBJECTS)

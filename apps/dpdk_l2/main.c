@@ -12,9 +12,9 @@
 #include "../libc/stdio.h"
 #include "../libc/string.h"
 #include "../libc/nic_backend.h"
-#include "../libc/net/l2.h"
-#include "../libc/net/eth.h"
-#include "../libc/net/pktrace.h"
+#include <net/l2.h>
+#include <net/eth.h>
+#include <net/pktrace.h>
 
 #define POOL_PAGES     32                 // 128 KB / core (32 * 4KB)
 #define PRINT_MASK     ((1ULL << 19) - 1) // stats cadence: every 2^19 polls

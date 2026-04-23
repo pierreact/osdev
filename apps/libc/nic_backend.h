@@ -9,9 +9,9 @@
 // Reusable glue for all polled userland network apps (dpdk_l2 today,
 // future dpdk_l3 / dpdk_l4).
 
-#include "types.h"
+#include <types.h>
 #include "isurus.h"
-#include "net/l2.h"
+#include <net/l2.h>
 
 // Build a NetBackend that drives the per-core NIC. The returned
 // backend captures meta by pointer; meta must outlive the L2Context
