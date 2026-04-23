@@ -1,6 +1,6 @@
 CC=gcc
 
-# libc is built in the same "core" phase as the kernel (invoked from
+# libc is built in the same phase as the kernel (invoked from
 # src/Makefile). It compiles the SHARED net sources from ../../src/net
 # into libc.a so apps and kernel run the same code without forks.
 # The libc-only files (stdio.c, string.c, nic_backend.c,
