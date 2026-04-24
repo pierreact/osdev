@@ -11,12 +11,24 @@
 #define APP_REGION_SIZE 0x1000000    // 16MB per app slot
 #define MAX_APP_CORES   15           // max cores per app (APs only)
 
+// Per-app network configuration from INI (L3). Zero = unset.
+// ip / mask / gw are stored in network byte order.
+typedef struct {
+    uint32  ip;
+    uint32  mask;
+    uint32  gw;
+    uint16  mtu;            // 0 = default (1500 applied at consumer)
+    uint8   forward;        // 0 = drop non-local, 1 = forward
+    uint8   reserved;
+} AppNetConfig;
+
 // Parsed manifest
 typedef struct {
     char    name[APP_NAME_LEN];
     char    binary[APP_PATH_LEN];
     uint32  cores[MAX_APP_CORES];
     uint32  core_count;
+    AppNetConfig net;
 } AppManifest;
 
 // Running application slot
@@ -29,6 +41,7 @@ typedef struct {
     uint8   core_count;
     uint8   cores_done;
     uint8   nic_locked[MAX_NICS];
+    AppNetConfig net;
 } AppSlot;
 
 extern AppSlot app_table[MAX_APPS];

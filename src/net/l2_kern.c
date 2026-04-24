@@ -31,7 +31,10 @@ static void kern_get_mac(void *ctx, uint8 *mac) {
 // Default management IP for QEMU user-mode networking (host byte order)
 // 10.0.2.15 in host byte order. htonl() converts to network byte order
 // for comparison with ARP packet fields (which are network byte order).
-#define MGMT_IP_DEFAULT  0x0A00020Fu
+#define MGMT_IP_DEFAULT    0x0A00020Fu
+#define MGMT_MASK_DEFAULT  0xFFFFFF00u       // 255.255.255.0
+#define MGMT_GW_DEFAULT    0x0A000202u       // 10.0.2.2
+#define MGMT_MTU_DEFAULT   1500
 
 void l2_kern_init(void) {
     uint32 nic_count = nic_get_count();
@@ -48,6 +51,10 @@ void l2_kern_init(void) {
         mgmt_pool_mem = (uint8 *)alloc_pages(BSP_POOL_PAGES);
         l2_init(&bsp_mgmt, kern_backend, (void *)(uint64)0,
                 htonl(MGMT_IP_DEFAULT), BSP_POOL_PAGES, mgmt_pool_mem);
+        bsp_mgmt.mask = htonl(MGMT_MASK_DEFAULT);
+        bsp_mgmt.gw   = htonl(MGMT_GW_DEFAULT);
+        bsp_mgmt.mtu  = MGMT_MTU_DEFAULT;
+        bsp_mgmt.forward = 0;
         kprint("L2: mgmt NIC 0 IP 10.0.2.15 pool ");
         kprint_dec(pktbuf_pool_total(&bsp_mgmt.pool));
         kprint(" bufs MAC ");

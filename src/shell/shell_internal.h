@@ -102,5 +102,8 @@ void cmd_net_arp(void);
 void cmd_net_arping(void);
 void cmd_net_stats(void);
 void cmd_net_trace(void);
+void cmd_net_ip(void);
+void cmd_net_route(void);
+void cmd_net_ping(void);
 
 #endif // SYSTEM_SHELL_INTERNAL_H

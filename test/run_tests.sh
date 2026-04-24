@@ -360,6 +360,37 @@ send_cmd "sys.net.arp"
 check "L2 ARP reply sent" "arp_reply: [1-9]"
 check "Host in ARP table" "10.0.2.2"
 
+# ============================================================================
+# L3 tests: IPv4 + ICMP Echo on the kernel mgmt NIC and the DPDK L3 AP app
+# ============================================================================
+
+# sys.net.ip shows the BSP mgmt config parsed from l2_kern defaults.
+send_cmd "sys.net.ip"
+check "L3 IP shown"       "10.0.2.15"
+check "L3 gateway shown"  "10.0.2.2"
+
+# sys.net.route shows default gw entry.
+send_cmd "sys.net.route"
+check "L3 default route"  "via 10.0.2.2"
+
+# Guest -> host ping via shell: the tap0 host side (10.0.2.2) is a Linux
+# stack that replies to ICMP, so sys.net.ping exercises ip_send +
+# icmp_send_echo + icmp_rx on the echo reply.
+send_cmd "sys.net.ping 10.0.2.2" 4
+check "Shell ping reply"  "Reply from 10.0.2.2"
+
+# After the ping round-trip, IP + ICMP stats should have ticked.
+send_cmd "sys.net.stats"
+check "IPv4 TX ticked"      "ipv4_tx:       [1-9]"
+check "IPv4 RX ticked"      "ipv4_rx:       [1-9]"
+check "ICMP echo RX ticked" "icmp_echo_rx:  [1-9]"
+check "ICMP echo TX ticked" "icmp_echo_tx:  [1-9]"
+
+# DPDK L3 app: parse manifest, bring up per-core IP ctx, print ready.
+send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 10
+check "DPDK L3 app ready on AP" "\[dpdk_l3\] cpu=1 nic=.* ready"
+check "DPDK L3 app printed IP"  "\[dpdk_l3\] cpu=1 .* ip=10.0.0.10"
+
 SERIAL_LOG="$SERIAL_LOG_BACKUP"
 
 # Summary

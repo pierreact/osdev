@@ -18,7 +18,7 @@ typedef struct {
     int  (*recv_batch)(void *ctx, PktBuf **bufs, uint32 max_frames);
 } NetBackend;
 
-// Always-on counters (all traffic, not just traced)
+// Always-on L2 counters (all traffic, not just traced)
 typedef struct {
     uint64 rx_frames;
     uint64 tx_frames;
@@ -30,15 +30,37 @@ typedef struct {
     uint64 arp_replies_sent;
 } L2Stats;
 
-// Per-NIC L2 context. One per managed interface.
+// Always-on L3 counters. Lives inside L2Context because IP rides
+// directly on top of L2 for this project (one IP per interface,
+// per-NIC context owns both layers).
+typedef struct {
+    uint64 ipv4_rx;                 // IPv4 frames accepted past parse
+    uint64 ipv4_tx;                 // IPv4 frames emitted
+    uint64 ipv4_dropped;            // bad header / unknown proto / not for us w/o forward
+    uint64 ipv4_dropped_oversize;   // would-be TX > MTU and DF set (or no-frag policy)
+    uint64 ttl_expired;             // hit 0 on forward
+    uint64 forwarded;               // forwarded to next hop
+    uint64 icmp_echo_rx;            // echo requests received
+    uint64 icmp_echo_tx;            // echo replies sent
+} IpStats;
+
+// Per-NIC L2+L3 context. One per managed interface. Carries the L3
+// configuration (ip/mask/gw/mtu/forward) because L3 rides on top of
+// L2 and the two contexts are tightly paired in this design.
 typedef struct {
     NetBackend  backend;
     void       *backend_ctx;        // nic_index (kernel) or device ptr (DPDK)
     uint8       mac[ETH_ADDR_LEN];
     uint8       reserved[2];
     uint32      ip;                 // our IPv4 (network byte order), 0 = none
+    uint32      mask;               // netmask (network byte order), 0 = /0
+    uint32      gw;                 // default gateway (network byte order)
+    uint16      mtu;                // 0 means "use ETH_MTU"
+    uint8       forward;            // 1 = forward non-local IPv4, 0 = drop
+    uint8       reserved2[5];
     ArpTable    arp;
     L2Stats     stats;
+    IpStats     ip_stats;
     PktBufPool  pool;               // pre-allocated buffer pool (zero-copy IO)
     uint8       frame_buf[ETH_FRAME_MAX + 2];   // fallback RX buffer (when no pool)
 } L2Context;

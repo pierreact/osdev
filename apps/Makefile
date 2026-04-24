@@ -8,9 +8,11 @@ all: apps
 apps:
 	$(MAKE) -C demo_app
 	$(MAKE) -C dpdk_l2
+	$(MAKE) -C dpdk_l3
 
 clean:
 	$(MAKE) -C demo_app clean
 	$(MAKE) -C dpdk_l2 clean
+	$(MAKE) -C dpdk_l3 clean
 
 .PHONY: all apps clean

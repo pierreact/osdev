@@ -13,6 +13,7 @@
 #define SYS_TASK_EXIT     22
 #define SYS_NIC_SEND      27
 #define SYS_NIC_RECV      28
+#define SYS_APP_NET_CFG   31
 
 // Raw syscall interface (x86-64 SYSCALL convention)
 // SYSCALL clobbers: RCX (saved RIP), R11 (saved RFLAGS).

@@ -10,11 +10,15 @@
 #include <net/l2.h>
 #include <net/l2_kern.h>
 #include <net/arp.h>
+#include <net/ip.h>
+#include <net/icmp.h>
 #include <net/pktbuf.h>
 #include <net/pktrace.h>
+#include <net/eth.h>
 
-// Drain pending frames on the management NIC. Processes ARP internally,
-// updates stats. Called from net shell commands to reflect current state.
+// Drain pending frames on the management NIC. Processes ARP + IPv4
+// internally (ICMP Echo replies/counts). Called from net shell
+// commands to reflect current state.
 static void drain_mgmt_nic(L2Context *ctx) {
     uint16 etype;
     uint8 *payload;
@@ -22,9 +26,9 @@ static void drain_mgmt_nic(L2Context *ctx) {
     for (int i = 0; i < 128; i++) {
         int rc = l2_poll(ctx, &etype, &payload, &plen, NULL);
         if (rc == L2_EMPTY)
-            break;   // no more frames from NIC
-        // L2_CONSUMED (ARP handled, multicast dropped) or
-        // L2_OK (non-ARP delivered), keep draining either way
+            break;
+        if (rc == L2_OK && etype == ETH_TYPE_IPV4)
+            ip_rx(ctx, payload, plen, NULL);
     }
 }
 
@@ -203,6 +207,113 @@ void cmd_net_stats(void) {
     sh_putc('/');
     sh_print_dec(pktbuf_pool_total(&ctx->pool));
     sh_print(" bufs\n");
+
+    IpStats ips;
+    ip_get_stats(ctx, &ips);
+    sh_print("IP stats:\n");
+    sh_print("  ipv4_rx:       "); sh_print_dec(ips.ipv4_rx);              sh_putc('\n');
+    sh_print("  ipv4_tx:       "); sh_print_dec(ips.ipv4_tx);              sh_putc('\n');
+    sh_print("  ipv4_dropped:  "); sh_print_dec(ips.ipv4_dropped);         sh_putc('\n');
+    sh_print("  ipv4_oversize: "); sh_print_dec(ips.ipv4_dropped_oversize);sh_putc('\n');
+    sh_print("  ttl_expired:   "); sh_print_dec(ips.ttl_expired);          sh_putc('\n');
+    sh_print("  forwarded:     "); sh_print_dec(ips.forwarded);            sh_putc('\n');
+    sh_print("  icmp_echo_rx:  "); sh_print_dec(ips.icmp_echo_rx);         sh_putc('\n');
+    sh_print("  icmp_echo_tx:  "); sh_print_dec(ips.icmp_echo_tx);         sh_putc('\n');
+}
+
+void cmd_net_ip(void) {
+    L2Context *ctx = l2_kern_mgmt();
+    sh_print("mgmt NIC 0:\n");
+    sh_print("  ip:   "); print_ipv4(ctx->ip);   sh_putc('\n');
+    sh_print("  mask: "); print_ipv4(ctx->mask); sh_putc('\n');
+    sh_print("  gw:   "); print_ipv4(ctx->gw);   sh_putc('\n');
+    sh_print("  mtu:  "); sh_print_dec(ctx->mtu ? ctx->mtu : ETH_MTU); sh_putc('\n');
+    sh_print("  fwd:  "); sh_print_dec(ctx->forward); sh_putc('\n');
+}
+
+void cmd_net_route(void) {
+    L2Context *ctx = l2_kern_mgmt();
+    sh_print("Routes (mgmt NIC 0):\n");
+    if (ctx->mask != 0) {
+        sh_print("  "); print_ipv4(ctx->ip & ctx->mask);
+        sh_print("/");  print_ipv4(ctx->mask);
+        sh_print("  on-link\n");
+    }
+    if (ctx->gw != 0) {
+        sh_print("  0.0.0.0/0        via "); print_ipv4(ctx->gw); sh_putc('\n');
+    }
+}
+
+void cmd_net_ping(void) {
+    // "sys.net.ping 10.0.2.2"
+    const char *args = cmd_buffer + 13;   // skip "sys.net.ping "
+    while (*args == ' ') args++;
+    if (*args == '\0') {
+        sh_print("Usage: sys.net.ping <ip>\n");
+        return;
+    }
+
+    uint32 ip = htonl(parse_ipv4(args));
+    if (ip == 0) {
+        sh_print("Invalid IP\n");
+        return;
+    }
+
+    L2Context *ctx = l2_kern_mgmt();
+    sh_print("PING ");
+    print_ipv4(ip);
+    sh_putc('\n');
+
+    // Prime ARP if needed so the first request doesn't just
+    // bounce off a missing MAC. ip_send triggers an arp_request
+    // internally on miss; we loop briefly to let it resolve.
+    uint32 next_hop = ip;
+    if (ctx->mask != 0 && (ip & ctx->mask) != (ctx->ip & ctx->mask))
+        next_hop = ctx->gw;
+
+    uint64 arp_deadline = rdtsc() + 1000000000ULL;
+    while (!arp_lookup(&ctx->arp, next_hop) && rdtsc() < arp_deadline) {
+        arp_request(ctx, next_hop);
+        ctx->stats.arp_requests_sent++;
+        // drain some replies
+        for (int i = 0; i < 32; i++) {
+            uint16 et; uint8 *p; uint32 pl;
+            if (l2_poll(ctx, &et, &p, &pl, NULL) == L2_EMPTY) break;
+        }
+    }
+
+    IpStats before;
+    ip_get_stats(ctx, &before);
+
+    uint64 tsc_start = rdtsc();
+    int rc = icmp_send_echo(ctx, ip, 0x1234, 1, NULL, 0, NULL);
+    if (rc != 0) {
+        sh_print("  Send failed (ARP pending?)\n");
+        return;
+    }
+
+    uint64 timeout = 2000000000ULL;
+    while (rdtsc() - tsc_start < timeout) {
+        uint16 et; uint8 *p; uint32 pl;
+        int r = l2_poll(ctx, &et, &p, &pl, NULL);
+        if (r == L2_EMPTY) continue;
+        if (r == L2_OK && et == ETH_TYPE_IPV4)
+            ip_rx(ctx, p, pl, NULL);
+
+        IpStats now;
+        ip_get_stats(ctx, &now);
+        if (now.icmp_echo_rx > before.icmp_echo_rx) {
+            uint64 elapsed = rdtsc() - tsc_start;
+            sh_print("  Reply from ");
+            print_ipv4(ip);
+            sh_print("  ");
+            sh_print_dec(elapsed);
+            sh_print(" cycles\n");
+            return;
+        }
+    }
+
+    sh_print("  Timeout\n");
 }
 
 void cmd_net_trace(void) {

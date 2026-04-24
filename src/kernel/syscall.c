@@ -321,6 +321,23 @@ static long sys_handle_app_list(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint
     return 0;
 }
 
+// Return the calling AP's manifest-supplied network config (L3).
+// Caller passes a pointer to an AppNetConfig-sized buffer.
+// Returns 0 on success, -1 if the caller is not an app core.
+static long sys_handle_app_net_cfg(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
+    (void)a2; (void)a3; (void)a4; (void)a5;
+    AppNetConfig *out = (AppNetConfig *)a1;
+    if (!out) return -1;
+    for (uint32 i = 1; i < cpu_count; i++) {
+        if (!percpu[i].in_usermode) continue;
+        uint8 slot = core_to_app[i];
+        if (slot == 0xFF || slot >= MAX_APPS) return -1;
+        *out = app_table[slot].net;
+        return 0;
+    }
+    return -1;
+}
+
 // Syscall table
 typedef long (*syscall_fn)(uint64, uint64, uint64, uint64, uint64);
 
@@ -356,6 +373,7 @@ static syscall_fn syscall_table[SYS_NR_MAX] = {
     [SYS_NIC_RECV]    = sys_handle_nic_recv,
     [SYS_APP_LAUNCH]  = sys_handle_app_launch,
     [SYS_APP_LIST]    = sys_handle_app_list,
+    [SYS_APP_NET_CFG] = sys_handle_app_net_cfg,
 };
 
 long syscall_dispatch(uint64 nr, uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {

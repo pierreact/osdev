@@ -22,6 +22,11 @@ static const char *point_names[] = {
     [PKT_L2_SEND_BUILT] = "L2_BUILT",
     [PKT_NIC_TX]        = "NIC_TX",
     [PKT_NIC_TX_DONE]   = "NIC_TX_DONE",
+    [PKT_IP_PARSE]      = "IP_PARSE",
+    [PKT_IP_DELIVER]    = "IP_DELIVER",
+    [PKT_IP_FORWARD]    = "IP_FORWARD",
+    [PKT_ICMP_ECHO_RX]  = "ICMP_ECHO_RX",
+    [PKT_ICMP_ECHO_TX]  = "ICMP_ECHO_TX",
 };
 
 const char *pktrace_point_name(uint16 point) {

@@ -158,6 +158,43 @@ All devices are accessed via polling from userspace. No interrupts, no syscalls.
 
 All buffers are allocated on your thread's NUMA node. Zero copy; data is not moved between buffers.
 
+### Network layer 3 (IPv4)
+
+IPv4 configuration is per-thread and lives in the INI manifest:
+
+```ini
+[app]
+name=dpdk_l3
+binary=/BIN/DPDK_L3
+cores=1,2,3
+ip=10.0.0.10
+mask=255.255.255.0
+gw=10.0.0.1
+mtu=1500
+forward=0
+```
+
+`forward=1` enables routing: frames addressed to a different IP are TTL-decremented and pushed to the next hop via ARP. `forward=0` drops them with an `ipv4_dropped` tick.
+
+The app retrieves its config from the kernel with `app_net_cfg(&cfg)` (no INI parsing in userland), initialises an `L2Context` with the IP fields populated, and dispatches ETH_TYPE_IPV4 frames to `ip_rx`. ICMP Echo Requests are answered automatically inside `ip_rx`; unknown protocols drop with a counter. A minimal AP main looks like:
+
+```c
+AppNetCfg cfg; app_net_cfg(&cfg);
+L2Context ctx;
+l2_init(&ctx, nic_backend_make(meta), meta, cfg.ip, POOL_PAGES, pool);
+ctx.mask = cfg.mask; ctx.gw = cfg.gw;
+ctx.mtu  = cfg.mtu ? cfg.mtu : 1500;
+ctx.forward = cfg.forward;
+
+while (poll) {
+    int rc = l2_poll(&ctx, &etype, &payload, &plen, 0);
+    if (rc == L2_OK && etype == ETH_TYPE_IPV4)
+        ip_rx(&ctx, payload, plen, 0);
+}
+```
+
+Per-thread state means no cross-core ARP table, no shared routing table, no locks. Each AP is its own tiny router.
+
 ## What Isurus does not provide
 
 - **No dynamic linking.** All binaries are statically linked.

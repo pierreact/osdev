@@ -1,5 +1,24 @@
 # Changelog
 
+## [2026-04-21] - IPv4 + ICMP Echo (OSI Layer 3)
+
+### Added
+- src/net/ip.c + src/include/net/ip.h: shared IPv4 parse/build/checksum/TTL/forward-or-deliver. RFC 1071 one's-complement checksum. Drops fragments (MF/offset) and IHL != 5. Same source compiles into both kernel.bin and libc.a.
+- src/net/icmp.c + src/include/net/icmp.h: ICMP Echo Request handling (auto-reply), Echo Request emission for sys.net.ping. Unsupported types drop with counters.
+- net/l2.h: IpStats (ipv4_rx/tx, dropped, oversize, ttl_expired, forwarded, icmp_echo_rx/tx) + mask/gw/mtu/forward fields on L2Context. L3 rides directly on L2 so both live in the per-NIC context.
+- pktrace: 5 new points PKT_IP_PARSE, PKT_IP_DELIVER, PKT_IP_FORWARD, PKT_ICMP_ECHO_RX, PKT_ICMP_ECHO_TX.
+- Kernel mgmt NIC L3 config: l2_kern_init seeds 10.0.2.15 / 255.255.255.0 / gw 10.0.2.2 / mtu 1500 matching the QEMU user netdev defaults.
+- Shell commands sys.net.ping <ip>, sys.net.ip, sys.net.route. sys.net.stats extended with IpStats block.
+- apps/dpdk_l3: per-AP L3 demo. Reads ip/mask/gw/mtu/forward from its INI manifest via the new SYS_APP_NET_CFG syscall, initialises an L2Context with L3 fields, dispatches ETH_TYPE_IPV4 frames to ip_rx. Bounded with MAX_ITERATIONS like dpdk_l2.
+- SYS_APP_NET_CFG (syscall 31) + libc wrapper app_net_cfg(): lets an app core retrieve its kernel-parsed manifest-supplied L3 config.
+- conf/dpdk_l3.ini manifest (cores=1,2,3, ip=10.0.0.10/24, gw=10.0.0.1, forward=0).
+- Tests: 10 new L3 cases (sys.net.ip, sys.net.route, sys.net.ping 10.0.2.2 round-trip, IP + ICMP stats tick, DPDK L3 app per-core ready banner + IP print). 47/47 green.
+
+### Changed
+- src/kernel/app.c: manifest_handler rewritten from first-char to full-string key matching (tiny local kstreq since libc isn't linked into the kernel). Old scheme would have collided on mask vs mtu.
+- AppManifest / AppSlot (src/include/kernel/app.h): carry AppNetConfig (ip/mask/gw/mtu/forward) parsed from INI.
+- apps/libc/Makefile: build shared net_ip.o and net_icmp.o from src/net into libc.a alongside the other shared net sources.
+
 ## [2026-04-21] - DPDK L2 reflector demo app
 
 ### Added

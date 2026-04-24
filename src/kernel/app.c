@@ -18,22 +18,65 @@ void app_init(void) {
         core_to_app[i] = 0xFF;
 }
 
-// INI parse callback: populate AppManifest
+// Tiny local strcmp - kernel does not link libc.
+static int kstreq(const char *a, const char *b) {
+    while (*a && *b) {
+        if (*a != *b) return 0;
+        a++; b++;
+    }
+    return *a == *b;
+}
+
+// Parse "10.0.2.15" in network byte order (first octet at MSB of
+// the memory representation after htonl-equivalent byte swap).
+// Stored byte-reversed from the `a << 24 | b << 16 | c << 8 | d`
+// visual representation so the on-wire layout is correct.
+// Returns 0 if the string is not a valid dotted quad.
+static uint32 kparse_ipv4_ne(const char *s) {
+    uint32 octets[4] = {0, 0, 0, 0};
+    int idx = 0;
+    while (*s && idx < 4) {
+        if (*s >= '0' && *s <= '9') {
+            octets[idx] = octets[idx] * 10 + (*s - '0');
+            if (octets[idx] > 255) return 0;
+        } else if (*s == '.') {
+            idx++;
+        } else {
+            return 0;
+        }
+        s++;
+    }
+    if (idx != 3) return 0;
+    // Pack in network byte order: octets[0] is at byte 0 of the
+    // uint32 when viewed as LE memory.
+    return (octets[3] << 24) | (octets[2] << 16)
+         | (octets[1] << 8)  |  octets[0];
+}
+
+static uint32 kparse_u32(const char *s) {
+    uint32 n = 0;
+    while (*s >= '0' && *s <= '9') {
+        n = n * 10 + (*s - '0');
+        s++;
+    }
+    return n;
+}
+
+// INI parse callback: populate AppManifest. Full-key matching
+// (strcmp) so L3 fields like `mask` and `mtu` coexist without the
+// old first-char collision.
 static void manifest_handler(const char *section, const char *key,
                              const char *value, void *user) {
     AppManifest *m = (AppManifest *)user;
     (void)section;
 
-    if (key[0] == 'n' && key[1] == 'a') {
-        // name
+    if (kstreq(key, "name")) {
         for (int i = 0; i < APP_NAME_LEN - 1 && value[i]; i++)
             m->name[i] = value[i];
-    } else if (key[0] == 'b') {
-        // binary
+    } else if (kstreq(key, "binary")) {
         for (int i = 0; i < APP_PATH_LEN - 1 && value[i]; i++)
             m->binary[i] = value[i];
-    } else if (key[0] == 'c') {
-        // cores=1,2,3
+    } else if (kstreq(key, "cores")) {
         m->core_count = 0;
         const char *p = value;
         while (*p && m->core_count < MAX_APP_CORES) {
@@ -46,6 +89,16 @@ static void manifest_handler(const char *section, const char *key,
                 m->cores[m->core_count++] = n;
             if (*p == ',') p++;
         }
+    } else if (kstreq(key, "ip")) {
+        m->net.ip = kparse_ipv4_ne(value);
+    } else if (kstreq(key, "mask")) {
+        m->net.mask = kparse_ipv4_ne(value);
+    } else if (kstreq(key, "gw")) {
+        m->net.gw = kparse_ipv4_ne(value);
+    } else if (kstreq(key, "mtu")) {
+        m->net.mtu = (uint16)kparse_u32(value);
+    } else if (kstreq(key, "forward")) {
+        m->net.forward = (uint8)(kparse_u32(value) ? 1 : 0);
     }
 }
 
@@ -158,6 +211,8 @@ int app_launch(const char *manifest_path) {
     app->cores_done = 0;
     for (uint32 i = 0; i < manifest.core_count; i++)
         app->cores[i] = manifest.cores[i];
+    app->net = manifest.net;
+    if (app->net.mtu == 0) app->net.mtu = 1500;
 
     // Mark cores in use
     for (uint32 i = 0; i < manifest.core_count; i++)

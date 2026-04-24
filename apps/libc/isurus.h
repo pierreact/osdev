@@ -34,4 +34,21 @@ static inline void yield(void) {
     syscall0(SYS_YIELD);
 }
 
+// Per-app L3 config as parsed from the INI manifest by the kernel.
+// Zero means "unset". ip/mask/gw are network byte order.
+typedef struct {
+    uint32 ip;
+    uint32 mask;
+    uint32 gw;
+    uint16 mtu;
+    uint8  forward;
+    uint8  reserved;
+} AppNetCfg;
+
+// Fetch the calling core's manifest-parsed L3 config. Returns 0 on
+// success, -1 if the caller is not an app-dispatched AP core.
+static inline int app_net_cfg(AppNetCfg *out) {
+    return (int)syscall1(SYS_APP_NET_CFG, (long)out);
+}
+
 #endif
