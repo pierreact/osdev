@@ -184,6 +184,10 @@ static long sys_handle_wait_input(uint64 a1, uint64 a2, uint64 a3, uint64 a4, ui
     (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
     int c;
     while ((c = input_buf_pop()) == 0) {
+        // Reap any app whose cores have all returned. Parallel
+        // app_launch is fire-and-forget, so the idle path is where
+        // slots get cleaned up and the "finished" line prints.
+        app_check_completion();
         __asm__ volatile("sti; hlt; cli");
     }
     return c;
@@ -198,21 +202,19 @@ static long sys_handle_yield(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 
 static long sys_handle_task_exit(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
 
-    // Check if this is an AP returning from ring 3.
-    for (uint32 i = 1; i < cpu_count; i++) {
-        if (percpu[i].in_usermode) {
-            // AP done with ring 3: signal completion, reset kernel stack,
-            // and enter a new park loop. No longjmp, we bypass SYSRET
-            // entirely and never return to the old call chain.
+    // AP path: exit the calling core only (get_current_cpu reads LAPIC ID
+    // so this works correctly when multiple APs run in parallel).
+    uint32 i = get_current_cpu();
+    if (i != 0 && percpu[i].in_usermode) {
+        // AP done with ring 3: signal completion, reset kernel stack,
+        // and enter a new park loop. No longjmp, we bypass SYSRET
+        // entirely and never return to the old call chain.
+        {
             percpu[i].in_usermode = 0;
             ap_work[i].result = 0;
             ap_work[i].done = 1;
             ap_work[i].ready = 0;
 
-            // Reset stack to the clean top and spin-wait for next dispatch.
-            // This replaces the trampoline's park loop for this AP.
-            // The APWork pointer is saved on the stack because all registers
-            // get clobbered during the IRETQ -> SYSCALL -> stack-reset cycle.
             uint64 stack_top = percpu[i].stack_top;
             APWork *w = &ap_work[i];
             __asm__ volatile(
@@ -283,31 +285,26 @@ static long sys_handle_exec(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a
     return (long)loader_exec((const char *)a1);
 }
 
-// NIC send: uses the calling CPU's assigned NIC from thread_meta
+// NIC send: uses the calling CPU's assigned NIC from thread_meta.
+// get_current_cpu reads the LAPIC ID so this is correct when multiple
+// APs run in parallel.
 static long sys_handle_nic_send(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a3; (void)a4; (void)a5;
-    // Determine which CPU is calling (scan percpu for in_usermode)
-    for (uint32 i = 1; i < cpu_count; i++) {
-        if (percpu[i].in_usermode) {
-            uint32 nic_idx = thread_meta[i].nic_index;
-            if (nic_idx == NIC_NONE) return -1;
-            return nic_send(nic_idx, (const uint8 *)a1, (uint32)a2);
-        }
-    }
-    return -1;
+    uint32 i = get_current_cpu();
+    if (i == 0 || !percpu[i].in_usermode) return -1;
+    uint32 nic_idx = thread_meta[i].nic_index;
+    if (nic_idx == NIC_NONE) return -1;
+    return nic_send(nic_idx, (const uint8 *)a1, (uint32)a2);
 }
 
-// NIC recv: uses the calling CPU's assigned NIC from thread_meta
+// NIC recv: uses the calling CPU's assigned NIC from thread_meta.
 static long sys_handle_nic_recv(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a3; (void)a4; (void)a5;
-    for (uint32 i = 1; i < cpu_count; i++) {
-        if (percpu[i].in_usermode) {
-            uint32 nic_idx = thread_meta[i].nic_index;
-            if (nic_idx == NIC_NONE) return -1;
-            return nic_recv(nic_idx, (uint8 *)a1, (uint32 *)a2);
-        }
-    }
-    return -1;
+    uint32 i = get_current_cpu();
+    if (i == 0 || !percpu[i].in_usermode) return -1;
+    uint32 nic_idx = thread_meta[i].nic_index;
+    if (nic_idx == NIC_NONE) return -1;
+    return nic_recv(nic_idx, (uint8 *)a1, (uint32 *)a2);
 }
 
 static long sys_handle_app_launch(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
@@ -328,14 +325,12 @@ static long sys_handle_app_net_cfg(uint64 a1, uint64 a2, uint64 a3, uint64 a4, u
     (void)a2; (void)a3; (void)a4; (void)a5;
     AppNetConfig *out = (AppNetConfig *)a1;
     if (!out) return -1;
-    for (uint32 i = 1; i < cpu_count; i++) {
-        if (!percpu[i].in_usermode) continue;
-        uint8 slot = core_to_app[i];
-        if (slot == 0xFF || slot >= MAX_APPS) return -1;
-        *out = app_table[slot].net;
-        return 0;
-    }
-    return -1;
+    uint32 i = get_current_cpu();
+    if (i == 0 || !percpu[i].in_usermode) return -1;
+    uint8 slot = core_to_app[i];
+    if (slot == 0xFF || slot >= MAX_APPS) return -1;
+    *out = app_table[slot].net;
+    return 0;
 }
 
 // Syscall table

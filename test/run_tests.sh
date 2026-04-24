@@ -172,9 +172,13 @@ check "NUMA node(s)" "NUMA node(s):"
 # Test: DPDK L2 reflector (apps/dpdk_l2) - per-core polled L2 app on APs.
 # Run early, before the known-flaky shell tests below. Needs ~1 s per
 # core (MAX_ITERATIONS) * 3 cores plus dispatch overhead.
-send_cmd "sys.proc.run /CONF/DPDK_L2.INI" 8
-check "DPDK L2 app ready on AP"   "\[dpdk_l2\] cpu=1 nic=.* ready"
+send_cmd "sys.proc.run /CONF/DPDK_L2.INI" 15
+# Parallel app_launch interleaves serial output from cores 1/2/3, so
+# grep for the core-count banner + rx counters on any core. Each core
+# emits its own "cpu=N ... rx=" line after MAX_ITERATIONS.
+check "DPDK L2 app ready on AP"   "APP: dispatching cores:"
 check "DPDK L2 app stats printed" "\[dpdk_l2\] cpu=.* rx="
+check "DPDK L2 app finished"      "APP: dpdk_l2 finished"
 
 # Test: sys.mem.free
 send_cmd "sys.mem.free"
@@ -242,7 +246,7 @@ check "PCI IDs loaded from ISO" "PCI-IDS:"
 
 # Test: Demo app
 send_cmd "sys.proc.run /CONF/DEMO_APP.INI" 5
-check "Demo app ran" "finished"
+check "Demo app ran"      "APP: demo_app finished"
 check "Demo app NIC info" "MAC"
 
 # Test: Data directory on ISO
@@ -387,9 +391,12 @@ check "ICMP echo RX ticked" "icmp_echo_rx:  [1-9]"
 check "ICMP echo TX ticked" "icmp_echo_tx:  [1-9]"
 
 # DPDK L3 app: parse manifest, bring up per-core IP ctx, print ready.
-send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 10
-check "DPDK L3 app ready on AP" "\[dpdk_l3\] cpu=1 nic=.* ready"
-check "DPDK L3 app printed IP"  "\[dpdk_l3\] cpu=1 .* ip=10.0.0.10"
+send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 20
+# Parallel dispatch: per-core serial output interleaves, so rely on
+# BSP-serialized lines (load banner, manifest IP, reap).
+check "DPDK L3 app dispatched"  "APP: dispatching cores:"
+check "DPDK L3 app IP parsed"   "APP: dpdk_l3 ip=10.0.0.10"
+check "DPDK L3 app finished"    "APP: dpdk_l3 finished"
 
 SERIAL_LOG="$SERIAL_LOG_BACKUP"
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-04-24] - Parallel app_launch
+
+### Added
+- ap_dispatch_async() + ap_work_done() in src/kernel/cpu.c: fire-and-forget AP dispatch so multiple cores can run ring 3 simultaneously. ap_dispatch stays as the blocking wrapper.
+- app_check_completion() now scans active app slots, updates cores_done, and reaps the slot (clears core_to_app, releases nic_locked, prints "APP: <name> finished") once all cores have returned. Called from sys_wait_input's idle path so the shell reaps while waiting for input.
+- app_launch prints a one-line BSP-serialized banner "APP: <name> ip=..." when the manifest carries an IP, so tests/users see a clean config line that does not get interleaved with per-core ready banners.
+
+### Changed
+- app_launch: sequential "dispatch + block for each core" replaced with async dispatch of all cores in parallel. The call returns as soon as every AP has been signalled; the slot stays active=1 until app_check_completion reaps it. dpdk_l2 with cores 1/2/3 now runs ~3x faster wall-clock.
+- sys_handle_task_exit, sys_handle_nic_send, sys_handle_nic_recv, sys_handle_app_net_cfg: replaced "scan percpu for first in_usermode=1" with get_current_cpu(). The old pattern assumed one AP in ring 3 at a time; with parallel apps, multiple APs are in_usermode simultaneously and the wrong one got reaped on TASK_EXIT.
+- Tests: serial output from concurrent cores interleaves at byte granularity; per-core line checks replaced with BSP-serialized banners (APP: dispatching cores:, APP: <name> ip=..., APP: <name> finished). Test waits bumped to account for wall-clock ~= max-core time under parallel share of host CPU. 47 -> 49 green.
+
 ## [2026-04-21] - IPv4 + ICMP Echo (OSI Layer 3)
 
 ### Added

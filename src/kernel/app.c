@@ -229,6 +229,19 @@ int app_launch(const char *manifest_path) {
     }
     putc('\n');
 
+    // Single-line L3 config banner (BSP-serialized, unlike per-core
+    // ready banners which interleave under parallel dispatch).
+    if (app->net.ip != 0) {
+        uint8 *ip = (uint8 *)&app->net.ip;
+        kprint("APP: ");
+        kprint(app->name);
+        kprint(" ip=");
+        kprint_dec(ip[0]); putc('.');
+        kprint_dec(ip[1]); putc('.');
+        kprint_dec(ip[2]); putc('.');
+        kprint_dec(ip[3]); putc('\n');
+    }
+
     // Allocate user stacks and set entry addresses
     for (uint32 i = 0; i < manifest.core_count; i++) {
         uint32 c = manifest.cores[i];
@@ -236,38 +249,56 @@ int app_launch(const char *manifest_path) {
         ap_entry_addrs[c] = load_addr;
     }
 
-    // Setup ring 3 on each assigned core (sequential)
+    // Setup ring 3 on each assigned core (sequential, short init).
     for (uint32 i = 0; i < manifest.core_count; i++) {
         ap_dispatch(manifest.cores[i], ap_setup_ring3, manifest.cores[i]);
     }
 
-    // Dispatch ring 3 entry (blocking for now, each core completes before next)
+    // Mark the slot active BEFORE firing the cores so app_check_completion
+    // will see it and reap once all cores finish.
+    app->active = 1;
+
+    // Fire ring 3 entry on every assigned core in parallel. Each core
+    // runs independently; app_check_completion (called from the shell's
+    // idle path) reaps the slot once all cores have returned.
+    kprint("APP: dispatching cores:");
     for (uint32 i = 0; i < manifest.core_count; i++) {
         uint32 c = manifest.cores[i];
-        kprint("APP: dispatching to CPU ");
+        putc(' ');
         kprint_dec(c);
-        kprint("...\n");
-        ap_dispatch(c, ap_run_ring3, c);
-        kprint("APP: CPU ");
-        kprint_dec(c);
-        kprint(" done\n");
+        ap_dispatch_async(c, ap_run_ring3, c);
     }
+    putc('\n');
 
-    // All cores done, clean up
-    for (uint32 i = 0; i < manifest.core_count; i++)
-        core_to_app[manifest.cores[i]] = 0xFF;
-    memset(app->nic_locked, 0, sizeof(app->nic_locked));
-    app->active = 0;
-
-    kprint("APP: ");
-    kprint(app->name);
-    kprint(" finished\n");
     return 0;
 }
 
 int app_check_completion(void) {
-    // For future non-blocking dispatch
-    return 0;
+    int reaped = 0;
+    for (int s = 0; s < MAX_APPS; s++) {
+        AppSlot *app = &app_table[s];
+        if (!app->active) continue;
+
+        uint8 done_count = 0;
+        for (uint32 i = 0; i < app->core_count; i++) {
+            if (ap_work_done(app->cores[i])) done_count++;
+        }
+        app->cores_done = done_count;
+
+        if (done_count < app->core_count) continue;
+
+        // All cores done, reap the slot.
+        for (uint32 i = 0; i < app->core_count; i++)
+            core_to_app[app->cores[i]] = 0xFF;
+        memset(app->nic_locked, 0, sizeof(app->nic_locked));
+        app->active = 0;
+
+        kprint("APP: ");
+        kprint(app->name);
+        kprint(" finished\n");
+        reaped++;
+    }
+    return reaped;
 }
 
 void app_list(void) {
