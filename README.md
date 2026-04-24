@@ -34,6 +34,14 @@ The common thread: the OS gets in the way.
 
 This is not a general-purpose OS. Not Linux. Not for running Docker containers, web servers, or desktop applications. There is no POSIX and no dynamic linking.
 
+## Design doctrine
+
+The kernel is meant to be **as small and basic as possible**, retaining maximum performance and minimum latency, yet with a very optimized design for the targeted tasks. Everything in the system is shaped around one principle: **eliminate categories of bug by construction rather than detect them at runtime.**
+
+Kernel bugs compound silently -- a bit-flip deep in the kernel may sit dormant for years until a layout shift brings it to a live code path. Runtime checks (asserts, sanitizers, watchdogs) only help on the build that caused the damage, not on the build where it finally fires. So Isurus accepts several up-front tradeoffs -- static sizing, one-thread-per-core, no context switching on APs, single-writer shared memory, per-thread address spaces, polled I/O only, placement as the only scheduling decision -- and in exchange excludes whole classes of bug (data-path allocator corruption, AP data races, lock contention, cache-coherence races, interrupt-timing Heisenbugs, scheduler non-determinism). You pay by sizing your working set ahead of time; you gain a system that is correct by construction within its envelope.
+
+See [Research Overview, section 2](docs/research/overview.md) for the full doctrine and what each design choice removes.
+
 **Single node:** a hard real-time, ultra-low-latency execution environment. One thread per core, no interrupts on application cores, CPUs at max frequency, direct device polling. Use cases: high-frequency trading, packet processing, real-time sensor ingestion, any workload where deterministic per-core execution matters.
 
 **Cluster:** heavy parallelism across dedicated hardware. A single process spans multiple machines, threads share memory transparently via DSM, each thread owns its core and its NIC. Use cases: large-scale graph processing, distributed in-memory databases, shared aggregation across hundreds of cores.

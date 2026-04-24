@@ -1,9 +1,17 @@
-#include <net/pktrace.h>
-#include <drivers/monitor.h>
+// Shared packet-trace core. Compiled into both the kernel build
+// (src/Makefile) and the libc build (apps/libc/Makefile). All console
+// I/O goes through the four pktrace_put_* adapter functions; kernel
+// and libc each provide their own implementations.
+//
+// pktrace_get_log() lives in the kernel-only src/net/pktrace_kern.c
+// so apps don't pull it in.
 
-// Static ring buffer of trace records
-static PkTrace trace_log[PKTRACE_LOG_SIZE];
-static uint32 trace_log_head;   // next slot to allocate
+#include <net/pktrace.h>
+
+// Static ring buffer of trace records. Visible to pktrace_kern.c as
+// an extern so the kernel-only pktrace_get_log() can hand it out.
+PkTrace pktrace_log_ring[PKTRACE_LOG_SIZE];
+uint32  pktrace_log_head;   // next slot to allocate
 
 static const char *point_names[] = {
     [PKT_NIC_RX]        = "NIC_RX",
@@ -23,10 +31,10 @@ const char *pktrace_point_name(uint16 point) {
 }
 
 PkTrace *pktrace_begin(uint64 tag) {
-    uint32 idx = trace_log_head % PKTRACE_LOG_SIZE;
-    trace_log_head++;
+    uint32 idx = pktrace_log_head % PKTRACE_LOG_SIZE;
+    pktrace_log_head++;
 
-    PkTrace *t = &trace_log[idx];
+    PkTrace *t = &pktrace_log_ring[idx];
     t->tag = tag;
     t->seq = 0;
     t->stamp_count = 0;
@@ -43,70 +51,61 @@ void pktrace_next(PkTrace *t) {
 void pktrace_end(PkTrace *t) {
     if (!t) return;
     t->active = 0;
-    // Record stays in log ring for later reading
 }
 
 void pktrace_dump(PkTrace *t) {
     if (!t) return;
 
-    kprint("TRACE tag=");
-    kprint_long2hex(t->tag, "");
-    kprint(" seq=");
-    kprint_dec(t->seq);
-    kprint(" stamps=");
-    kprint_dec(t->stamp_count);
-    putc('\n');
+    pktrace_put_str("TRACE tag=");
+    pktrace_put_hex(t->tag);
+    pktrace_put_str(" seq=");
+    pktrace_put_dec(t->seq);
+    pktrace_put_str(" stamps=");
+    pktrace_put_dec(t->stamp_count);
+    pktrace_put_char('\n');
 
     uint64 prev_tsc = 0;
     for (uint8 i = 0; i < t->stamp_count; i++) {
         PkTraceStamp *s = &t->stamps[i];
         uint64 delta = (prev_tsc > 0) ? (s->tsc - prev_tsc) : 0;
 
-        kprint("  ");
-        kprint((char *)pktrace_point_name(s->point));
-        kprint("  +");
-        kprint_dec(delta);
-        kprint(" cyc  buf ");
-        kprint_dec(s->buf_used);
-        putc('/');
-        kprint_dec(s->buf_capacity);
-        kprint("  len ");
-        kprint_dec(s->payload_len);
-        putc('\n');
+        pktrace_put_str("  ");
+        pktrace_put_str((char *)pktrace_point_name(s->point));
+        pktrace_put_str("  +");
+        pktrace_put_dec(delta);
+        pktrace_put_str(" cyc  buf ");
+        pktrace_put_dec(s->buf_used);
+        pktrace_put_char('/');
+        pktrace_put_dec(s->buf_capacity);
+        pktrace_put_str("  len ");
+        pktrace_put_dec(s->payload_len);
+        pktrace_put_char('\n');
 
         prev_tsc = s->tsc;
     }
 }
 
-PkTrace *pktrace_get_log(uint32 *count_out, uint32 *head_out) {
-    uint32 count = trace_log_head;
-    if (count > PKTRACE_LOG_SIZE) count = PKTRACE_LOG_SIZE;
-    *count_out = count;
-    *head_out = trace_log_head;
-    return trace_log;
-}
-
 void pktrace_dump_all(void) {
-    uint32 count = trace_log_head;
+    uint32 count = pktrace_log_head;
     if (count > PKTRACE_LOG_SIZE)
         count = PKTRACE_LOG_SIZE;
 
     if (count == 0) {
-        kprint("TRACE: no records\n");
+        pktrace_put_str("TRACE: no records\n");
         return;
     }
 
-    kprint("TRACE: ");
-    kprint_dec(count);
-    kprint(" record(s)\n");
+    pktrace_put_str("TRACE: ");
+    pktrace_put_dec(count);
+    pktrace_put_str(" record(s)\n");
 
     // Dump from oldest to newest
     uint32 start = 0;
-    if (trace_log_head > PKTRACE_LOG_SIZE)
-        start = trace_log_head - PKTRACE_LOG_SIZE;
+    if (pktrace_log_head > PKTRACE_LOG_SIZE)
+        start = pktrace_log_head - PKTRACE_LOG_SIZE;
 
-    for (uint32 i = start; i < trace_log_head; i++) {
-        PkTrace *t = &trace_log[i % PKTRACE_LOG_SIZE];
+    for (uint32 i = start; i < pktrace_log_head; i++) {
+        PkTrace *t = &pktrace_log_ring[i % PKTRACE_LOG_SIZE];
         if (t->stamp_count > 0)
             pktrace_dump(t);
     }

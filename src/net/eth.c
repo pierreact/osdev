@@ -1,5 +1,5 @@
 #include <net/eth.h>
-#include <kernel/mem.h>
+#include <memops.h>
 
 const uint8 ETH_BROADCAST[ETH_ADDR_LEN] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 

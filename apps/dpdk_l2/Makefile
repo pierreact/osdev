@@ -21,13 +21,13 @@ CFLAGS= -m64 \
 
 LDFLAGS= -nostdlib -T../link.ld
 
-all: demo_app
+all: dpdk_l2
 
-demo_app: main.o ../libc/libc.a
-	$(LD) $(LDFLAGS) -o demo_app main.o ../libc/libc.a
+dpdk_l2: main.o ../libc/libc.a
+	$(LD) $(LDFLAGS) -o dpdk_l2 main.o ../libc/libc.a
 
 main.o: main.c
 	$(CC) $(CFLAGS) -c -o main.o main.c
 
 clean:
-	-rm -f *.o demo_app
+	-rm -f *.o dpdk_l2

@@ -61,14 +61,26 @@ High memory: after stacks (PAGING_LOCATION_END+) to RAM_END
 
 | Mode | Address | Notes |
 |------|---------|-------|
-| 16-bit (bootsector) | SS=0x8000, SP=0xF000 = 0x8F000 | |
-| 16-bit (kernel) | SS=0x8000, SP=0xF000 = 0x8F000 | |
-| 32-bit | temp_stack_end (~0xD400) | 4KB temp stack in .bss |
-| 64-bit (BSP early) | temp_stack_end (~0xD400) | Until alloc_bsp_stack runs |
+| 16-bit (bootsector) | SS=0x8000, SP=0xF000 -> 0x8F000 | |
+| 16-bit (kernel) | SS=0x8000, SP=0xF000 -> 0x8F000 | |
+| 32-bit (protected mode, transient) | ESP=0x80000 (flat SS) | Set explicitly in `kernel32:` (kmain.s). Transient: pushes during PIC/IDT/paging setup land in free conventional RAM between kernel end and VGA; the region is later reused by the heap. The small GDT flat-data descriptor at `gdt+0x10` has granularity byte `0xCF` (G=1, B=1) so stack ops use the full 32-bit ESP. |
+| 64-bit (BSP early) | temp_stack_end (0x16000, in .bss) | Until `alloc_bsp_stack` runs |
 | 64-bit (BSP) | PAGING_LOCATION_END+ | 64 KB, allocated from high memory |
 | 64-bit (APs) | percpu[i].stack_top | 16 KB per AP, allocated from high memory |
 | 64-bit (BSP ring 3) | task.user_rsp | 64 KB per task, allocated from high memory |
 | 64-bit (BSP ring 0, syscall) | task.kstack_top | 64 KB per task kernel stack |
+
+**Why the 32-bit stack is pinned to 0x80000:** on the 16 -> 32 bit
+transition the CPU keeps ESP's low 16 bits from real-mode SP
+(0xF000) but loads a flat SS. Without an explicit `mov esp` the
+32-bit stack lands at linear 0xF000 - inside kernel `.text` -
+silently corrupting the kernel as every `call` pushes a return
+address. Fixed 2026-04-22 (kmain.s: `mov esp, 0x80000` at
+`kernel32:`, plus `gdt+0x10` granularity 0x8F -> 0xCF so pushes
+use ESP not SP). Before modifying anything around the 32-bit
+transition, verify bytes at `0xEF?? - 0xF000` in a fresh boot
+snapshot match `kernel.bin` - any drift means the transition is
+re-corrupting kernel text.
 
 ## SMP / NUMA
 

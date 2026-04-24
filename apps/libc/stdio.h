@@ -1,7 +1,7 @@
 #ifndef ISURUS_STDIO_H
 #define ISURUS_STDIO_H
 
-#include "types.h"
+#include <types.h>
 
 void putc(char c);
 void puts(const char *s);

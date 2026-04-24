@@ -1,7 +1,7 @@
 #ifndef ISURUS_H
 #define ISURUS_H
 
-#include "types.h"
+#include <types.h>
 #include "syscall.h"
 
 // Thread metadata: per-CPU snapshot exposed by the kernel.

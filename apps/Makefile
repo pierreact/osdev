@@ -1,16 +1,16 @@
 # Isurus userland applications
-# Build libc first, then all apps.
+# libc.a is built as part of the kernel phase (see src/Makefile);
+# this Makefile only builds the apps themselves. Apps link against
+# ../libc/libc.a which is already produced by phase 1.
 
-all: libc apps
+all: apps
 
-libc:
-	$(MAKE) -C libc
-
-apps: libc
+apps:
 	$(MAKE) -C demo_app
+	$(MAKE) -C dpdk_l2
 
 clean:
-	$(MAKE) -C libc clean
 	$(MAKE) -C demo_app clean
+	$(MAKE) -C dpdk_l2 clean
 
-.PHONY: all libc apps clean
+.PHONY: all apps clean

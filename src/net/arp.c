@@ -1,6 +1,6 @@
 #include <net/arp.h>
 #include <net/l2.h>
-#include <kernel/mem.h>
+#include <memops.h>
 
 void arp_table_init(ArpTable *t) {
     memset(t, 0, sizeof(ArpTable));

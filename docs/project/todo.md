@@ -66,6 +66,7 @@ D - ARP table, request/reply, gratuitous learning.
 D - Packet tracing infrastructure (PkTrace with TSC timestamps and buffer stats).
 D - Boot message strings in .text (permanent fix for 16-bit relocation overflow).
 D - Shell line editor with 4 KB command history (up/down recall, left/right cursor, insert-at-cursor, backspace-before-cursor) over ANSI CSI from serial/PS-2/telnet.
+D - DPDK L2 reflector demo app (apps/dpdk_l2): per-core polled reflector on local NIC, reusable syscall-passthrough NIC backend in libc, AP-only (BSP untouched).
 
 ## Upcoming work
 

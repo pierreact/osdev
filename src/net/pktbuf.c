@@ -1,5 +1,5 @@
 #include <net/pktbuf.h>
-#include <kernel/mem.h>
+#include <memops.h>
 
 int pktbuf_pool_init(PktBufPool *pool, uint32 n_pages, uint8 *backing_memory) {
     memset(pool, 0, sizeof(PktBufPool));

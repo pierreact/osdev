@@ -1,7 +1,7 @@
 #ifndef ISURUS_SYSCALL_H
 #define ISURUS_SYSCALL_H
 
-#include "types.h"
+#include <types.h>
 
 // Syscall numbers (must match kernel's include/syscall.h)
 #define SYS_PUTC          0

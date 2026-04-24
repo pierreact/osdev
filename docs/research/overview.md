@@ -20,7 +20,93 @@ The kernel is implemented as a **research prototype** to evaluate:
 
 ---
 
-## 2. Motivation
+## 2. Design Doctrine: Eliminate, Don't Detect
+
+Kernel bugs compound silently. A userspace crash tells you where it
+happened; a kernel-space bit flip just waits, and when the symptom
+eventually appears it is typically far from the cause. Runtime
+checks (assertions, sanitizers, watchdogs) help only when the check
+fires on the same build that caused the damage; they do not help
+when the bug was introduced three releases ago and only manifests
+when the kernel grows past a threshold and the damage starts landing
+on live code.
+
+The design principle of Isurus is therefore: **remove categories of
+bug by construction rather than trying to detect them at runtime.**
+Wherever a traditional kernel says "use a lock," "retry on
+collision," "handle the race," or "log and recover," Isurus prefers
+to shape the system so the hazard cannot occur in the first place.
+
+This is bought by accepting several upfront tradeoffs that do not
+bend later:
+
+- **Fixed sizing.** Every AP thread declares its working set as a
+  static struct at build time. `sys_kmalloc` is forbidden from AP
+  context. No runtime allocator on the data path, no fragmentation,
+  no out-of-memory branch to forget.
+- **No context switching on APs.** One thread per core, pinned at
+  creation, never migrated. No interrupts on the data path (BSP
+  handles all IRQs).
+- **Single-writer ownership.** Each shared memory slice belongs
+  permanently to one thread. Other threads may read. Ownership never
+  transfers. Concurrent writes are not "resolved" - they cannot
+  happen.
+- **Per-thread address space.** Each AP loads its own CR3. A buggy
+  thread cannot scribble on another thread's memory; hardware
+  enforces isolation.
+- **Polled I/O only.** NICs and (planned) storage controllers are
+  mapped into ring 3; threads poll their hardware directly. No
+  interrupt-driven I/O, no IRQ-timing Heisenbugs, no jitter from
+  kernel callbacks.
+- **Placement as the only scheduling decision.** The scheduler runs
+  once per thread creation and on node failure. There is no
+  preemption, no continuous scheduler, no migration policy to
+  tune or get wrong.
+
+What these choices exclude:
+
+| Excluded bug class | By-construction reason |
+|---|---|
+| Data-path allocator corruption | No runtime allocator on APs |
+| Race conditions on AP data | One thread per core, no context switch |
+| Lock contention / priority inversion | No locks on the AP data path |
+| Cache-coherence races on shared data | Single-writer; readers never contend |
+| Cross-thread memory corruption | Per-thread CR3 isolation |
+| Interrupt-timing Heisenbugs | Polled I/O, no IRQs on AP data path |
+| Scheduler-induced non-determinism | Placement is static once decided |
+| TLB shootdown storms | Per-thread page tables, no cross-CPU invals on normal ops |
+
+The price is honest: the system must be *sized* in advance. An
+application declares how much memory its per-core thread will use;
+the kernel declares how many tasks, how many NICs, how many AP
+stacks at build time. Users who need "grow on demand" with unknown
+working sets are not the target.
+
+**Scope of the doctrine.** The correctness-by-construction guarantee
+applies from long mode onward - i.e., once the kernel has finished
+its 16 -> 32 -> 64 bit boot transition and is running 64-bit code
+with paging enabled. The early boot transition (`src/boot/kmain.s`,
+the `asm16_*` and `asm32_*` include files) is legacy x86
+ceremony required by the hardware; it pre-dates the doctrine and
+does not inherit its guarantees. Touch that code with suspicion and
+measure (e.g., by snapshotting memory after boot and diffing against
+the binary image) whenever you change it; the 32-bit boot stack bug
+fixed on 2026-04-22 is an example of a latent hazard that lived
+there for years.
+
+**For contributors.** Any new subsystem, allocator, scheduler
+primitive, or driver should be checked against this principle
+before it lands. If your addition needs a lock on a hot path, a
+runtime heap allocation on the AP data path, a preemption point,
+or a handler that can race with another core's handler, stop.
+Either find a shape that removes the hazard, or write down clearly
+why this is one of the bounded places where the doctrine yields
+(e.g. BSP cooperative multitasking - yielding is explicit and the
+critical sections are bounded).
+
+---
+
+## 3. Motivation
 
 Modern multi-socket machines rely on **NUMA (Non-Uniform Memory Access)** architectures.
 
@@ -41,7 +127,7 @@ The premise of this project is that **memory locality should be a fundamental sc
 
 ---
 
-## 3. Limitations of Current Distributed Computing
+## 4. Limitations of Current Distributed Computing
 
 When workloads exceed the capacity of a single machine, scaling typically relies on **cluster computing**.
 
@@ -68,7 +154,7 @@ This prevents transparent scaling of single-process workloads.
 
 ---
 
-## 4. Existing Hardware Model: Remote Memory Access
+## 5. Existing Hardware Model: Remote Memory Access
 
 High-performance computing environments provide mechanisms such as **Remote Direct Memory Access (RDMA)** over **InfiniBand**.
 
@@ -89,7 +175,7 @@ The programming model therefore remains distributed.
 
 ---
 
-## 5. Core Concept
+## 6. Core Concept
 
 The central idea of this research is to treat a cluster of machines as a **distributed NUMA system**.
 
@@ -108,7 +194,7 @@ This allows the system to behave conceptually as **one extremely large NUMA comp
 
 ---
 
-## 6. Thread Placement Model
+## 7. Thread Placement Model
 
 Each thread is **pinned to a core** at creation. One thread per core. No context switching, no migration during normal operation.
 
@@ -131,7 +217,7 @@ Anti-affinity constraints also exist:
 
 ---
 
-## 7. Scheduler
+## 8. Scheduler
 
 The scheduler is a **one-time placement solver**, not a continuous scheduler.
 
@@ -143,7 +229,7 @@ There is no load balancing, no migration, no preemption. Placement is the only s
 
 ---
 
-## 8. Memory Management Model
+## 9. Memory Management Model
 
 Memory allocations are associated with specific **NUMA regions**.
 
@@ -163,7 +249,7 @@ The design aims to reduce:
 
 ---
 
-## 9. Remote NUMA Model
+## 10. Remote NUMA Model
 
 The system extends NUMA topology beyond a single machine.
 
@@ -183,7 +269,7 @@ becomes a **matter of latency distance within the NUMA topology**.
 
 ---
 
-## 10. Distributed Shared Memory Architecture
+## 11. Distributed Shared Memory Architecture
 
 The architecture effectively implements a **distributed shared memory (DSM) system**.
 
@@ -198,7 +284,7 @@ Applications operate as if running on **one large shared-memory machine**, rathe
 
 ---
 
-## 11. Resource Aggregation
+## 12. Resource Aggregation
 
 A process spanning multiple machines can leverage hardware resources across nodes, including:
 
@@ -210,7 +296,7 @@ This allows the system to aggregate compute and I/O resources for a **single pro
 
 ---
 
-## 12. Memory Consistency and Coherence
+## 13. Memory Consistency and Coherence
 
 Defining a coherent memory model across nodes was a critical research component. The architecture resolves it as follows:
 
@@ -223,7 +309,7 @@ BSP tracks which nodes hold cached copies of which pages. Invalidation is coordi
 
 ---
 
-## 13. Failure and Fault Semantics
+## 14. Failure and Fault Semantics
 
 Unlike traditional SMP systems, nodes in a remote NUMA cluster may fail independently. The architecture addresses this:
 
@@ -234,7 +320,7 @@ Unlike traditional SMP systems, nodes in a remote NUMA cluster may fail independ
 
 ---
 
-## 14. Research Evaluation Goals
+## 15. Research Evaluation Goals
 
 The prototype kernel enables experimental evaluation of:
 
@@ -261,7 +347,7 @@ These experiments aim to determine whether the remote NUMA model provides advant
 
 ---
 
-## 15. Research Contributions
+## 16. Research Contributions
 
 The project explores several research questions:
 
@@ -274,7 +360,7 @@ The kernel prototype provides a platform for investigating these questions.
 
 ---
 
-## 16. Conclusion
+## 17. Conclusion
 
 This work proposes a kernel architecture where **NUMA locality becomes a primary operating system abstraction**.
 

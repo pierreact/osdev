@@ -169,6 +169,13 @@ check "CPUs online" "Online CPU(s):"
 check "LAPIC base" "LAPIC base:"
 check "NUMA node(s)" "NUMA node(s):"
 
+# Test: DPDK L2 reflector (apps/dpdk_l2) - per-core polled L2 app on APs.
+# Run early, before the known-flaky shell tests below. Needs ~1 s per
+# core (MAX_ITERATIONS) * 3 cores plus dispatch overhead.
+send_cmd "sys.proc.run /CONF/DPDK_L2.INI" 8
+check "DPDK L2 app ready on AP"   "\[dpdk_l2\] cpu=1 nic=.* ready"
+check "DPDK L2 app stats printed" "\[dpdk_l2\] cpu=.* rx="
+
 # Test: sys.mem.free
 send_cmd "sys.mem.free"
 check "Heap info displayed" "Heap"

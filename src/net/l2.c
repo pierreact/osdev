@@ -1,5 +1,5 @@
 #include <net/l2.h>
-#include <kernel/mem.h>
+#include <memops.h>
 
 void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
              uint32 pool_pages, uint8 *pool_memory) {

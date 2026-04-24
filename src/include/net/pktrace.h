@@ -66,11 +66,23 @@ void     pktrace_next(PkTrace *t);    // increment seq, reset stamps for next fr
 void     pktrace_end(PkTrace *t);     // set active=0, record persists in log
 
 // Output
-void     pktrace_dump(PkTrace *t);    // print stamps to console (ring 0 only)
-void     pktrace_dump_all(void);      // dump entire log ring (ring 0 only)
+void     pktrace_dump(PkTrace *t);    // print stamps to console
+void     pktrace_dump_all(void);      // dump entire log ring
 
-// Access log ring directly (safe from ring 3 since kernel memory is readable)
+// Access log ring directly. Kernel-only (defined in pktrace_kern.c);
+// shell uses it for sys.net.trace. Apps do not link this symbol.
 PkTrace *pktrace_get_log(uint32 *count_out, uint32 *head_out);
+
+// Output adapters. Each build environment provides its own
+// implementation so the shared pktrace.c can call them uniformly:
+//   kernel: src/net/pktrace_kern.c wraps kprint / kprint_dec /
+//           kprint_long2hex.
+//   libc:   apps/libc/pktrace_adapter.c wraps puts / print_dec /
+//           print_hex8.
+void pktrace_put_str(const char *s);
+void pktrace_put_dec(uint64 n);
+void pktrace_put_hex(uint64 n);
+void pktrace_put_char(char c);
 
 // Trace point name for display
 const char *pktrace_point_name(uint16 point);
