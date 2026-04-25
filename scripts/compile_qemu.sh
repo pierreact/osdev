@@ -12,11 +12,24 @@ if [ ! -f "$ISO" ]; then
     exit 1
 fi
 
+# Management NIC rides on tap0 (host <-> guest L2 reachable both ways:
+# host=10.0.2.2/24, guest=10.0.2.15/24). If tap0 is missing, set it up
+# now so the user does not have to run a separate command.
+if ! ip link show tap0 >/dev/null 2>&1; then
+    echo "tap0 not found, creating it (sudo required)..."
+    if ! scripts/setup_tap.sh; then
+        echo "Error: could not create tap0. Run scripts/setup_tap.sh manually." >&2
+        exit 1
+    fi
+fi
+
 mkdir -p logs
 rm -f logs/qemu.log logs/serial.log
 
 echo "========================================"
 echo "QEMU Running"
+echo "  Host:    10.0.2.2/24 (tap0)"
+echo "  Guest:   10.0.2.15/24 (mgmt NIC 0)"
 echo "  Serial:  logs/serial.log"
 echo "  QEMU:    logs/qemu.log"
 echo "  Compile: logs/compile.log"
@@ -40,7 +53,9 @@ QEMU_ARGS=(
     -device pcie-root-port,id=rp4,bus=pcie.2,chassis=4
     -device pcie-root-port,id=rp5,bus=pcie.2,chassis=5
     -device pcie-root-port,id=rp6,bus=pcie.2,chassis=6
-    -netdev user,id=mgmt0
+    # Management NIC on tap0: host (10.0.2.2) <-> guest (10.0.2.15)
+    # bidirectional L2. Required for host-side ping/arping/UDP testing.
+    -netdev tap,id=mgmt0,ifname=tap0,script=no,downscript=no
     -device virtio-net-pci,netdev=mgmt0,romfile=,bus=rp1
     -netdev user,id=inter0
     -device virtio-net-pci,netdev=inter0,romfile=,bus=rp2
