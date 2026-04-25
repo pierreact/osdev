@@ -37,50 +37,60 @@ This is not a general-purpose OS. Not Linux. Not for running Docker containers, 
 ## Hardware model
 
 ```mermaid
-flowchart TD
-    subgraph N0["NUMA node 0 (socket 0)"]
-        DRAM0["Local DRAM"]
-        PCIe0["PCIe root"]
-        NIC0["NIC 0"]
+flowchart LR
+    DRAM0["DRAM<br/>(NUMA node 0)"]
+    subgraph S0["Socket 0"]
         BSP["CPU 0 -- BSP<br/>kernel + shell + IRQs"]
-        AP1["CPU 1 -- AP<br/>1 pinned ring-3 thread"]
-        AP2["CPU 2 -- AP<br/>1 pinned ring-3 thread"]
-        DRAM0 --- BSP
-        DRAM0 --- AP1
-        DRAM0 --- AP2
-        PCIe0 --- NIC0
-        NIC0 --- AP1
-        NIC0 --- AP2
+        AP1["CPU 1 -- AP<br/>pinned ring-3 thread"]
+        AP2["CPU 2 -- AP<br/>pinned ring-3 thread"]
     end
-    subgraph N1["NUMA node 1 (socket 1)"]
-        DRAM1["Local DRAM"]
-        PCIe1["PCIe root"]
-        NIC1["NIC 1"]
-        AP3["CPU 3 -- AP<br/>1 pinned ring-3 thread"]
-        AP4["CPU 4 -- AP<br/>1 pinned ring-3 thread"]
-        AP5["CPU 5 -- AP<br/>1 pinned ring-3 thread"]
-        DRAM1 --- AP3
-        DRAM1 --- AP4
-        DRAM1 --- AP5
-        PCIe1 --- NIC1
-        NIC1 --- AP3
-        NIC1 --- AP4
-        NIC1 --- AP5
+    PCIe0["PCIe root 0"]
+    NIC0["NIC 0"]
+
+    DRAM0 --- BSP
+    DRAM0 --- AP1
+    DRAM0 --- AP2
+    BSP --- PCIe0
+    AP1 --- PCIe0
+    AP2 --- PCIe0
+    PCIe0 --- NIC0
+
+    DRAM1["DRAM<br/>(NUMA node 1)"]
+    subgraph S1["Socket 1"]
+        AP3["CPU 3 -- AP<br/>pinned ring-3 thread"]
+        AP4["CPU 4 -- AP<br/>pinned ring-3 thread"]
+        AP5["CPU 5 -- AP<br/>pinned ring-3 thread"]
     end
-    N0 -. "cross-NUMA -- higher latency" .- N1
+    PCIe1["PCIe root 1"]
+    NIC1["NIC 1"]
+
+    DRAM1 --- AP3
+    DRAM1 --- AP4
+    DRAM1 --- AP5
+    AP3 --- PCIe1
+    AP4 --- PCIe1
+    AP5 --- PCIe1
+    PCIe1 --- NIC1
+
+    S0 -. "cross-NUMA -- higher latency" .- S1
 ```
 
-Each NUMA node is a socket with its own PCIe root, NIC, and DRAM.
+Each socket sits between its local DRAM and its local PCIe root.
+The PCIe root is the gateway between the cores and external devices;
+the NIC sits one hop past the root, on the device side. Every core
+in a socket reads and writes its local DRAM and drives the local
+NIC through the local PCIe root. The dashed link between sockets is
+the only path to cross-NUMA memory or to a remote socket's NIC, and
+it pays the higher latency.
+
 **CPU 0 (the BSP) is the only core that runs the kernel, the shell,
 and handles interrupts -- it is also the only core that ever sees a
 syscall.** Every other core is an AP: exactly one pinned ring-3
 thread for its lifetime, no scheduling, no migration, no context
-switching, no kernel-mode work in the data path. Threads read and
-write their local DRAM and drive their local NIC; the dashed link
-between sockets is the only path to cross-NUMA memory and pays the
-higher latency. Placement is the only scheduling decision.
+switching, no kernel-mode work in the data path. Placement is the
+only scheduling decision.
 
-(Two-socket / three-cores-per-socket above is illustrative; the
+(Two sockets and three cores per socket above is illustrative; the
 model scales to N sockets and N cores per socket.) See
 [docs/research/overview.md section 7](docs/research/overview.md)
 for the execution model and
