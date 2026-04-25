@@ -21,6 +21,27 @@ exec > >(tee "$TEST_LOG") 2>&1
 echo "Building..."
 scripts/compile.sh
 
+# Build-artifact verification items from the L3 plan (verify after build,
+# before boot, so failures are obvious and fast).
+PASS=0
+FAIL=0
+build_check() {
+    local desc="$1"
+    if [ "$2" = "ok" ]; then
+        echo "  PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: $desc"
+        FAIL=$((FAIL + 1))
+    fi
+}
+ip_syms=$(nm apps/libc/libc.a 2>/dev/null | grep -c ' T ip_' || true)
+if [ "$ip_syms" -gt 0 ]; then build_check "libc.a contains ip_ symbols ($ip_syms)" ok
+else                          build_check "libc.a contains ip_ symbols" no; fi
+mk_hits=$(grep -c 'net_ip.o\|net_icmp.o' apps/libc/Makefile || true)
+if [ "$mk_hits" -ge 2 ]; then build_check "apps/libc/Makefile builds net_ip.o + net_icmp.o" ok
+else                          build_check "apps/libc/Makefile builds net_ip.o + net_icmp.o ($mk_hits hit)" no; fi
+
 KEEPALIVE_PID=""
 
 cleanup() {
@@ -128,8 +149,8 @@ send_cmd() {
 echo "Waiting for boot..."
 sleep 12
 
-PASS=0
-FAIL=0
+# PASS/FAIL counters initialized earlier (before QEMU boot, alongside the
+# build-artifact checks). Do not reset here.
 
 check() {
     local desc="$1"
@@ -389,6 +410,48 @@ check "IPv4 TX ticked"      "ipv4_tx:       [1-9]"
 check "IPv4 RX ticked"      "ipv4_rx:       [1-9]"
 check "ICMP echo RX ticked" "icmp_echo_rx:  [1-9]"
 check "ICMP echo TX ticked" "icmp_echo_tx:  [1-9]"
+
+# Host -> guest ping (verification item 4 from the L3 plan): host sends
+# ICMP Echo to 10.0.2.15, kernel mgmt NIC replies. The kernel only polls
+# during sys.net.* shell handlers, so we fire a continuous drain loop in
+# background (rapid sys.net.stats commands) to keep drain_mgmt_nic
+# running while the host's ARP + ICMP packets are in flight.
+HOST_PING_LOG="logs/host_ping.txt"
+# Drain interval = 1s. Enough drains during host's arping/ping window
+# (~7s wall) without flooding the shell input buffer with backed-up
+# sys.net.stats commands that would delay subsequent tests.
+(
+    end=$((SECONDS + 8))
+    while [ $SECONDS -lt $end ]; do
+        printf "sys.net.stats\r" > test/qemu.in
+        sleep 1
+    done
+) &
+DRAIN_BG=$!
+sleep 1
+
+# Prime the host's ARP cache for 10.0.2.15. arping resolves quickly
+# while the drain loop is replying.
+sudo arping -c 3 -I tap0 -w 4 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
+
+# Real ping: 3 echo requests, 2s timeout each. Need raw sockets, so
+# sudo (cap_net_raw is not granted to ping on this build server).
+sudo ping -c 3 -W 2 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
+
+wait $DRAIN_BG 2>/dev/null || true
+# Let the kernel finish processing any queued sys.net.stats output
+# before the next send_cmd ships a fresh command.
+sleep 3
+echo "  [host ping log saved to $HOST_PING_LOG]"
+
+# Look for "bytes from 10.0.2.15" in the ping output (one or more replies).
+if grep -q "bytes from 10.0.2.15" "$HOST_PING_LOG"; then
+    echo "  PASS: Host -> guest ping reply"
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL: Host -> guest ping reply (expected: bytes from 10.0.2.15 in $HOST_PING_LOG)"
+    FAIL=$((FAIL + 1))
+fi
 
 # DPDK L3 app: parse manifest, bring up per-core IP ctx, print ready.
 send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 20
