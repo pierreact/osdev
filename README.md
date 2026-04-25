@@ -92,6 +92,14 @@ thread for its lifetime, no scheduling, no migration, no context
 switching, no kernel-mode work in the data path. Placement is the
 only scheduling decision.
 
+A single process spans multiple cores -- one thread per AP -- and
+in cluster mode spans multiple cores across multiple machines. Each
+thread reaches its memory and its NIC on its own locality: local
+DRAM through the on-die memory controller, local NIC through the
+local PCIe root. No cross-NUMA hop, no network round-trip, no
+syscall, no scheduler latency between the thread and the hardware
+it owns. That is the floor on which everything else is built.
+
 (Two sockets and three cores per socket above is illustrative; the
 model scales to N sockets and N cores per socket.) See
 [docs/research/overview.md section 7](docs/research/overview.md)
