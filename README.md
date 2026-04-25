@@ -34,6 +34,59 @@ The common thread: the OS gets in the way.
 
 This is not a general-purpose OS. Not Linux. Not for running Docker containers, web servers, or desktop applications. There is no POSIX and no dynamic linking.
 
+## Hardware model
+
+```mermaid
+flowchart TD
+    subgraph N0["NUMA node 0 (socket 0)"]
+        DRAM0["Local DRAM"]
+        PCIe0["PCIe root"]
+        NIC0["NIC 0"]
+        BSP["CPU 0 -- BSP<br/>kernel + shell + IRQs"]
+        AP1["CPU 1 -- AP<br/>1 pinned ring-3 thread"]
+        AP2["CPU 2 -- AP<br/>1 pinned ring-3 thread"]
+        DRAM0 --- BSP
+        DRAM0 --- AP1
+        DRAM0 --- AP2
+        PCIe0 --- NIC0
+        NIC0 --- AP1
+        NIC0 --- AP2
+    end
+    subgraph N1["NUMA node 1 (socket 1)"]
+        DRAM1["Local DRAM"]
+        PCIe1["PCIe root"]
+        NIC1["NIC 1"]
+        AP3["CPU 3 -- AP<br/>1 pinned ring-3 thread"]
+        AP4["CPU 4 -- AP<br/>1 pinned ring-3 thread"]
+        AP5["CPU 5 -- AP<br/>1 pinned ring-3 thread"]
+        DRAM1 --- AP3
+        DRAM1 --- AP4
+        DRAM1 --- AP5
+        PCIe1 --- NIC1
+        NIC1 --- AP3
+        NIC1 --- AP4
+        NIC1 --- AP5
+    end
+    N0 -. "cross-NUMA -- higher latency" .- N1
+```
+
+Each NUMA node is a socket with its own PCIe root, NIC, and DRAM.
+**CPU 0 (the BSP) is the only core that runs the kernel, the shell,
+and handles interrupts -- it is also the only core that ever sees a
+syscall.** Every other core is an AP: exactly one pinned ring-3
+thread for its lifetime, no scheduling, no migration, no context
+switching, no kernel-mode work in the data path. Threads read and
+write their local DRAM and drive their local NIC; the dashed link
+between sockets is the only path to cross-NUMA memory and pays the
+higher latency. Placement is the only scheduling decision.
+
+(Two-socket / three-cores-per-socket above is illustrative; the
+model scales to N sockets and N cores per socket.) See
+[docs/research/overview.md section 7](docs/research/overview.md)
+for the execution model and
+[docs/developer/architecture.md](docs/developer/architecture.md)
+for the implementation.
+
 ## Design doctrine
 
 The kernel is meant to be **as small and basic as possible**, retaining maximum performance and minimum latency, yet with a very optimized design for the targeted tasks. Everything in the system is shaped around one principle: **eliminate categories of bug by construction rather than detect them at runtime.**
