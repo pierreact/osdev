@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026-04-25] - BSP net_service foundation (passive packet servicing)
+
+### Added
+- New top-level `src/services/` tree: pluggable BSP services consuming the network stack. First and only inhabitant today is the foundation itself; future telnet daemon / Prometheus exporter / syslog receiver land here as siblings.
+- `src/services/net_service.{c,h}`: BSP cooperative polling foundation. `net_service_tick()` drains every BSP-owned `L2Context` (mgmt + inter-node) up to 16 frames per context per tick. `net_service_drain(ctx)` is the public single-context drain that replaces the old `static drain_mgmt_nic` in `shell_net.c`. `NetServiceStats` (`ticks`, `frames_processed`, `frames_per_tick_max`, `ticks_with_zero_frames`) lives kernel-wide in net_service.c.
+- Hook into `sys_handle_wait_input`'s hlt loop alongside `app_check_completion()`. The shell task's idle is the foundation's heartbeat; no new BSP task slot. Cooperative single-writer-per-`L2Context` invariant preserved.
+- `net_service_init` called from `kmain.s` boot sequence after `l2_kern_init`.
+- `src/services/README.md`: foundation contract, invariants, call-chain Mermaid diagram, future port -> handler shape sketch.
+- `docs/developer/architecture.md` "Services" subsection with Mermaid call-chain and directory-layout diagrams. Mermaid renders natively on GitHub.
+- pktrace point `PKT_NET_SERVICE_TICK` reserved for future per-tick traces (not stamped today; the existing per-frame stamps in `l2_poll` / `ip_rx` cover the work).
+
+### Changed
+- `shell_net.c`: deleted the static `drain_mgmt_nic`; the five call sites (`cmd_net_arp`, `cmd_net_stats`, plus the open-coded poll loops in `cmd_net_arping` / `cmd_net_ping`) now call `net_service_drain`.
+- `sys.net.stats` extended with the `net_service` block (ticks, frames, max/tick, idle ticks).
+- `compile_qemu.sh` (already on tap0 from the previous commit) now Just Works for host -> guest ping; no need to type sys.net.* in the guest. ARP and ICMP echo are answered passively.
+- Tests: dropped the 1 Hz background-drain hack from the host -> guest ping phase. Replaced with a passive `ping -c 3 10.0.2.15` while the guest sits at the idle prompt; expects 0% loss. Added `net_service_ticks > 0`, `net_service_frames > 0`, and `frames_per_tick_max <= 16` (batch-cap regression sentinel) assertions. 52 -> 55 green.
+
+### Out of scope (deferred, named for visibility)
+- L4 port -> handler dispatch table (lands with first consumer: telnet, first UDP service, or Prometheus exporter).
+- ARP table aging / TTL eviction; ARP probe (RFC 5227) handling; gratuitous ARP emission.
+- ICMP error emission (Time Exceeded on TTL=0 forward, Destination Unreachable, Frag Needed).
+- Promotion to a standalone BSP task slot. Revisit only if a long shell handler creates an unacceptable starvation gap; mitigation is to call `net_service_tick()` at the offender's loop boundary first.
+
 ## [2026-04-24] - Parallel app_launch
 
 ### Added

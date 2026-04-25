@@ -13,6 +13,7 @@
 #include <kernel/loader.h>
 #include <kernel/app.h>
 #include <net/nic.h>
+#include <services/net_service.h>
 
 // Forward declaration - cmd_reboot stays in shell/shell.c for now
 // but is called from ring 0 via syscall
@@ -188,6 +189,10 @@ static long sys_handle_wait_input(uint64 a1, uint64 a2, uint64 a3, uint64 a4, ui
         // app_launch is fire-and-forget, so the idle path is where
         // slots get cleaned up and the "finished" line prints.
         app_check_completion();
+        // Drive the BSP net_service: drain the mgmt + inter-node
+        // NICs so passive responders (ARP reply, ICMP echo, future
+        // telnet / Prometheus) work without shell input.
+        net_service_tick();
         __asm__ volatile("sti; hlt; cli");
     }
     return c;

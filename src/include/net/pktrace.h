@@ -23,6 +23,8 @@ enum {
     PKT_IP_FORWARD,         // destination != us, TTL decremented, forwarded
     PKT_ICMP_ECHO_RX,       // ICMP Echo Request received
     PKT_ICMP_ECHO_TX,       // ICMP Echo Reply sent
+    // Services
+    PKT_NET_SERVICE_TICK,   // BSP net_service drained one or more frames
     // Future: PKT_UDP_PARSE, PKT_TCP_PARSE, PKT_APP_RECV, PKT_APP_SEND
     PKT_POINT_COUNT
 };

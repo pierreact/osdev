@@ -138,9 +138,53 @@ Checksums are software-only (`ip_checksum` is a shared RFC 1071 one's-complement
 
 ### BSP mgmt NIC vs. AP apps
 
-The BSP management NIC (NIC 0) is initialised by `l2_kern_init` with hard-coded defaults matching the QEMU user netdev (`10.0.2.15/24`, gw `10.0.2.2`). The shell commands `sys.net.ping`, `sys.net.ip`, `sys.net.route`, and `sys.net.stats` drive it. `drain_mgmt_nic` is called at the start of every `sys.net.*` handler and dispatches IPv4 frames to `ip_rx` inline.
+The BSP management NIC (NIC 0) is initialised by `l2_kern_init` with hard-coded defaults matching the QEMU user netdev (`10.0.2.15/24`, gw `10.0.2.2`). The shell commands `sys.net.ping`, `sys.net.ip`, `sys.net.route`, and `sys.net.stats` drive it. `net_service_drain(ctx)` is called at the start of every `sys.net.*` handler and dispatches IPv4 frames to `ip_rx` inline.
 
 AP apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `L2Context`. Each AP polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
+
+## Services
+
+`src/services/` is the pluggable services tree -- kernel modules that consume the network stack and respond passively on the BSP's behalf. Each service is a discrete module visible in the source layout (its own `.c` plus header under `src/include/services/`, or its own subdirectory once it grows). Today the directory holds the foundation only; telnet, Prometheus exporter, syslog receiver, etc. land here as siblings when they're built.
+
+### `net_service` -- the foundation
+
+The L3 milestone shipped a stack that only processed packets when a `sys.net.*` shell handler ran. Once we have telnet, a Prometheus exporter, ARP-passive responses, etc., that on-demand model breaks: passive responders cannot rely on the user typing between every packet. `net_service` is the BSP polling foundation that all of those services sit on.
+
+```mermaid
+flowchart LR
+    A[sys_wait_input<br/>hlt loop] -->|every wake| B[net_service_tick]
+    B --> C[net_service_drain<br/>per L2Context]
+    C --> D[l2_poll]
+    D -->|ARP| E[arp_process]
+    D -->|IPv4| F[ip_rx]
+    F -->|ICMP| G[icmp_rx]
+    F -->|future| H[future L4 listeners:<br/>telnet, Prometheus, ...]
+```
+
+`net_service_tick()` is wired into `sys_handle_wait_input`'s hlt loop, immediately after `app_check_completion()`. Each tick drains every BSP-owned `L2Context` (mgmt + inter-node) up to 16 frames per context. The per-frame existing dispatch (`l2_poll` -> `arp_process` / `ip_rx` -> `icmp_rx`) does the rest.
+
+There is no separate BSP task. The cooperative scheduler is single-task today, so a second task would only run when the first yields -- exactly what the hlt loop already gives us. Two tasks touching one `L2Context` would invent the concurrency exposure the project explicitly avoids.
+
+### Foundation invariants
+
+- **Cooperative serialization.** No locks; the foundation and shell handlers never run concurrently.
+- **No malloc.** Static stats struct; bounded drain budget.
+- **Non-reentrant.** `net_service_tick` is guarded against recursion via an `in_tick` flag.
+- **Bounded per-tick work.** 16 frames per NIC per tick caps per-tick CPU spend under flood.
+
+### Pluggable layout
+
+```mermaid
+flowchart TD
+    S[src/services/]
+    S --> R[README.md]
+    S --> N[net_service.c]
+    S -.future.-> L[listener.c<br/>port -> handler table]
+    S -.future.-> T[telnet/]
+    S -.future.-> P[prometheus/]
+```
+
+When the first L4 consumer arrives (telnet, Prometheus exporter, or the first UDP service), a shared `(proto, port) -> handler` table will land alongside `net_service` and be looked up inside `udp_rx` / `tcp_rx`. No code ships before that consumer; the shape is documented in `src/services/README.md`.
 
 ## ACPI
 

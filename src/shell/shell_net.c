@@ -15,22 +15,7 @@
 #include <net/pktbuf.h>
 #include <net/pktrace.h>
 #include <net/eth.h>
-
-// Drain pending frames on the management NIC. Processes ARP + IPv4
-// internally (ICMP Echo replies/counts). Called from net shell
-// commands to reflect current state.
-static void drain_mgmt_nic(L2Context *ctx) {
-    uint16 etype;
-    uint8 *payload;
-    uint32 plen;
-    for (int i = 0; i < 128; i++) {
-        int rc = l2_poll(ctx, &etype, &payload, &plen, NULL);
-        if (rc == L2_EMPTY)
-            break;
-        if (rc == L2_OK && etype == ETH_TYPE_IPV4)
-            ip_rx(ctx, payload, plen, NULL);
-    }
-}
+#include <services/net_service.h>
 
 void cmd_lsnic(void) {
     uint32 count = nic_get_count();
@@ -123,7 +108,7 @@ void cmd_thread_ls(void) {
 
 void cmd_net_arp(void) {
     L2Context *ctx = l2_kern_mgmt();
-    drain_mgmt_nic(ctx);
+    net_service_drain(ctx);
     sh_print("ARP table (mgmt NIC 0):\n");
     for (uint32 i = 0; i < ARP_TABLE_SIZE; i++) {
         ArpEntry *e = &ctx->arp.entries[i];
@@ -190,7 +175,7 @@ void cmd_net_arping(void) {
 
 void cmd_net_stats(void) {
     L2Context *ctx = l2_kern_mgmt();
-    drain_mgmt_nic(ctx);
+    net_service_drain(ctx);
     L2Stats st;
     l2_get_stats(ctx, &st);
     sh_print("L2 stats (mgmt NIC 0):\n");
@@ -219,6 +204,14 @@ void cmd_net_stats(void) {
     sh_print("  forwarded:     "); sh_print_dec(ips.forwarded);            sh_putc('\n');
     sh_print("  icmp_echo_rx:  "); sh_print_dec(ips.icmp_echo_rx);         sh_putc('\n');
     sh_print("  icmp_echo_tx:  "); sh_print_dec(ips.icmp_echo_tx);         sh_putc('\n');
+
+    NetServiceStats ns;
+    net_service_get_stats(&ns);
+    sh_print("net_service stats:\n");
+    sh_print("  ticks:         "); sh_print_dec(ns.ticks);                  sh_putc('\n');
+    sh_print("  frames:        "); sh_print_dec(ns.frames_processed);       sh_putc('\n');
+    sh_print("  max/tick:      "); sh_print_dec(ns.frames_per_tick_max);    sh_putc('\n');
+    sh_print("  idle ticks:    "); sh_print_dec(ns.ticks_with_zero_frames); sh_putc('\n');
 }
 
 void cmd_net_ip(void) {

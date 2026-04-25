@@ -411,45 +411,44 @@ check "IPv4 RX ticked"      "ipv4_rx:       [1-9]"
 check "ICMP echo RX ticked" "icmp_echo_rx:  [1-9]"
 check "ICMP echo TX ticked" "icmp_echo_tx:  [1-9]"
 
-# Host -> guest ping (verification item 4 from the L3 plan): host sends
-# ICMP Echo to 10.0.2.15, kernel mgmt NIC replies. The kernel only polls
-# during sys.net.* shell handlers, so we fire a continuous drain loop in
-# background (rapid sys.net.stats commands) to keep drain_mgmt_nic
-# running while the host's ARP + ICMP packets are in flight.
+# Host -> guest ping (verification item 4 from the L3 plan, now
+# served by the BSP net_service foundation): host pings 10.0.2.15
+# while the guest sits at the idle prompt. No drain loop, no shell
+# activity -- the kernel's sys_wait_input hlt loop ticks net_service,
+# which drains the mgmt NIC and lets ARP + ICMP through passively.
 HOST_PING_LOG="logs/host_ping.txt"
-# Drain interval = 1s. Enough drains during host's arping/ping window
-# (~7s wall) without flooding the shell input buffer with backed-up
-# sys.net.stats commands that would delay subsequent tests.
-(
-    end=$((SECONDS + 8))
-    while [ $SECONDS -lt $end ]; do
-        printf "sys.net.stats\r" > test/qemu.in
-        sleep 1
-    done
-) &
-DRAIN_BG=$!
-sleep 1
+: > "$HOST_PING_LOG"
 
-# Prime the host's ARP cache for 10.0.2.15. arping resolves quickly
-# while the drain loop is replying.
-sudo arping -c 3 -I tap0 -w 4 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
+# Prime the host's ARP cache. The first ARP request is answered by
+# the foundation; without arping first, host ping has to wait for
+# its own ARP timeout before the first echo goes out.
+sudo arping -c 2 -I tap0 -w 4 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
 
-# Real ping: 3 echo requests, 2s timeout each. Need raw sockets, so
-# sudo (cap_net_raw is not granted to ping on this build server).
+# Passive ping. No background drain. The kernel handles it from
+# sys_wait_input alone.
 sudo ping -c 3 -W 2 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
 
-wait $DRAIN_BG 2>/dev/null || true
-# Let the kernel finish processing any queued sys.net.stats output
-# before the next send_cmd ships a fresh command.
-sleep 3
 echo "  [host ping log saved to $HOST_PING_LOG]"
 
-# Look for "bytes from 10.0.2.15" in the ping output (one or more replies).
 if grep -q "bytes from 10.0.2.15" "$HOST_PING_LOG"; then
-    echo "  PASS: Host -> guest ping reply"
+    echo "  PASS: Passive host -> guest ping reply (no drain hack)"
     PASS=$((PASS + 1))
 else
-    echo "  FAIL: Host -> guest ping reply (expected: bytes from 10.0.2.15 in $HOST_PING_LOG)"
+    echo "  FAIL: Passive host -> guest ping reply (expected: bytes from 10.0.2.15 in $HOST_PING_LOG)"
+    FAIL=$((FAIL + 1))
+fi
+
+# net_service stats: the foundation must have ticked and processed
+# frames during the passive ping above.
+send_cmd "sys.net.stats"
+check "net_service ticked"        "ticks:         [1-9]"
+check "net_service drained frames" "frames:        [1-9]"
+# Batch-cap regression sentinel: max/tick must stay <= 16.
+if grep -E "max/tick:      ([0-9]|1[0-6])$" "$SERIAL_LOG" >/dev/null; then
+    echo "  PASS: net_service batch cap respected (<=16)"
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL: net_service batch cap exceeded"
     FAIL=$((FAIL + 1))
 fi
 
