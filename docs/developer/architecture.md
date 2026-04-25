@@ -40,15 +40,22 @@ Trade-off: wastes memory on small allocations. Acceptable for a kernel where mos
 
 ## Execution model
 
+This document describes both single-node and cluster deployments.
+Single-node-specific points are unmarked; cluster-specific
+subsections are prefixed `(Cluster)`. See README "Design doctrine"
+for the canonical mode definitions.
+
 - BSP (CPU 0) runs the kernel and multiple ring 3 management tasks via cooperative multitasking.
 - BSP tasks: shell (implemented), user program coordinator, telnet server, Prometheus exporter, heartbeat monitor, DSM coordinator (planned).
 - BSP cooperative multitasking: per-task struct, yield() syscall, round-robin scheduling. Non-preemptive. Tasks must yield explicitly.
 - APs (all other cores): each core runs one user thread in ring 3. No context switching. One thread per core, pinned at creation, never migrated.
-- BSP has 2 NICs:
-  - Inter-node NIC: dedicated for cluster communication between nodes (layer 2).
-  - Management NIC: full TCP/IP stack for SSH, telnet, and maintenance.
+- BSP NIC inventory:
+  - Management NIC: full TCP/IP stack for SSH, telnet, and maintenance. Required in both modes.
+  - Inter-node NIC `(Cluster)`: dedicated for cluster communication between nodes (layer 2). Single-node deployments do not use this NIC.
 - Ring 3 provides memory isolation. Threads cannot corrupt kernel memory or each other (see Thread memory isolation).
 - Device MMIO (NICs, storage controllers) is mapped into each thread's address space by the kernel via page tables. Threads access devices directly via polling without syscalls (see Device assignment).
+
+See `(Cluster)` sections below for the multi-node memory model and DSM architecture.
 
 ## Syscall interface
 
@@ -80,7 +87,7 @@ Devices (NICs, storage controllers) are assigned either per NUMA node or per cor
 
 This applies uniformly to NICs (DPDK) and storage controllers (SPDK, planned).
 
-BSP has 2 additional NICs (inter-node + management). These are separate from the application devices and are reserved as the first 2 NICs in PCI enumeration order (`BSP_NIC_COUNT = 2`). They are not part of the AP assignment pool.
+BSP has up to 2 additional NICs (management plus, in cluster mode, inter-node). These are separate from the application devices and are reserved as the first NICs in PCI enumeration order (`BSP_NIC_COUNT = 2`). They are not part of the AP assignment pool. Single-node deployments use only the management NIC; the inter-node NIC is `(Cluster)` only.
 
 ### NIC NUMA proximity discovery
 
@@ -262,7 +269,7 @@ A read-only page at a fixed virtual address, mapped into every thread's page tab
 
 The map is static by design. It reflects initial placement and is intentionally not updated on failover. After a node failure, the map may be stale (a tier 1 slice may now be tier 3 because the writer was rescheduled elsewhere). This is a deliberate trade-off: updating the map would require synchronizing all threads cluster-wide, adding complexity to an already degraded state. Correctness is preserved (addresses still work), only performance degrades. See Thread re-instantiation for details.
 
-## Shared memory and DSM
+## (Cluster) Shared memory and DSM
 
 ### Local shared memory
 
@@ -291,7 +298,7 @@ Why this is different from historical DSM systems (Treadmarks, Munin, Ivy):
 
 Mitigation: align each thread's shared slice to page boundaries so a single page is never split across two writers' slices.
 
-## Coherence protocol
+## (Cluster) Coherence protocol
 
 Single-writer / multiple-reader. Ownership is permanent; each shared slice belongs to the thread that created it and never changes.
 
@@ -306,7 +313,7 @@ BSP tracks which nodes hold cached copies of which pages. Invalidation is coordi
 
 Another option would be to directly send the invalidated page to replace. This should be proposed as an option.
 
-## Page replication for fault tolerance
+## (Cluster) Page replication for fault tolerance
 
 All shared pages are replicated to a backup node on a different physical machine. Private thread memory is not replicated (thread is re-instantiated fresh on failure).
 

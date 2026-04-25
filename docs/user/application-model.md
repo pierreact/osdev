@@ -30,7 +30,7 @@ Your application runs as a single process spanning one or more machines in the c
 
 - One thread per core on APs. No context switching. Your thread owns the core entirely.
 - BSP (CPU 0) runs the kernel and multiple ring 3 management tasks (shell, user program coordinator, telnet, etc.) via cooperative multitasking. BSP tasks yield explicitly; this is not preemptive.
-- BSP handles all interrupts. Your thread is never interrupted. The only exception is a DSM page fault when accessing remote shared memory (see below).
+- BSP handles all interrupts. Your thread is never interrupted. On cluster deployments, the only exception is a DSM page fault when accessing remote shared memory (see below). Single-node deployments have no DSM and never take this fault.
 - All CPUs run at maximum frequency at all times. No frequency scaling, no deep sleep states. When work arrives, it is processed immediately; no wake-up or ramp-up latency.
 - Each thread polls its NIC directly (DPDK-style). No syscalls for network I/O. (Target architecture: today the poll goes through the thin `SYS_NIC_SEND` / `SYS_NIC_RECV` syscall passthrough; no kernel network logic sits in the data path. See `apps/dpdk_l2` for the current reference app. Future work replaces the syscall boundary with user-mapped virtio rings.)
 - Each thread polls its Storage directly (SPDK-style). No syscalls for disk I/O.
@@ -87,7 +87,9 @@ No other thread can read or write your private memory. This is enforced by hardw
 
 If your thread dies, its private memory is reclaimed. The thread is re-instantiated fresh; there is no resume from where it left off at this layer, it's your code that deals with it.
 
-### Shared memory
+### Shared memory (Cluster)
+
+Single-node deployments share data the standard way: per-thread placement, ownership and access patterns enforced by your code. The rest of this section applies only to cluster deployments where the address space spans machines.
 
 A single logical shared address space visible to all threads across all nodes. Each thread gets a pre-allocated slice of the shared region at boot.
 
@@ -234,7 +236,9 @@ If you need strong consistency for a specific operation, use sequence counters o
 
 Each shared page has exactly one writer, permanently. Readers that access a writer's pages frequently should be co-located (NUMA affinity) with that writer to minimize remote fetches.
 
-## Fault tolerance
+## Fault tolerance (Cluster)
+
+Multi-node fault tolerance is cluster-only. Single-node deployments rely on the host's standard process-supervision tools.
 
 ### Thread failure
 
