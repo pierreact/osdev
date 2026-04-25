@@ -3,6 +3,7 @@
 - **Affinity** - Placement constraint requesting that threads be co-located (same NUMA node, same machine) or separated (anti-affinity). Specified at thread creation, enforced by the scheduler.
 - **AP** - Application Processor. Any CPU other than CPU 0. Woken by the BSP during boot.
 - **BSP** - Bootstrap Processor. CPU 0. Boots the system, runs the kernel and management services (SSH, telnet, Prometheus exporter).
+- **Cluster mode** - Isurus spanning multiple machines treated as one NUMA topology. A single process spans nodes; threads share a single address space via DSM with single-writer ownership per slice. Remote access pays the higher cross-NUMA latency. Suited to distributed in-memory workloads, large-scale graph processing, and shared aggregation. See README "Design doctrine" for the canonical definition.
 - **DSM** - Distributed Shared Memory. A memory model where multiple machines share a single logical address space. Remote pages are fetched transparently via page faults over the inter-node NIC.
 - **DPDK** - Data Plane Development Kit. Polling-based direct NIC access from userspace (ring 3). No interrupts, no kernel transitions for packet I/O.
 - **DMAR** - Intel VT-d DMA Remapping ACPI table. Describes IOMMU units and remapping hardware for device DMA isolation.
@@ -18,6 +19,7 @@
 - **Management NIC** - Dedicated NIC on BSP for TCP/IP management traffic (SSH, telnet, Prometheus).
 - **Ownership** - Each shared slice belongs permanently to the thread that created it. The owner is the only writer. Ownership never transfers. Other threads have read-only access and fetch pages on demand.
 - **Remote NUMA** - Extension of the NUMA model where a remote machine is treated as another NUMA node with higher latency. Same scheduler abstraction, different latency numbers.
+- **Single-node mode** - Isurus running on one machine. One thread per core, no scheduler, no context switching, direct device polling, deterministic latency. No DSM, no inter-node NIC, no cross-node fault tolerance. Suited to HFT, packet processing, real-time sensor ingestion. See README "Design doctrine" for the canonical definition.
 - **SLIT** - System Locality Information Table. NUMA distance matrix describing relative access cost between proximity domains.
 - **Soft real-time** - A system where operations are expected to complete within a time bound but missing the bound does not cause failure. Isurus provides soft real-time behavior: no preemption, no scheduling jitter, CPUs at max frequency. DSM page faults prevent hard real-time guarantees.
 - **SPDK** - Storage Performance Development Kit. Direct storage controller access from userspace following the same pattern as DPDK: kernel maps the device, userspace library drives it via polling. (Planned, not yet implemented.)
