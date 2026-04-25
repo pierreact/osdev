@@ -1,5 +1,101 @@
 # Changelog
 
+## [2026-04-25] - Wake-up-latency infrastructure (PIT + virtio-net INTx)
+
+### Context
+
+Host -> guest ICMP under `compile_qemu.sh` showed 2-10 ms RTT with
+high jitter. tcpdump on tap0 with `-ttt` confirmed the latency was
+entirely in the guest reply path; tap0 itself adds <50 us. Two root
+causes: (1) the kernel never reprograms the PIT, so it ran at QEMU's
+default ~100 Hz (10 ms wake granularity); (2) no virtio-net IRQ was
+delivered, so the only thing waking the BSP between commands was the
+timer.
+
+### Added
+
+- `pit_init_periodic(uint32 hz)` in `src/arch/apic.c` (declared in
+  `src/include/arch/apic.h`). Channel 0, mode 3, divisor =
+  1193182/hz. Bounded to [50, 10000] Hz. NOT called from boot today
+  -- on QEMU q35 with HPET in legacy-replacement mode (the default),
+  HPET owns IRQ0 and the PIT writes are no-op. The helper is kept as
+  the LAPIC-timer migration anchor and for bare-metal use where HPET
+  legacy mode can be disabled.
+- `lapic_bsp_id()` getter in `src/arch/apic.c`.
+- `ioapic_route_irq` made non-static (declared in apic.h) so the net
+  stack can unmask GSIs after PCI device init.
+- `IRQ_VIRTIO_NET = 0x40` define in apic.h.
+- `irq_pin` field on `PCIDevice` (PCI config 0x3D) plus
+  `pci_find_gsi()` helper. The helper trusts PCI config 0x3C as the
+  resolved GSI, which works on QEMU q35 (firmware writes the actual
+  GSI). Real-hardware compatibility note in the helper's comment:
+  bare metal needs `_PRT` parsing; that lands as a future milestone
+  per the `Real-hardware compatibility check` doctrine in
+  `ai.rules`.
+- `nic_enable_intx(idx, vector)` in `src/net/nic.c`: looks up the
+  NIC slot's PCI device, finds its GSI, registers the underlying
+  virtio device for ISR ack via `virtio_isr_register`, and unmasks
+  the IOAPIC entry with PCI INTx convention flags
+  (level-triggered, active-low). Called from `l2_kern_init` for the
+  mgmt NIC.
+- `virtio_isr_register` / `virtio_net_isr_ack` in `src/net/virtio.c`:
+  the asm ISR calls the ack fn, which reads the device's ISR-status
+  byte to deassert INTx (legacy virtio convention).
+- IDT slot 0x40 + `asm64_isr_virtio_net_handler` in
+  `src/boot/asm64/asm64_setup_idt.inc`. Body: save GPRs, call
+  `virtio_net_isr_ack`, bump `net_service_isr_count`, send LAPIC
+  EOI, restore, iretq. Drain happens later in
+  `net_service_tick` from `sys_wait_input`.
+- `net_service_isr_count` (volatile uint64) bumped by the ISR;
+  exposed in `sys.net.stats` via `NetServiceStats.isr_count` so we
+  can observe whether IRQs are actually delivered.
+- PCI `INTERRUPT_DISABLE` bit cleared in `virtio_pci_init_device`.
+
+### QEMU result and real-hardware angle
+
+**Latency reduction in QEMU: zero.** `isr_count` stays 0 across runs.
+On QEMU q35 with `pxb-pcie` + `pcie-root-port`, virtio-net does not
+deliver INTx; the PCIe path is MSI-X. The full INTx infrastructure
+landed and is exercised at boot (banner: `NIC: slot 0 INTx GSI 10 ->
+vector 0x40`), but no interrupts arrive. This was anticipated as a
+risk in the `Real-hardware compatibility (Phase B)` plan section:
+"PCIe-native devices may not raise INTx on some real boards ... For
+real bare-metal we may need MSI-X support." That was stated for real
+hardware and turns out also to be the QEMU-q35 behaviour.
+
+This commit ships the **plumbing** (PCI INTx pin parse, GSI lookup,
+IDT slot, ISR shape, IOAPIC public route, INTERRUPT_DISABLE bit,
+ISR-ack registration). Most of it is reusable for the eventual MSI-X
+support; the ISR shape and `isr_count` regression sentinel come over
+unchanged. **No latency win is claimed for QEMU.** When MSI-X lands,
+expect sub-millisecond passive ping latency without further changes
+to the foundation.
+
+### Real-hardware compatibility (per `ai.rules`)
+
+- **PIT @ 1000 Hz**: would work on bare metal with HPET legacy mode
+  off. Not called today; needs `hpet_disable_legacy_mode()` (future)
+  before invocation. LAPIC timer is the better long-term answer.
+- **PCI 0x3C as GSI**: QEMU writes the resolved GSI. Real hardware
+  often writes 0xFF; the OS must walk `_PRT` (extend
+  `src/arch/aml.c`). Tagged in the `pci_find_gsi` comment so the
+  bare-metal bring-up grep can find it.
+- **PCI INTx polarity flags**: hardcoded to active-low / level
+  (PCI convention). Real boards may report different polarity via
+  MADT ISO entries; revisit when bare-metal data is available.
+- **MSI-X**: required for real bare-metal PCIe devices and for
+  QEMU q35 pcie-root-port. Followup milestone; the current INTx
+  shape provides the IDT slot, ISR pattern, and stats counter that
+  MSI-X will reuse.
+
+### ai.rules
+
+Added a permanent doctrine line at the top of `ai.rules`:
+"Real-hardware compatibility check" -- every plan and every
+implementation must explicitly assess QEMU vs bare-metal behaviour
+and call out the bare-metal mitigation. Saved to project memory so
+future sessions inherit the rule.
+
 ## [2026-04-25] - BSP net_service foundation (passive packet servicing)
 
 ### Added

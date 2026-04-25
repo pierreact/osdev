@@ -99,4 +99,14 @@ int  virtio_pci_setup_queue(VirtioPCIDevice *vdev, uint16 queue_idx);
 void virtio_pci_notify(VirtioPCIDevice *vdev, uint16 queue_idx);
 int  virtio_pci_set_driver_ok(VirtioPCIDevice *vdev);
 
+// Register a virtio device whose INTx ISR-status byte should be
+// read from the asm ISR (asm64_isr_virtio_net_handler) to deassert
+// the interrupt line. Today we only support one device on this
+// vector (the BSP mgmt NIC). Calling with NULL clears.
+void virtio_isr_register(VirtioPCIDevice *vdev);
+
+// Called from the ISR. Reads the registered device's isr_cfg byte.
+// Reading is what deasserts INTx on legacy virtio.
+void virtio_net_isr_ack(void);
+
 #endif

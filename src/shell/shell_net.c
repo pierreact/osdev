@@ -212,6 +212,7 @@ void cmd_net_stats(void) {
     sh_print("  frames:        "); sh_print_dec(ns.frames_processed);       sh_putc('\n');
     sh_print("  max/tick:      "); sh_print_dec(ns.frames_per_tick_max);    sh_putc('\n');
     sh_print("  idle ticks:    "); sh_print_dec(ns.ticks_with_zero_frames); sh_putc('\n');
+    sh_print("  isr_count:     "); sh_print_dec(ns.isr_count);              sh_putc('\n');
 }
 
 void cmd_net_ip(void) {

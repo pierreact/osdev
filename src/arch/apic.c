@@ -58,7 +58,8 @@ void lapic_init(void) {
 
 // Write a redirection table entry: map a GSI to a vector, routed to dest LAPIC.
 // Polarity and trigger mode come from MADT Interrupt Source Override flags.
-static void ioapic_route_irq(uint8 gsi, uint8 vector, uint8 dest_lapic_id, uint16 flags) {
+// Public so net stack can unmask the mgmt NIC's GSI after device init.
+void ioapic_route_irq(uint8 gsi, uint8 vector, uint8 dest_lapic_id, uint16 flags) {
     uint32 redtbl_reg = 0x10 + gsi * 2; // Each entry is 2 registers (lo + hi)
 
     // Low 32 bits: vector, delivery mode, polarity, trigger mode
@@ -154,6 +155,43 @@ static void delay_us(uint32 us) {
     for (uint32 i = 0; i < us; i++) {
         inb(0x80);
     }
+}
+
+// Reprogram PIT channel 0 (IRQ0) to a periodic rate. Used at boot
+// to give the BSP hlt loop a finer wake granularity (1 ms instead
+// of QEMU's default ~10 ms) so passive responders -- ICMP echo,
+// future telnet, future Prometheus exporter -- have low-jitter
+// reply latency without needing a per-device IRQ.
+//
+// Real-hardware compatibility: PIT is PC-AT-legacy and emulated on
+// every x86 board shipped in the last 30 years. QEMU q35 emulates
+// it. On boards with "PIT disabled" firmware options, the OUTs
+// here are silently ignored and the kernel runs at whatever rate
+// the platform delivers IRQ0, with no other behaviour change.
+void pit_init_periodic(uint32 hz) {
+    // Clamp out of range. divisor=0 means 65536 (slowest, ~18.2 Hz)
+    // which is fine but unhelpful; we want the caller to be loud.
+    if (hz < 50 || hz > 10000) return;
+
+    // PIT base frequency is 1193182 Hz. Channel 0, mode 3 (square
+    // wave generator), lobyte/hibyte access. Mode word = 0x36.
+    uint32 divisor = 1193182u / hz;
+    if (divisor == 0) divisor = 1;
+    if (divisor > 0xFFFF) divisor = 0xFFFF;
+
+    outb(0x43, 0x36);
+    outb(0x40, (uint8)(divisor & 0xFF));
+    outb(0x40, (uint8)((divisor >> 8) & 0xFF));
+
+    kprint("PIT: channel 0 @ ");
+    kprint_dec(hz);
+    kprint(" Hz (divisor ");
+    kprint_dec(divisor);
+    kprint(")\n");
+}
+
+uint8 lapic_bsp_id(void) {
+    return (uint8)(lapic_read(LAPIC_ID) >> 24);
 }
 
 // Wake APs via INIT-SIPI-SIPI sequence. Trampoline at TRAMPOLINE_BASE brings each AP

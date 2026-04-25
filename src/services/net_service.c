@@ -23,6 +23,12 @@
 // Kernel-wide stats. One instance.
 static NetServiceStats stats;
 
+// Bumped by the virtio-net INTx ISR
+// (asm64_isr_virtio_net_handler). Defined here so the symbol lives
+// in .bss and the ISR has a stable address to write. volatile
+// because the ISR writes asynchronously w.r.t. C reads.
+volatile uint64 net_service_isr_count;
+
 // Reentrancy guard. net_service_tick must not recurse: a shell
 // handler that calls net_service_drain inside a path that itself
 // reaches sys_wait_input would loop the foundation through itself.
@@ -35,7 +41,9 @@ void net_service_init(void) {
     stats.frames_processed = 0;
     stats.frames_per_tick_max = 0;
     stats.ticks_with_zero_frames = 0;
+    stats.isr_count = 0;
     in_tick = 0;
+    net_service_isr_count = 0;
 }
 
 // Drain one context up to NET_SERVICE_BUDGET frames. Returns the
@@ -95,4 +103,5 @@ void net_service_get_stats(NetServiceStats *out) {
     out->frames_processed       = stats.frames_processed;
     out->frames_per_tick_max    = stats.frames_per_tick_max;
     out->ticks_with_zero_frames = stats.ticks_with_zero_frames;
+    out->isr_count              = net_service_isr_count;
 }

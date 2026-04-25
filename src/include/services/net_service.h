@@ -20,7 +20,17 @@ typedef struct {
     uint64 frames_processed;        // total frames drained across all contexts
     uint64 frames_per_tick_max;     // largest single-tick drain (regression sentinel)
     uint64 ticks_with_zero_frames;  // ticks where every context returned L2_EMPTY
+    uint64 isr_count;               // virtio-net INTx ISR fires (snapshot of net_service_isr_count)
 } NetServiceStats;
+
+// Bumped by the virtio-net INTx ISR (asm64_isr_virtio_net_handler).
+// Read-only from C; the ISR writes it. Exposed in stats so we can
+// see whether the IRQ path is delivering wakes vs only the timer.
+// QEMU-specific note: stays at 0 today on q35 because virtio-net
+// behind pcie-root-port does not deliver INTx -- the PCIe path is
+// MSI-X. Kept as a regression sentinel for the eventual MSI-X
+// landing and as the hook for bare-metal where INTx may work.
+extern volatile uint64 net_service_isr_count;
 
 // One-time setup. Zeroes stats. Safe to call before any L2Context
 // is initialized: the registered list is checked for NULL each tick.

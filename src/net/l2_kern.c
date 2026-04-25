@@ -2,6 +2,7 @@
 #include <net/nic.h>
 #include <kernel/mem.h>
 #include <drivers/monitor.h>
+#include <arch/apic.h>
 
 // Pool backing memory for BSP NICs (8 pages = 16 buffers each)
 #define BSP_POOL_PAGES 8
@@ -55,6 +56,11 @@ void l2_kern_init(void) {
         bsp_mgmt.gw   = htonl(MGMT_GW_DEFAULT);
         bsp_mgmt.mtu  = MGMT_MTU_DEFAULT;
         bsp_mgmt.forward = 0;
+        // Wire INTx for the mgmt NIC so packet arrivals wake the BSP
+        // hlt loop without waiting for a timer tick. Best-effort: if
+        // the GSI lookup fails (real hardware without _PRT support),
+        // we silently fall back to timer-driven wakes.
+        nic_enable_intx(0, IRQ_VIRTIO_NET);
         kprint("L2: mgmt NIC 0 IP 10.0.2.15 pool ");
         kprint_dec(pktbuf_pool_total(&bsp_mgmt.pool));
         kprint(" bufs MAC ");

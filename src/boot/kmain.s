@@ -51,6 +51,7 @@ EXTERN map_mmio_region                                  ; Map APIC MMIO pages.
 EXTERN disable_pic                                      ; Disable 8259A PIC.
 EXTERN lapic_init                                       ; Initialize Local APIC on BSP.
 EXTERN ioapic_init                                      ; Initialize I/O APIC.
+EXTERN pit_init_periodic                                ; PIT helper. Inert in QEMU q35 (HPET intercepts IRQ0); kept for bare metal.
 EXTERN cpu_init                                         ; Initialize per-CPU structures.
 EXTERN tss_init                                         ; Initialize TSS and load TR.
 EXTERN percpu                                           ; Per-CPU state array (kernel/cpu.c).
