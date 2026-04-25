@@ -37,42 +37,44 @@ This is not a general-purpose OS. Not Linux. Not for running Docker containers, 
 ## Hardware model
 
 ```mermaid
-flowchart LR
-    DRAM0["DRAM<br/>(NUMA node 0)"]
-    subgraph S0["Socket 0"]
-        BSP["CPU 0 -- BSP<br/>kernel + shell + IRQs"]
-        AP1["CPU 1 -- AP<br/>pinned ring-3 thread"]
-        AP2["CPU 2 -- AP<br/>pinned ring-3 thread"]
+flowchart TB
+    subgraph N0["NUMA node 0"]
+        direction LR
+        DRAM0["DRAM<br/>(local)"]
+        subgraph S0["Socket 0"]
+            direction TB
+            BSP["CPU 0 -- BSP<br/>kernel + shell + IRQs"]
+            AP1["CPU 1 -- AP<br/>pinned ring-3 thread"]
+            AP2["CPU 2 -- AP<br/>pinned ring-3 thread"]
+        end
+        PCIe0["PCIe root 0"]
+        NIC0["NIC 0"]
+
+        DRAM0 --- S0
+        BSP --- PCIe0
+        AP1 --- PCIe0
+        AP2 --- PCIe0
+        PCIe0 --- NIC0
     end
-    PCIe0["PCIe root 0"]
-    NIC0["NIC 0"]
+    subgraph N1["NUMA node 1"]
+        direction LR
+        DRAM1["DRAM<br/>(local)"]
+        subgraph S1["Socket 1"]
+            direction TB
+            AP3["CPU 3 -- AP<br/>pinned ring-3 thread"]
+            AP4["CPU 4 -- AP<br/>pinned ring-3 thread"]
+            AP5["CPU 5 -- AP<br/>pinned ring-3 thread"]
+        end
+        PCIe1["PCIe root 1"]
+        NIC1["NIC 1"]
 
-    DRAM0 --- BSP
-    DRAM0 --- AP1
-    DRAM0 --- AP2
-    BSP --- PCIe0
-    AP1 --- PCIe0
-    AP2 --- PCIe0
-    PCIe0 --- NIC0
-
-    DRAM1["DRAM<br/>(NUMA node 1)"]
-    subgraph S1["Socket 1"]
-        AP3["CPU 3 -- AP<br/>pinned ring-3 thread"]
-        AP4["CPU 4 -- AP<br/>pinned ring-3 thread"]
-        AP5["CPU 5 -- AP<br/>pinned ring-3 thread"]
+        DRAM1 --- S1
+        AP3 --- PCIe1
+        AP4 --- PCIe1
+        AP5 --- PCIe1
+        PCIe1 --- NIC1
     end
-    PCIe1["PCIe root 1"]
-    NIC1["NIC 1"]
-
-    DRAM1 --- AP3
-    DRAM1 --- AP4
-    DRAM1 --- AP5
-    AP3 --- PCIe1
-    AP4 --- PCIe1
-    AP5 --- PCIe1
-    PCIe1 --- NIC1
-
-    S0 -. "cross-NUMA -- higher latency" .- S1
+    N0 -. "cross-NUMA -- higher latency" .- N1
 ```
 
 Each socket sits between its local DRAM and its local PCIe root.
