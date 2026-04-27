@@ -8,7 +8,7 @@
 void l2_kern_init(void);
 
 // Access BSP L2 contexts (for shell commands, kernel consumers)
-L2Context *l2_kern_mgmt(void);
-L2Context *l2_kern_inter(void);
+NetContext *l2_kern_mgmt(void);
+NetContext *l2_kern_inter(void);
 
 #endif

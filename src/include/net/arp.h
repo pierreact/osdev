@@ -46,7 +46,7 @@ void arp_insert(ArpTable *t, uint32 ip, const uint8 *mac);
 
 // Process an incoming ARP frame (full Ethernet frame including EthHdr).
 // Handles requests (sends reply if for our IP) and replies (updates table).
-// l2ctx is an opaque L2Context pointer.
+// l2ctx is an opaque NetContext pointer.
 int arp_process(void *l2ctx, ArpTable *t, uint8 *frame, uint32 frame_len);
 
 // Send an ARP request for the given IP

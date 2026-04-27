@@ -42,7 +42,7 @@ int ip_build_hdr(uint8 *buf, uint32 src_ip, uint32 dst_ip,
     return IPV4_HDR_LEN;
 }
 
-int ip_send(L2Context *ctx, uint32 dst_ip, uint8 proto,
+int ip_send(NetContext *ctx, uint32 dst_ip, uint8 proto,
             const uint8 *payload, uint32 payload_len, PkTrace *trace) {
     uint16 mtu = ctx->mtu ? ctx->mtu : ETH_MTU;
     if (payload_len + IPV4_HDR_LEN > mtu) {
@@ -74,7 +74,7 @@ int ip_send(L2Context *ctx, uint32 dst_ip, uint8 proto,
     return rc;
 }
 
-int ip_rx(L2Context *ctx, uint8 *payload, uint32 payload_len, PkTrace *trace) {
+int ip_rx(NetContext *ctx, uint8 *payload, uint32 payload_len, PkTrace *trace) {
     if (payload_len < IPV4_HDR_LEN) {
         ctx->ip_stats.ipv4_dropped++;
         return -1;
@@ -164,6 +164,6 @@ int ip_rx(L2Context *ctx, uint8 *payload, uint32 payload_len, PkTrace *trace) {
     return rc;
 }
 
-void ip_get_stats(L2Context *ctx, IpStats *out) {
+void ip_get_stats(NetContext *ctx, IpStats *out) {
     memcpy(out, &ctx->ip_stats, sizeof(IpStats));
 }

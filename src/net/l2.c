@@ -1,9 +1,9 @@
 #include <net/l2.h>
 #include <memops.h>
 
-void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
+void l2_init(NetContext *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
              uint32 pool_pages, uint8 *pool_memory) {
-    memset(ctx, 0, sizeof(L2Context));
+    memset(ctx, 0, sizeof(NetContext));
     ctx->backend = backend;
     ctx->backend_ctx = backend_ctx;
     ctx->ip = ip;
@@ -18,7 +18,7 @@ void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
 // Internal: process a single received frame in a PktBuf.
 // Returns 0 if frame is delivered to caller (non-ARP, for us).
 // Returns -1 if consumed (ARP) or not for us.
-static int l2_process_frame(L2Context *ctx, PktBuf *buf, uint16 *ethertype_out,
+static int l2_process_frame(NetContext *ctx, PktBuf *buf, uint16 *ethertype_out,
                             PkTrace *trace) {
     uint8 *frame = pktbuf_data(buf);
     uint32 frame_len = buf->data_len;
@@ -49,7 +49,7 @@ static int l2_process_frame(L2Context *ctx, PktBuf *buf, uint16 *ethertype_out,
     return 0;
 }
 
-int l2_poll(L2Context *ctx, uint16 *ethertype, uint8 **payload,
+int l2_poll(NetContext *ctx, uint16 *ethertype, uint8 **payload,
             uint32 *payload_len, PkTrace *trace) {
     uint32 frame_len = 0;
     int rc = ctx->backend.recv(ctx->backend_ctx, ctx->frame_buf, &frame_len);
@@ -91,7 +91,7 @@ int l2_poll(L2Context *ctx, uint16 *ethertype, uint8 **payload,
     return L2_OK;
 }
 
-int l2_poll_batch(L2Context *ctx, PktBuf **out_bufs, uint16 *out_etypes,
+int l2_poll_batch(NetContext *ctx, PktBuf **out_bufs, uint16 *out_etypes,
                   uint32 max_frames, PkTrace *trace) {
     if (max_frames > L2_BATCH_MAX)
         max_frames = L2_BATCH_MAX;
@@ -133,7 +133,7 @@ int l2_poll_batch(L2Context *ctx, PktBuf **out_bufs, uint16 *out_etypes,
     return delivered;
 }
 
-int l2_send(L2Context *ctx, const uint8 *dst_mac, uint16 ethertype,
+int l2_send(NetContext *ctx, const uint8 *dst_mac, uint16 ethertype,
             const uint8 *payload, uint32 payload_len, PkTrace *trace) {
     if (payload_len > ETH_MTU)
         return -1;
@@ -160,7 +160,7 @@ int l2_send(L2Context *ctx, const uint8 *dst_mac, uint16 ethertype,
     return rc;
 }
 
-int l2_send_zc(L2Context *ctx, PktBuf *buf, const uint8 *dst_mac,
+int l2_send_zc(NetContext *ctx, PktBuf *buf, const uint8 *dst_mac,
                uint16 ethertype, uint32 payload_len, PkTrace *trace) {
     if (payload_len > ETH_MTU)
         return -1;
@@ -189,7 +189,7 @@ int l2_send_zc(L2Context *ctx, PktBuf *buf, const uint8 *dst_mac,
     return rc;
 }
 
-int l2_send_ip(L2Context *ctx, uint32 dst_ip, uint16 ethertype,
+int l2_send_ip(NetContext *ctx, uint32 dst_ip, uint16 ethertype,
                const uint8 *payload, uint32 payload_len, PkTrace *trace) {
     const uint8 *mac = arp_lookup(&ctx->arp, dst_ip);
     if (mac)
@@ -200,6 +200,6 @@ int l2_send_ip(L2Context *ctx, uint32 dst_ip, uint16 ethertype,
     return -1;
 }
 
-void l2_get_stats(L2Context *ctx, L2Stats *out) {
+void l2_get_stats(NetContext *ctx, L2Stats *out) {
     memcpy(out, &ctx->stats, sizeof(L2Stats));
 }

@@ -178,11 +178,11 @@ forward=0
 
 `forward=1` enables routing: frames addressed to a different IP are TTL-decremented and pushed to the next hop via ARP. `forward=0` drops them with an `ipv4_dropped` tick.
 
-The app retrieves its config from the kernel with `app_net_cfg(&cfg)` (no INI parsing in userland), initialises an `L2Context` with the IP fields populated, and dispatches ETH_TYPE_IPV4 frames to `ip_rx`. ICMP Echo Requests are answered automatically inside `ip_rx`; unknown protocols drop with a counter. A minimal AP main looks like:
+The app retrieves its config from the kernel with `app_net_cfg(&cfg)` (no INI parsing in userland), initialises an `NetContext` with the IP fields populated, and dispatches ETH_TYPE_IPV4 frames to `ip_rx`. ICMP Echo Requests are answered automatically inside `ip_rx`; unknown protocols drop with a counter. A minimal AP main looks like:
 
 ```c
 AppNetCfg cfg; app_net_cfg(&cfg);
-L2Context ctx;
+NetContext ctx;
 l2_init(&ctx, nic_backend_make(meta), meta, cfg.ip, POOL_PAGES, pool);
 ctx.mask = cfg.mask; ctx.gw = cfg.gw;
 ctx.mtu  = cfg.mtu ? cfg.mtu : 1500;

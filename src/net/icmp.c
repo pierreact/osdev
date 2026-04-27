@@ -5,7 +5,7 @@
 #include <net/eth.h>
 #include <memops.h>
 
-int icmp_send_echo(L2Context *ctx, uint32 dst_ip, uint16 id, uint16 seq,
+int icmp_send_echo(NetContext *ctx, uint32 dst_ip, uint16 id, uint16 seq,
                    const uint8 *payload, uint32 payload_len,
                    PkTrace *trace) {
     uint16 mtu = ctx->mtu ? ctx->mtu : ETH_MTU;
@@ -31,7 +31,7 @@ int icmp_send_echo(L2Context *ctx, uint32 dst_ip, uint16 id, uint16 seq,
     return rc;
 }
 
-int icmp_rx(L2Context *ctx, uint32 src_ip, uint8 *msg, uint32 msg_len,
+int icmp_rx(NetContext *ctx, uint32 src_ip, uint8 *msg, uint32 msg_len,
             PkTrace *trace) {
     if (msg_len < ICMP_ECHO_HDR_LEN) {
         ctx->ip_stats.ipv4_dropped++;

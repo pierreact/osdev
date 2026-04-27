@@ -107,7 +107,7 @@ void cmd_thread_ls(void) {
 }
 
 void cmd_net_arp(void) {
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     net_service_drain(ctx);
     sh_print("ARP table (mgmt NIC 0):\n");
     for (uint32 i = 0; i < ARP_TABLE_SIZE; i++) {
@@ -139,7 +139,7 @@ void cmd_net_arping(void) {
         return;
     }
 
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     sh_print("ARPING ");
     print_ipv4(ip);
     sh_putc('\n');
@@ -174,7 +174,7 @@ void cmd_net_arping(void) {
 }
 
 void cmd_net_stats(void) {
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     net_service_drain(ctx);
     L2Stats st;
     l2_get_stats(ctx, &st);
@@ -216,7 +216,7 @@ void cmd_net_stats(void) {
 }
 
 void cmd_net_ip(void) {
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     sh_print("mgmt NIC 0:\n");
     sh_print("  ip:   "); print_ipv4(ctx->ip);   sh_putc('\n');
     sh_print("  mask: "); print_ipv4(ctx->mask); sh_putc('\n');
@@ -226,7 +226,7 @@ void cmd_net_ip(void) {
 }
 
 void cmd_net_route(void) {
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     sh_print("Routes (mgmt NIC 0):\n");
     if (ctx->mask != 0) {
         sh_print("  "); print_ipv4(ctx->ip & ctx->mask);
@@ -253,7 +253,7 @@ void cmd_net_ping(void) {
         return;
     }
 
-    L2Context *ctx = l2_kern_mgmt();
+    NetContext *ctx = l2_kern_mgmt();
     sh_print("PING ");
     print_ipv4(ip);
     sh_putc('\n');

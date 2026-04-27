@@ -10,8 +10,8 @@ static uint8 *mgmt_pool_mem;
 static uint8 *inter_pool_mem;
 
 // BSP L2 contexts (management + inter-node)
-static L2Context bsp_mgmt;
-static L2Context bsp_inter;
+static NetContext bsp_mgmt;
+static NetContext bsp_inter;
 
 // Kernel backend: wraps nic_send/nic_recv using NIC slot index
 static int kern_send(void *ctx, const uint8 *frame, uint32 len) {
@@ -84,10 +84,10 @@ void l2_kern_init(void) {
 }
 
 // Accessors for shell and kernel consumers
-L2Context *l2_kern_mgmt(void) {
+NetContext *l2_kern_mgmt(void) {
     return &bsp_mgmt;
 }
 
-L2Context *l2_kern_inter(void) {
+NetContext *l2_kern_inter(void) {
     return &bsp_inter;
 }

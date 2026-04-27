@@ -18,7 +18,7 @@ module sitting next to the others, all sharing one foundation.
 ## The foundation: `net_service`
 
 `net_service.c` is the only inhabitant today. It owns one
-responsibility: drive the BSP-owned `L2Context` instances
+responsibility: drive the BSP-owned `NetContext` instances
 (management NIC, inter-node NIC) so packets get processed without
 shell input.
 
@@ -27,7 +27,7 @@ shell input.
 ```mermaid
 flowchart LR
     A[sys_wait_input<br/>hlt loop] -->|every wake| B[net_service_tick]
-    B --> C[net_service_drain<br/>per L2Context]
+    B --> C[net_service_drain<br/>per NetContext]
     C --> D[l2_poll]
     D -->|ARP| E[arp_process<br/>reply / learn]
     D -->|IPv4| F[ip_rx]
@@ -57,14 +57,14 @@ Every service in this tree must respect:
 
 1. **Cooperative serialization.** No locks. The BSP runs one task at
    a time; `net_service_tick` and shell handlers never run
-   concurrently. The single-writer-per-`L2Context` doctrine holds.
+   concurrently. The single-writer-per-`NetContext` doctrine holds.
 2. **No malloc.** Static buffers, fixed-size tables. Same rule as
    AP threads.
 3. **No reentrancy.** `net_service_tick` checks an `in_tick` flag.
    A handler called from inside the tick that itself reaches the
    tick (via `sys_wait_input`) returns immediately.
 4. **Bounded per-tick work.** `net_service` drains at most 16 frames
-   per `L2Context` per tick (`L2_BATCH_MAX / 2`). DoS / starvation
+   per `NetContext` per tick (`L2_BATCH_MAX / 2`). DoS / starvation
    bound under host flood.
 5. **ASCII only.** Per `ai.rules`.
 

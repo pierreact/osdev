@@ -1,12 +1,12 @@
 // BSP cooperative net_service. Continuously drains the BSP-owned
-// L2Contexts so the network stack works passively (no shell input
+// NetContexts so the network stack works passively (no shell input
 // required between packets). The L3 plan deferred this as a
 // "kernel-side persistent L3 task"; once telnet and Prometheus join
 // ICMP as consumers it stops being optional.
 //
 // Hooks into the sys_wait_input hlt loop. The shell task's idle is
 // the foundation's heartbeat. Cooperative scheduling guarantees a
-// single writer per L2Context, no locks needed.
+// single writer per NetContext, no locks needed.
 
 #include <services/net_service.h>
 #include <net/l2.h>
@@ -50,7 +50,7 @@ void net_service_init(void) {
 // number of frames processed. ARP is handled inside l2_poll; IPv4
 // frames go to ip_rx (which dispatches to icmp_rx and, soon, future
 // L4 handlers).
-static uint32 drain_one(L2Context *ctx) {
+static uint32 drain_one(NetContext *ctx) {
     if (!ctx) return 0;
     uint32 processed = 0;
     for (uint32 i = 0; i < NET_SERVICE_BUDGET; i++) {
@@ -69,7 +69,7 @@ static uint32 drain_one(L2Context *ctx) {
     return processed;
 }
 
-void net_service_drain(L2Context *ctx) {
+void net_service_drain(NetContext *ctx) {
     drain_one(ctx);
 }
 

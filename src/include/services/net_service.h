@@ -2,7 +2,7 @@
 #define ISURUS_SERVICES_NET_SERVICE_H
 
 // BSP cooperative net_service: continuously drains the BSP-owned
-// L2Contexts so passive responders (ARP reply, ICMP echo, future
+// NetContexts so passive responders (ARP reply, ICMP echo, future
 // telnet, future Prometheus exporter) work without the user having
 // to type a sys.net.* shell command between every packet.
 //
@@ -32,11 +32,11 @@ typedef struct {
 // landing and as the hook for bare-metal where INTx may work.
 extern volatile uint64 net_service_isr_count;
 
-// One-time setup. Zeroes stats. Safe to call before any L2Context
+// One-time setup. Zeroes stats. Safe to call before any NetContext
 // is initialized: the registered list is checked for NULL each tick.
 void net_service_init(void);
 
-// Bounded drain of every BSP-owned L2Context. Called from the
+// Bounded drain of every BSP-owned NetContext. Called from the
 // sys_wait_input hlt loop on every wake. Hard-capped at 16 frames
 // per context per tick to bound DoS / starvation. Non-reentrant.
 void net_service_tick(void);
@@ -46,7 +46,7 @@ void net_service_tick(void);
 // shell handlers before they print stats so the displayed counters
 // reflect any frames that arrived between commands. Bounded the
 // same way as the tick.
-void net_service_drain(L2Context *ctx);
+void net_service_drain(NetContext *ctx);
 
 // Snapshot the kernel-wide stats.
 void net_service_get_stats(NetServiceStats *out);

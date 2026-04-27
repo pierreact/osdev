@@ -129,11 +129,11 @@ The network stack is shared: one copy of the sources in `src/net/` compiles into
 
 ### L2 layer
 
-`L2Context` owns a per-NIC Ethernet + ARP view: MAC, ARP table (32 entries), pre-allocated `PktBufPool` for zero-copy RX/TX, per-layer stats. `l2_poll` validates the Ethernet header, filters on destination MAC or broadcast, handles ARP internally (updating the table, sending replies for our IP), and hands non-ARP payloads back to the caller. `l2_send` / `l2_send_zc` build the header and push the frame through the backend.
+`NetContext` owns a per-NIC Ethernet + ARP view: MAC, ARP table (32 entries), pre-allocated `PktBufPool` for zero-copy RX/TX, per-layer stats. `l2_poll` validates the Ethernet header, filters on destination MAC or broadcast, handles ARP internally (updating the table, sending replies for our IP), and hands non-ARP payloads back to the caller. `l2_send` / `l2_send_zc` build the header and push the frame through the backend.
 
 ### L3 layer (IPv4)
 
-IPv4 rides directly on top of L2: the same `L2Context` carries the L3 configuration (`ip`, `mask`, `gw`, `mtu`, `forward`) and an `IpStats` block. There is no separate IpContext struct, because in this design there is exactly one IP per interface and per-AP threads own their own L2+L3 state end to end.
+IPv4 rides directly on top of L2: the same `NetContext` carries the L3 configuration (`ip`, `mask`, `gw`, `mtu`, `forward`) and an `IpStats` block. There is no separate IpContext struct, because in this design there is exactly one IP per interface and per-AP threads own their own L2+L3 state end to end.
 
 `ip_rx` in `src/net/ip.c` validates version / IHL=5 / total_len / fragment bits / checksum. If the destination is our IP, it dispatches by protocol (today: ICMP only, via `icmp_rx`). Otherwise, if `forward` is set and TTL > 1, it decrements TTL, recomputes the checksum, resolves the next hop via the on-link / default-gateway decision, and hands the frame back to L2. All other cases drop with a counter.
 
@@ -147,7 +147,7 @@ Checksums are software-only (`ip_checksum` is a shared RFC 1071 one's-complement
 
 The BSP management NIC (NIC 0) is initialised by `l2_kern_init` with hard-coded defaults matching the QEMU user netdev (`10.0.2.15/24`, gw `10.0.2.2`). The shell commands `sys.net.ping`, `sys.net.ip`, `sys.net.route`, and `sys.net.stats` drive it. `net_service_drain(ctx)` is called at the start of every `sys.net.*` handler and dispatches IPv4 frames to `ip_rx` inline.
 
-AP apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `L2Context`. Each AP polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
+AP apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `NetContext`. Each AP polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
 
 ## Services
 
@@ -160,7 +160,7 @@ The L3 milestone shipped a stack that only processed packets when a `sys.net.*` 
 ```mermaid
 flowchart LR
     A[sys_wait_input<br/>hlt loop] -->|every wake| B[net_service_tick]
-    B --> C[net_service_drain<br/>per L2Context]
+    B --> C[net_service_drain<br/>per NetContext]
     C --> D[l2_poll]
     D -->|ARP| E[arp_process]
     D -->|IPv4| F[ip_rx]
@@ -168,9 +168,9 @@ flowchart LR
     F -->|future| H[future L4 listeners:<br/>telnet, Prometheus, ...]
 ```
 
-`net_service_tick()` is wired into `sys_handle_wait_input`'s hlt loop, immediately after `app_check_completion()`. Each tick drains every BSP-owned `L2Context` (mgmt + inter-node) up to 16 frames per context. The per-frame existing dispatch (`l2_poll` -> `arp_process` / `ip_rx` -> `icmp_rx`) does the rest.
+`net_service_tick()` is wired into `sys_handle_wait_input`'s hlt loop, immediately after `app_check_completion()`. Each tick drains every BSP-owned `NetContext` (mgmt + inter-node) up to 16 frames per context. The per-frame existing dispatch (`l2_poll` -> `arp_process` / `ip_rx` -> `icmp_rx`) does the rest.
 
-There is no separate BSP task. The cooperative scheduler is single-task today, so a second task would only run when the first yields -- exactly what the hlt loop already gives us. Two tasks touching one `L2Context` would invent the concurrency exposure the project explicitly avoids.
+There is no separate BSP task. The cooperative scheduler is single-task today, so a second task would only run when the first yields -- exactly what the hlt loop already gives us. Two tasks touching one `NetContext` would invent the concurrency exposure the project explicitly avoids.
 
 ### Foundation invariants
 

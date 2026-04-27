@@ -44,7 +44,7 @@ uint16 ip_checksum(const void *buf, uint32 len);
 // Returns 0 if the frame was consumed (delivered/replied/forwarded),
 // -1 on drop. No payload is handed back up; L3 and above live
 // inside the L2/IP context.
-int ip_rx(L2Context *ctx, uint8 *payload, uint32 payload_len, PkTrace *trace);
+int ip_rx(NetContext *ctx, uint8 *payload, uint32 payload_len, PkTrace *trace);
 
 // Build an IPv4 header at buf (IPV4_HDR_LEN bytes) with the given
 // protocol, src/dst, payload_len (payload size after the IP header).
@@ -56,10 +56,10 @@ int ip_build_hdr(uint8 *buf, uint32 src_ip, uint32 dst_ip,
 // prepends it to payload, resolves the next hop via ARP, and hands
 // the frame to L2. Returns 0 on TX, -1 on drop (oversize, ARP
 // pending, etc.).
-int ip_send(L2Context *ctx, uint32 dst_ip, uint8 proto,
+int ip_send(NetContext *ctx, uint32 dst_ip, uint8 proto,
             const uint8 *payload, uint32 payload_len, PkTrace *trace);
 
 // Copy the IP stats out.
-void ip_get_stats(L2Context *ctx, IpStats *out);
+void ip_get_stats(NetContext *ctx, IpStats *out);
 
 #endif

@@ -47,7 +47,7 @@ void _start(ThreadMeta *meta) {
         exit();
     }
 
-    L2Context ctx;
+    NetContext ctx;
     NetBackend be = nic_backend_make(meta);
     memset(pool_memory, 0, sizeof(pool_memory));
     l2_init(&ctx, be, (void *)meta, cfg.ip, POOL_PAGES, pool_memory);
