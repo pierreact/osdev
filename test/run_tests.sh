@@ -457,7 +457,10 @@ send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 20
 # Parallel dispatch: per-core serial output interleaves, so rely on
 # BSP-serialized lines (load banner, manifest IP, reap).
 check "DPDK L3 app dispatched"  "APP: dispatching cores:"
-check "DPDK L3 app IP parsed"   "APP: dpdk_l3 ip=10.0.0.10"
+check "DPDK L3 app IPs parsed"   "APP: dpdk_l3 ip_mode=per-core ips=10.0.0.10,10.0.0.11,10.0.0.12"
+check "DPDK L3 app cpu=1 -> .10" "APP: dpdk_l3 cpu=1 ip=10.0.0.10"
+check "DPDK L3 app cpu=2 -> .11" "APP: dpdk_l3 cpu=2 ip=10.0.0.11"
+check "DPDK L3 app cpu=3 -> .12" "APP: dpdk_l3 cpu=3 ip=10.0.0.12"
 check "DPDK L3 app finished"    "APP: dpdk_l3 finished"
 
 SERIAL_LOG="$SERIAL_LOG_BACKUP"

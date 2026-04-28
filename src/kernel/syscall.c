@@ -323,18 +323,63 @@ static long sys_handle_app_list(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint
     return 0;
 }
 
-// Return the calling AP's manifest-supplied network config (L3).
-// Caller passes a pointer to an AppNetConfig-sized buffer.
-// Returns 0 on success, -1 if the caller is not an app core.
+// Per-core scalar L3 config delivered to the calling AP via
+// SYS_APP_NET_CFG. Layout MUST match apps/libc/isurus.h's
+// AppNetCfg exactly (the libc-side typedef is the wire shape).
+typedef struct {
+    uint32 ip;
+    uint32 mask;
+    uint32 gw;
+    uint16 mtu;
+    uint8  forward;
+    uint8  reserved;
+} SysAppNetCfgOut;
+
+// Return the calling AP's resolved L3 config (one IP + shared
+// mask/gw/mtu/forward). Caller passes a pointer to an AppNetCfg
+// (libc-side struct, scalar). Returns 0 on success, -1 if the
+// caller is not an app core or the slot's IP layout is malformed.
 static long sys_handle_app_net_cfg(uint64 a1, uint64 a2, uint64 a3, uint64 a4, uint64 a5) {
     (void)a2; (void)a3; (void)a4; (void)a5;
-    AppNetConfig *out = (AppNetConfig *)a1;
+    SysAppNetCfgOut *out = (SysAppNetCfgOut *)a1;
     if (!out) return -1;
-    uint32 i = get_current_cpu();
-    if (i == 0 || !percpu[i].in_usermode) return -1;
-    uint8 slot = core_to_app[i];
+    uint32 cpu = get_current_cpu();
+    if (cpu == 0 || !percpu[cpu].in_usermode) return -1;
+    uint8 slot = core_to_app[cpu];
     if (slot == 0xFF || slot >= MAX_APPS) return -1;
-    *out = app_table[slot].net;
+
+    AppSlot *app = &app_table[slot];
+    if (app->net.ip_count == 0) return -1;
+
+    // Find the calling core's index. For per-core mode this is
+    // its position in cores[]; for per-numa it is the index of
+    // its NUMA node in ip_numa_nodes[].
+    uint32 ip = 0;
+    if (app->net.ip_mode == APP_IP_MODE_PER_CORE) {
+        for (uint8 i = 0; i < app->core_count; i++) {
+            if (app->cores[i] == cpu) {
+                if (i >= app->net.ip_count) return -1;
+                ip = app->net.ips[i];
+                break;
+            }
+        }
+    } else {
+        uint32 node = thread_meta[cpu].numa_node;
+        for (uint8 i = 0; i < app->net.ip_count; i++) {
+            if (app->net.ip_numa_nodes[i] == node) {
+                ip = app->net.ips[i];
+                break;
+            }
+        }
+    }
+    if (ip == 0) return -1;
+
+    out->ip       = ip;
+    out->mask     = app->net.mask;
+    out->gw       = app->net.gw;
+    out->mtu      = app->net.mtu;
+    out->forward  = app->net.forward;
+    out->reserved = 0;
     return 0;
 }
 

@@ -13,13 +13,31 @@
 
 // Per-app network configuration from INI (L3). Zero = unset.
 // ip / mask / gw are stored in network byte order.
+//
+// IP assignment mirrors the system NIC assignment mode
+// (sys.nic.mode, see src/include/net/nic.h):
+//   APP_IP_MODE_PER_CORE: one IP per core, ip_count == core_count.
+//                         ips[i] is for cores[i].
+//   APP_IP_MODE_PER_NUMA: one IP per distinct NUMA node the app
+//                         covers, ip_count == distinct node count.
+//                         ips[i] is for the NUMA node at
+//                         ip_numa_nodes[i]; cores on the same node
+//                         share that IP (they share a NIC).
+#define APP_IP_MODE_UNSET     0
+#define APP_IP_MODE_PER_CORE  1
+#define APP_IP_MODE_PER_NUMA  2
+
 typedef struct {
-    uint32  ip;
+    uint8   ip_mode;        // APP_IP_MODE_PER_CORE or APP_IP_MODE_PER_NUMA
+    uint8   ip_count;       // entries used in ips[] / ip_numa_nodes[]
+    uint8   reserved[2];
+    uint32  ips[MAX_APP_CORES];
+    uint32  ip_numa_nodes[MAX_APP_CORES];   // per-NUMA only; 0 in per-core
     uint32  mask;
     uint32  gw;
     uint16  mtu;            // 0 = default (1500 applied at consumer)
     uint8   forward;        // 0 = drop non-local, 1 = forward
-    uint8   reserved;
+    uint8   reserved2;
 } AppNetConfig;
 
 // Parsed manifest

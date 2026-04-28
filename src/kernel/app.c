@@ -7,6 +7,7 @@
 #include <arch/acpi.h>
 #include <fs/vfs.h>
 #include <drivers/monitor.h>
+#include <net/nic.h>
 
 AppSlot app_table[MAX_APPS];
 uint8   core_to_app[16];   // MAX_CPUS, 0xFF = free
@@ -90,7 +91,34 @@ static void manifest_handler(const char *section, const char *key,
             if (*p == ',') p++;
         }
     } else if (kstreq(key, "ip")) {
-        m->net.ip = kparse_ipv4_ne(value);
+        // Legacy single-IP form. Refuse loudly so old manifests
+        // do not silently get the wrong (uniform) IP across cores.
+        // Caller-side flag: ip_count stays 0, app_launch will
+        // catch and report the migration error.
+        m->net.ip_count = 0xFF;   // sentinel: "legacy ip= seen"
+    } else if (kstreq(key, "ip_mode")) {
+        if (kstreq(value, "per-core"))
+            m->net.ip_mode = APP_IP_MODE_PER_CORE;
+        else if (kstreq(value, "per-numa"))
+            m->net.ip_mode = APP_IP_MODE_PER_NUMA;
+        else
+            m->net.ip_mode = 0xFF;   // sentinel: bad mode
+    } else if (kstreq(key, "ips")) {
+        m->net.ip_count = 0;
+        const char *p = value;
+        while (*p && m->net.ip_count < MAX_APP_CORES) {
+            // Skip leading whitespace
+            while (*p == ' ' || *p == '\t') p++;
+            // Take everything up to ',' or end of value
+            char buf[32];
+            int j = 0;
+            while (*p && *p != ',' && j < (int)sizeof(buf) - 1)
+                buf[j++] = *p++;
+            buf[j] = '\0';
+            uint32 ip = kparse_ipv4_ne(buf);
+            m->net.ips[m->net.ip_count++] = ip;
+            if (*p == ',') p++;
+        }
     } else if (kstreq(key, "mask")) {
         m->net.mask = kparse_ipv4_ne(value);
     } else if (kstreq(key, "gw")) {
@@ -186,6 +214,82 @@ int app_launch(const char *manifest_path) {
         app->nic_locked[nic] = 1;
     }
 
+    // Validate IP configuration (per-core or per-numa).
+    // No IP keys at all -> non-network app (e.g. demo_app), skip.
+    if (manifest.net.ip_count == 0xFF) {
+        kprint("APP: legacy 'ip=' key in manifest, replace with "
+               "ip_mode= and ips=\n");
+        return -1;
+    }
+    int has_ip_config = (manifest.net.ip_mode != APP_IP_MODE_UNSET ||
+                         manifest.net.ip_count > 0);
+    if (has_ip_config) {
+    if (manifest.net.ip_mode != APP_IP_MODE_PER_CORE &&
+        manifest.net.ip_mode != APP_IP_MODE_PER_NUMA) {
+        kprint("APP: ip_mode missing or invalid (expected "
+               "per-core or per-numa)\n");
+        return -1;
+    }
+    NicAssignmentMode sys_mode = nic_get_mode();
+    uint8 expected = (sys_mode == NIC_MODE_PER_CORE)
+                        ? APP_IP_MODE_PER_CORE : APP_IP_MODE_PER_NUMA;
+    if (manifest.net.ip_mode != expected) {
+        kprint("APP: ip_mode mismatch with sys.nic.mode (manifest=");
+        kprint(manifest.net.ip_mode == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(", system=");
+        kprint(expected == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(")\n");
+        return -1;
+    }
+    if (manifest.net.ip_mode == APP_IP_MODE_PER_CORE) {
+        if (manifest.net.ip_count != manifest.core_count) {
+            kprint("APP: per-core mode needs ");
+            kprint_dec(manifest.core_count);
+            kprint(" IPs (got ");
+            kprint_dec(manifest.net.ip_count);
+            kprint(")\n");
+            return -1;
+        }
+        // ip_numa_nodes[] unused in per-core; leave zeroed.
+    } else {
+        // per-numa: collect distinct NUMA nodes from cores in
+        // first-seen order. ip_count must match that count, and
+        // ips[i] applies to ip_numa_nodes[i].
+        uint32 distinct[MAX_APP_CORES];
+        uint8 distinct_count = 0;
+        for (uint32 i = 0; i < manifest.core_count; i++) {
+            uint32 node = thread_meta[manifest.cores[i]].numa_node;
+            uint8 found = 0;
+            for (uint8 j = 0; j < distinct_count; j++) {
+                if (distinct[j] == node) { found = 1; break; }
+            }
+            if (!found && distinct_count < MAX_APP_CORES)
+                distinct[distinct_count++] = node;
+        }
+        if (manifest.net.ip_count != distinct_count) {
+            kprint("APP: per-numa mode needs ");
+            kprint_dec(distinct_count);
+            kprint(" IPs (got ");
+            kprint_dec(manifest.net.ip_count);
+            kprint(")\n");
+            return -1;
+        }
+        for (uint8 i = 0; i < distinct_count; i++)
+            manifest.net.ip_numa_nodes[i] = distinct[i];
+    }
+    // All IPs must be set
+    for (uint8 i = 0; i < manifest.net.ip_count; i++) {
+        if (manifest.net.ips[i] == 0) {
+            kprint("APP: ips[");
+            kprint_dec(i);
+            kprint("] is 0.0.0.0\n");
+            return -1;
+        }
+    }
+    }   // end of has_ip_config block
+
     // Load binary
     uint64 load_addr = APP_LOAD_BASE + (uint64)slot * APP_REGION_SIZE;
     uint32 file_size = vfs_file_size(manifest.binary);
@@ -231,15 +335,52 @@ int app_launch(const char *manifest_path) {
 
     // Single-line L3 config banner (BSP-serialized, unlike per-core
     // ready banners which interleave under parallel dispatch).
-    if (app->net.ip != 0) {
-        uint8 *ip = (uint8 *)&app->net.ip;
+    if (app->net.ip_count > 0) {
         kprint("APP: ");
         kprint(app->name);
-        kprint(" ip=");
-        kprint_dec(ip[0]); putc('.');
-        kprint_dec(ip[1]); putc('.');
-        kprint_dec(ip[2]); putc('.');
-        kprint_dec(ip[3]); putc('\n');
+        kprint(" ip_mode=");
+        kprint(app->net.ip_mode == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(" ips=");
+        for (uint8 i = 0; i < app->net.ip_count; i++) {
+            if (i > 0) putc(',');
+            uint8 *ip = (uint8 *)&app->net.ips[i];
+            kprint_dec(ip[0]); putc('.');
+            kprint_dec(ip[1]); putc('.');
+            kprint_dec(ip[2]); putc('.');
+            kprint_dec(ip[3]);
+        }
+        putc('\n');
+
+        // Per-core CPU -> IP mapping. BSP-serialized so the lines
+        // are deterministic; per-core ready banners from APs
+        // interleave at byte level and aren't reliable for tests.
+        for (uint32 i = 0; i < app->core_count; i++) {
+            uint32 cpu_idx = app->cores[i];
+            uint32 cpu_ip = 0;
+            if (app->net.ip_mode == APP_IP_MODE_PER_CORE) {
+                cpu_ip = app->net.ips[i];
+            } else {
+                uint32 node = thread_meta[cpu_idx].numa_node;
+                for (uint8 j = 0; j < app->net.ip_count; j++) {
+                    if (app->net.ip_numa_nodes[j] == node) {
+                        cpu_ip = app->net.ips[j];
+                        break;
+                    }
+                }
+            }
+            uint8 *ip = (uint8 *)&cpu_ip;
+            kprint("APP: ");
+            kprint(app->name);
+            kprint(" cpu=");
+            kprint_dec(cpu_idx);
+            kprint(" ip=");
+            kprint_dec(ip[0]); putc('.');
+            kprint_dec(ip[1]); putc('.');
+            kprint_dec(ip[2]); putc('.');
+            kprint_dec(ip[3]);
+            putc('\n');
+        }
     }
 
     // Allocate user stacks and set entry addresses
