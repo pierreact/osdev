@@ -114,6 +114,7 @@ int virtio_pci_init_device(VirtioPCIDevice *vdev, const PCIDevice *pci) {
     // Enable bus mastering and MMIO access
     uint16 cmd = pci_config_read16(pci, 0x04);
     cmd |= PCI_COMMAND_BUS_MASTER | PCI_COMMAND_MMIO;
+    cmd &= ~(uint16)0x0400;   // clear INTERRUPT_DISABLE so device can raise INTx
     pci_config_write16(pci, 0x04, cmd);
 
     // Map BARs
@@ -268,4 +269,26 @@ int virtio_pci_set_driver_ok(VirtioPCIDevice *vdev) {
     ccfg_write8(vdev, VIRTIO_COMMON_STATUS, s | VIRTIO_STATUS_DRIVER_OK);
     barrier();
     return 0;
+}
+
+// Single-device INTx wiring. The asm ISR (vector 0x40) calls
+// virtio_net_isr_ack which reads this device's ISR-status byte.
+// Reading the byte is what deasserts the INTx line on legacy
+// virtio. Today we route only one device (the BSP mgmt NIC) to
+// vector 0x40 -- when a second consumer joins the same vector this
+// becomes a small list and the ack walks all of them.
+static VirtioPCIDevice *isr_target;
+
+void virtio_isr_register(VirtioPCIDevice *vdev) {
+    isr_target = vdev;
+}
+
+void virtio_net_isr_ack(void) {
+    if (isr_target && isr_target->isr_cfg) {
+        // Reading the ISR-status byte deasserts the INTx line on
+        // legacy virtio per the spec. The cast to volatile is
+        // redundant (the field already is) but defends against any
+        // compiler folding the read.
+        (void)*(volatile uint8 *)isr_target->isr_cfg;
+    }
 }

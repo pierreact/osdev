@@ -30,7 +30,7 @@ Your application runs as a single process spanning one or more machines in the c
 
 - One thread per core on APs. No context switching. Your thread owns the core entirely.
 - BSP (CPU 0) runs the kernel and multiple ring 3 management tasks (shell, user program coordinator, telnet, etc.) via cooperative multitasking. BSP tasks yield explicitly; this is not preemptive.
-- BSP handles all interrupts. Your thread is never interrupted. The only exception is a DSM page fault when accessing remote shared memory (see below).
+- BSP handles all interrupts. Your thread is never interrupted. On cluster deployments, the only exception is a DSM page fault when accessing remote shared memory (see below). Single-node deployments have no DSM and never take this fault.
 - All CPUs run at maximum frequency at all times. No frequency scaling, no deep sleep states. When work arrives, it is processed immediately; no wake-up or ramp-up latency.
 - Each thread polls its NIC directly (DPDK-style). No syscalls for network I/O. (Target architecture: today the poll goes through the thin `SYS_NIC_SEND` / `SYS_NIC_RECV` syscall passthrough; no kernel network logic sits in the data path. See `apps/dpdk_l2` for the current reference app. Future work replaces the syscall boundary with user-mapped virtio rings.)
 - Each thread polls its Storage directly (SPDK-style). No syscalls for disk I/O.
@@ -87,7 +87,9 @@ No other thread can read or write your private memory. This is enforced by hardw
 
 If your thread dies, its private memory is reclaimed. The thread is re-instantiated fresh; there is no resume from where it left off at this layer, it's your code that deals with it.
 
-### Shared memory
+### Shared memory (Cluster)
+
+Single-node deployments share data the standard way: per-thread placement, ownership and access patterns enforced by your code. The rest of this section applies only to cluster deployments where the address space spans machines.
 
 A single logical shared address space visible to all threads across all nodes. Each thread gets a pre-allocated slice of the shared region at boot.
 
@@ -158,6 +160,43 @@ All devices are accessed via polling from userspace. No interrupts, no syscalls.
 
 All buffers are allocated on your thread's NUMA node. Zero copy; data is not moved between buffers.
 
+### Network layer 3 (IPv4)
+
+IPv4 configuration is per-thread and lives in the INI manifest:
+
+```ini
+[app]
+name=dpdk_l3
+binary=/BIN/DPDK_L3
+cores=1,2,3
+ip=10.0.0.10
+mask=255.255.255.0
+gw=10.0.0.1
+mtu=1500
+forward=0
+```
+
+`forward=1` enables routing: frames addressed to a different IP are TTL-decremented and pushed to the next hop via ARP. `forward=0` drops them with an `ipv4_dropped` tick.
+
+The app retrieves its config from the kernel with `app_net_cfg(&cfg)` (no INI parsing in userland), initialises an `NetContext` with the IP fields populated, and dispatches ETH_TYPE_IPV4 frames to `ip_rx`. ICMP Echo Requests are answered automatically inside `ip_rx`; unknown protocols drop with a counter. A minimal AP main looks like:
+
+```c
+AppNetCfg cfg; app_net_cfg(&cfg);
+NetContext ctx;
+l2_init(&ctx, nic_backend_make(meta), meta, cfg.ip, POOL_PAGES, pool);
+ctx.mask = cfg.mask; ctx.gw = cfg.gw;
+ctx.mtu  = cfg.mtu ? cfg.mtu : 1500;
+ctx.forward = cfg.forward;
+
+while (poll) {
+    int rc = l2_poll(&ctx, &etype, &payload, &plen, 0);
+    if (rc == L2_OK && etype == ETH_TYPE_IPV4)
+        ip_rx(&ctx, payload, plen, 0);
+}
+```
+
+Per-thread state means no cross-core ARP table, no shared routing table, no locks. Each AP is its own tiny router.
+
 ## What Isurus does not provide
 
 - **No dynamic linking.** All binaries are statically linked.
@@ -197,7 +236,9 @@ If you need strong consistency for a specific operation, use sequence counters o
 
 Each shared page has exactly one writer, permanently. Readers that access a writer's pages frequently should be co-located (NUMA affinity) with that writer to minimize remote fetches.
 
-## Fault tolerance
+## Fault tolerance (Cluster)
+
+Multi-node fault tolerance is cluster-only. Single-node deployments rely on the host's standard process-supervision tools.
 
 ### Thread failure
 

@@ -40,15 +40,22 @@ Trade-off: wastes memory on small allocations. Acceptable for a kernel where mos
 
 ## Execution model
 
+This document describes both single-node and cluster deployments.
+Single-node-specific points are unmarked; cluster-specific
+subsections are prefixed `(Cluster)`. See README "Design doctrine"
+for the canonical mode definitions.
+
 - BSP (CPU 0) runs the kernel and multiple ring 3 management tasks via cooperative multitasking.
 - BSP tasks: shell (implemented), user program coordinator, telnet server, Prometheus exporter, heartbeat monitor, DSM coordinator (planned).
 - BSP cooperative multitasking: per-task struct, yield() syscall, round-robin scheduling. Non-preemptive. Tasks must yield explicitly.
 - APs (all other cores): each core runs one user thread in ring 3. No context switching. One thread per core, pinned at creation, never migrated.
-- BSP has 2 NICs:
-  - Inter-node NIC: dedicated for cluster communication between nodes (layer 2).
-  - Management NIC: full TCP/IP stack for SSH, telnet, and maintenance.
+- BSP NIC inventory:
+  - Management NIC: full TCP/IP stack for SSH, telnet, and maintenance. Required in both modes.
+  - Inter-node NIC `(Cluster)`: dedicated for cluster communication between nodes (layer 2). Single-node deployments do not use this NIC.
 - Ring 3 provides memory isolation. Threads cannot corrupt kernel memory or each other (see Thread memory isolation).
 - Device MMIO (NICs, storage controllers) is mapped into each thread's address space by the kernel via page tables. Threads access devices directly via polling without syscalls (see Device assignment).
+
+See `(Cluster)` sections below for the multi-node memory model and DSM architecture.
 
 ## Syscall interface
 
@@ -80,7 +87,7 @@ Devices (NICs, storage controllers) are assigned either per NUMA node or per cor
 
 This applies uniformly to NICs (DPDK) and storage controllers (SPDK, planned).
 
-BSP has 2 additional NICs (inter-node + management). These are separate from the application devices and are reserved as the first 2 NICs in PCI enumeration order (`BSP_NIC_COUNT = 2`). They are not part of the AP assignment pool.
+BSP has up to 2 additional NICs (management plus, in cluster mode, inter-node). These are separate from the application devices and are reserved as the first NICs in PCI enumeration order (`BSP_NIC_COUNT = 2`). They are not part of the AP assignment pool. Single-node deployments use only the management NIC; the inter-node NIC is `(Cluster)` only.
 
 ### NIC NUMA proximity discovery
 
@@ -115,6 +122,76 @@ The binary loader (`loader_exec` in `src/kernel/loader.c`) reads a flat binary f
 All devices are accessed via polling from userspace (ring 3). No interrupts. BSP handles all interrupts in the system. Device MMIO is mapped into the thread's address space by the kernel.
 
 DMA buffers, driver state, and the thread touching the data are all on the same NUMA node. Zero copy. No cross-node memory access for I/O.
+
+## Network stack
+
+The network stack is shared: one copy of the sources in `src/net/` compiles into both `kernel.bin` (via `src/Makefile`) and `apps/libc/libc.a` (via `apps/libc/Makefile`). Each build supplies its own `NetBackend` vtable (kernel: `nic_send/nic_recv`, AP: `SYS_NIC_SEND/SYS_NIC_RECV`) so the layers themselves have no kernel-vs-userland forks.
+
+### L2 layer
+
+`NetContext` owns a per-NIC Ethernet + ARP view: MAC, ARP table (32 entries), pre-allocated `PktBufPool` for zero-copy RX/TX, per-layer stats. `l2_poll` validates the Ethernet header, filters on destination MAC or broadcast, handles ARP internally (updating the table, sending replies for our IP), and hands non-ARP payloads back to the caller. `l2_send` / `l2_send_zc` build the header and push the frame through the backend.
+
+### L3 layer (IPv4)
+
+IPv4 rides directly on top of L2: the same `NetContext` carries the L3 configuration (`ip`, `mask`, `gw`, `mtu`, `forward`) and an `IpStats` block. There is no separate IpContext struct, because in this design there is exactly one IP per interface and per-core threads own their own L2+L3 state end to end.
+
+`ip_rx` in `src/net/ip.c` validates version / IHL=5 / total_len / fragment bits / checksum. If the destination is our IP, it dispatches by protocol (today: ICMP only, via `icmp_rx`). Otherwise, if `forward` is set and TTL > 1, it decrements TTL, recomputes the checksum, resolves the next hop via the on-link / default-gateway decision, and hands the frame back to L2. All other cases drop with a counter.
+
+`ip_send` builds a header with DF=1 (no fragmentation), picks the next hop the same way (on-link if `(dst & mask) == (ip & mask)` else `gw`), resolves via ARP, and delegates to `l2_send`. On ARP miss it emits an ARP request and returns -1 so the caller can retry later.
+
+ICMP in `src/net/icmp.c` handles Echo Request (auto-reply, copying the payload and flipping the type) and counts Echo Replies for use by `sys.net.ping`. All other ICMP types drop. Destination Unreachable / Time Exceeded / Frag Needed emission is deliberately deferred.
+
+Checksums are software-only (`ip_checksum` is a shared RFC 1071 one's-complement helper). The virtio-net driver negotiates no offload features.
+
+### BSP mgmt NIC vs. application-core apps
+
+The BSP management NIC (NIC 0) is initialised by `l2_kern_init` with hard-coded defaults matching the QEMU user netdev (`10.0.2.15/24`, gw `10.0.2.2`). The shell commands `sys.net.ping`, `sys.net.ip`, `sys.net.route`, and `sys.net.stats` drive it. `net_service_drain(ctx)` is called at the start of every `sys.net.*` handler and dispatches IPv4 frames to `ip_rx` inline.
+
+Application-core apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `NetContext`. Each core polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
+
+## Services
+
+`src/services/` is the pluggable services tree -- kernel modules that consume the network stack and respond passively on the BSP's behalf. Each service is a discrete module visible in the source layout (its own `.c` plus header under `src/include/services/`, or its own subdirectory once it grows). Today the directory holds the foundation only; telnet, Prometheus exporter, syslog receiver, etc. land here as siblings when they're built.
+
+### `net_service` -- the foundation
+
+The L3 milestone shipped a stack that only processed packets when a `sys.net.*` shell handler ran. Once we have telnet, a Prometheus exporter, ARP-passive responses, etc., that on-demand model breaks: passive responders cannot rely on the user typing between every packet. `net_service` is the BSP polling foundation that all of those services sit on.
+
+```mermaid
+flowchart LR
+    A[sys_wait_input<br/>hlt loop] -->|every wake| B[net_service_tick]
+    B --> C[net_service_drain<br/>per NetContext]
+    C --> D[l2_poll]
+    D -->|ARP| E[arp_process]
+    D -->|IPv4| F[ip_rx]
+    F -->|ICMP| G[icmp_rx]
+    F -->|future| H[future L4 listeners:<br/>telnet, Prometheus, ...]
+```
+
+`net_service_tick()` is wired into `sys_handle_wait_input`'s hlt loop, immediately after `app_check_completion()`. Each tick drains every BSP-owned `NetContext` (mgmt + inter-node) up to 16 frames per context. The per-frame existing dispatch (`l2_poll` -> `arp_process` / `ip_rx` -> `icmp_rx`) does the rest.
+
+There is no separate BSP task. The cooperative scheduler is single-task today, so a second task would only run when the first yields -- exactly what the hlt loop already gives us. Two tasks touching one `NetContext` would invent the concurrency exposure the project explicitly avoids.
+
+### Foundation invariants
+
+- **Cooperative serialization.** No locks; the foundation and shell handlers never run concurrently.
+- **No malloc.** Static stats struct; bounded drain budget.
+- **Non-reentrant.** `net_service_tick` is guarded against recursion via an `in_tick` flag.
+- **Bounded per-tick work.** 16 frames per NIC per tick caps per-tick CPU spend under flood.
+
+### Pluggable layout
+
+```mermaid
+flowchart TD
+    S[src/services/]
+    S --> R[README.md]
+    S --> N[net_service.c]
+    S -.future.-> L[listener.c<br/>port -> handler table]
+    S -.future.-> T[telnet/]
+    S -.future.-> P[prometheus/]
+```
+
+When the first L4 consumer arrives (telnet, Prometheus exporter, or the first UDP service), a shared `(proto, port) -> handler` table will land alongside `net_service` and be looked up inside `udp_rx` / `tcp_rx`. No code ships before that consumer; the shape is documented in `src/services/README.md`.
 
 ## ACPI
 
@@ -192,7 +269,7 @@ A read-only page at a fixed virtual address, mapped into every thread's page tab
 
 The map is static by design. It reflects initial placement and is intentionally not updated on failover. After a node failure, the map may be stale (a tier 1 slice may now be tier 3 because the writer was rescheduled elsewhere). This is a deliberate trade-off: updating the map would require synchronizing all threads cluster-wide, adding complexity to an already degraded state. Correctness is preserved (addresses still work), only performance degrades. See Thread re-instantiation for details.
 
-## Shared memory and DSM
+## (Cluster) Shared memory and DSM
 
 ### Local shared memory
 
@@ -221,7 +298,7 @@ Why this is different from historical DSM systems (Treadmarks, Munin, Ivy):
 
 Mitigation: align each thread's shared slice to page boundaries so a single page is never split across two writers' slices.
 
-## Coherence protocol
+## (Cluster) Coherence protocol
 
 Single-writer / multiple-reader. Ownership is permanent; each shared slice belongs to the thread that created it and never changes.
 
@@ -236,7 +313,7 @@ BSP tracks which nodes hold cached copies of which pages. Invalidation is coordi
 
 Another option would be to directly send the invalidated page to replace. This should be proposed as an option.
 
-## Page replication for fault tolerance
+## (Cluster) Page replication for fault tolerance
 
 All shared pages are replicated to a backup node on a different physical machine. Private thread memory is not replicated (thread is re-instantiated fresh on failure).
 

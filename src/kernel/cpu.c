@@ -54,6 +54,21 @@ _Static_assert(sizeof(APWork) == APWORK_SIZE,
     "APWork size mismatch: update APWORK_SIZE and ap_trampoline.asm");
 
 uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg) {
+    if (ap_dispatch_async(cpu_idx, fn, arg) == (uint64)-1)
+        return (uint64)-1;
+
+    APWork *w = &ap_work[cpu_idx];
+    while (!w->done) {
+        __asm__ volatile("pause" ::: "memory");
+    }
+
+    return w->result;
+}
+
+// Fire-and-forget: signal the AP and return immediately. The caller is
+// responsible for polling ap_work_done() (or ap_dispatch_wait()) later.
+// Used by app_launch to run N app cores in parallel.
+uint64 ap_dispatch_async(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg) {
     if (cpu_idx == 0 || cpu_idx >= cpu_count) return (uint64)-1;
     if (!percpu[cpu_idx].running) return (uint64)-1;
 
@@ -63,16 +78,14 @@ uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg) {
     w->result = 0;
     w->done = 0;
 
-    // Memory barrier before signaling ready
     __asm__ volatile("" ::: "memory");
     w->ready = 1;
+    return 0;
+}
 
-    // Poll for completion
-    while (!w->done) {
-        __asm__ volatile("pause" ::: "memory");
-    }
-
-    return w->result;
+int ap_work_done(uint32 cpu_idx) {
+    if (cpu_idx >= cpu_count) return 0;
+    return ap_work[cpu_idx].done ? 1 : 0;
 }
 
 void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg) {

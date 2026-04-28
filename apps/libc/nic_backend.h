@@ -14,7 +14,7 @@
 #include <net/l2.h>
 
 // Build a NetBackend that drives the per-core NIC. The returned
-// backend captures meta by pointer; meta must outlive the L2Context
+// backend captures meta by pointer; meta must outlive the NetContext
 // (the kernel-provided ThreadMeta pointer passed to _start is valid
 // for the lifetime of the thread).
 NetBackend nic_backend_make(const ThreadMeta *meta);

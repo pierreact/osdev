@@ -21,6 +21,27 @@ exec > >(tee "$TEST_LOG") 2>&1
 echo "Building..."
 scripts/compile.sh
 
+# Build-artifact verification items from the L3 plan (verify after build,
+# before boot, so failures are obvious and fast).
+PASS=0
+FAIL=0
+build_check() {
+    local desc="$1"
+    if [ "$2" = "ok" ]; then
+        echo "  PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "  FAIL: $desc"
+        FAIL=$((FAIL + 1))
+    fi
+}
+ip_syms=$(nm apps/libc/libc.a 2>/dev/null | grep -c ' T ip_' || true)
+if [ "$ip_syms" -gt 0 ]; then build_check "libc.a contains ip_ symbols ($ip_syms)" ok
+else                          build_check "libc.a contains ip_ symbols" no; fi
+mk_hits=$(grep -c 'net_ip.o\|net_icmp.o' apps/libc/Makefile || true)
+if [ "$mk_hits" -ge 2 ]; then build_check "apps/libc/Makefile builds net_ip.o + net_icmp.o" ok
+else                          build_check "apps/libc/Makefile builds net_ip.o + net_icmp.o ($mk_hits hit)" no; fi
+
 KEEPALIVE_PID=""
 
 cleanup() {
@@ -128,8 +149,8 @@ send_cmd() {
 echo "Waiting for boot..."
 sleep 12
 
-PASS=0
-FAIL=0
+# PASS/FAIL counters initialized earlier (before QEMU boot, alongside the
+# build-artifact checks). Do not reset here.
 
 check() {
     local desc="$1"
@@ -172,9 +193,13 @@ check "NUMA node(s)" "NUMA node(s):"
 # Test: DPDK L2 reflector (apps/dpdk_l2) - per-core polled L2 app on APs.
 # Run early, before the known-flaky shell tests below. Needs ~1 s per
 # core (MAX_ITERATIONS) * 3 cores plus dispatch overhead.
-send_cmd "sys.proc.run /CONF/DPDK_L2.INI" 8
-check "DPDK L2 app ready on AP"   "\[dpdk_l2\] cpu=1 nic=.* ready"
+send_cmd "sys.proc.run /CONF/DPDK_L2.INI" 15
+# Parallel app_launch interleaves serial output from cores 1/2/3, so
+# grep for the core-count banner + rx counters on any core. Each core
+# emits its own "cpu=N ... rx=" line after MAX_ITERATIONS.
+check "DPDK L2 app ready on AP"   "APP: dispatching cores:"
 check "DPDK L2 app stats printed" "\[dpdk_l2\] cpu=.* rx="
+check "DPDK L2 app finished"      "APP: dpdk_l2 finished"
 
 # Test: sys.mem.free
 send_cmd "sys.mem.free"
@@ -242,7 +267,7 @@ check "PCI IDs loaded from ISO" "PCI-IDS:"
 
 # Test: Demo app
 send_cmd "sys.proc.run /CONF/DEMO_APP.INI" 5
-check "Demo app ran" "finished"
+check "Demo app ran"      "APP: demo_app finished"
 check "Demo app NIC info" "MAC"
 
 # Test: Data directory on ISO
@@ -359,6 +384,84 @@ send_cmd "sys.net.stats"
 send_cmd "sys.net.arp"
 check "L2 ARP reply sent" "arp_reply: [1-9]"
 check "Host in ARP table" "10.0.2.2"
+
+# ============================================================================
+# L3 tests: IPv4 + ICMP Echo on the kernel mgmt NIC and the DPDK L3 AP app
+# ============================================================================
+
+# sys.net.ip shows the BSP mgmt config parsed from l2_kern defaults.
+send_cmd "sys.net.ip"
+check "L3 IP shown"       "10.0.2.15"
+check "L3 gateway shown"  "10.0.2.2"
+
+# sys.net.route shows default gw entry.
+send_cmd "sys.net.route"
+check "L3 default route"  "via 10.0.2.2"
+
+# Guest -> host ping via shell: the tap0 host side (10.0.2.2) is a Linux
+# stack that replies to ICMP, so sys.net.ping exercises ip_send +
+# icmp_send_echo + icmp_rx on the echo reply.
+send_cmd "sys.net.ping 10.0.2.2" 4
+check "Shell ping reply"  "Reply from 10.0.2.2"
+
+# After the ping round-trip, IP + ICMP stats should have ticked.
+send_cmd "sys.net.stats"
+check "IPv4 TX ticked"      "ipv4_tx:       [1-9]"
+check "IPv4 RX ticked"      "ipv4_rx:       [1-9]"
+check "ICMP echo RX ticked" "icmp_echo_rx:  [1-9]"
+check "ICMP echo TX ticked" "icmp_echo_tx:  [1-9]"
+
+# Host -> guest ping (verification item 4 from the L3 plan, now
+# served by the BSP net_service foundation): host pings 10.0.2.15
+# while the guest sits at the idle prompt. No drain loop, no shell
+# activity -- the kernel's sys_wait_input hlt loop ticks net_service,
+# which drains the mgmt NIC and lets ARP + ICMP through passively.
+HOST_PING_LOG="logs/host_ping.txt"
+: > "$HOST_PING_LOG"
+
+# Prime the host's ARP cache. The first ARP request is answered by
+# the foundation; without arping first, host ping has to wait for
+# its own ARP timeout before the first echo goes out.
+sudo arping -c 2 -I tap0 -w 4 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
+
+# Passive ping. No background drain. The kernel handles it from
+# sys_wait_input alone.
+sudo ping -c 3 -W 2 10.0.2.15 >> "$HOST_PING_LOG" 2>&1 || true
+
+echo "  [host ping log saved to $HOST_PING_LOG]"
+
+if grep -q "bytes from 10.0.2.15" "$HOST_PING_LOG"; then
+    echo "  PASS: Passive host -> guest ping reply (no drain hack)"
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL: Passive host -> guest ping reply (expected: bytes from 10.0.2.15 in $HOST_PING_LOG)"
+    FAIL=$((FAIL + 1))
+fi
+
+# net_service stats: the foundation must have ticked and processed
+# frames during the passive ping above.
+send_cmd "sys.net.stats"
+check "net_service ticked"        "ticks:         [1-9]"
+check "net_service drained frames" "frames:        [1-9]"
+# Batch-cap regression sentinel: max/tick must stay <= 16.
+if grep -E "max/tick:      ([0-9]|1[0-6])$" "$SERIAL_LOG" >/dev/null; then
+    echo "  PASS: net_service batch cap respected (<=16)"
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL: net_service batch cap exceeded"
+    FAIL=$((FAIL + 1))
+fi
+
+# DPDK L3 app: parse manifest, bring up per-core IP ctx, print ready.
+send_cmd "sys.proc.run /CONF/DPDK_L3.INI" 20
+# Parallel dispatch: per-core serial output interleaves, so rely on
+# BSP-serialized lines (load banner, manifest IP, reap).
+check "DPDK L3 app dispatched"  "APP: dispatching cores:"
+check "DPDK L3 app IPs parsed"   "APP: dpdk_l3 ip_mode=per-core ips=10.0.0.10,10.0.0.11,10.0.0.12"
+check "DPDK L3 app cpu=1 -> .10" "APP: dpdk_l3 cpu=1 ip=10.0.0.10"
+check "DPDK L3 app cpu=2 -> .11" "APP: dpdk_l3 cpu=2 ip=10.0.0.11"
+check "DPDK L3 app cpu=3 -> .12" "APP: dpdk_l3 cpu=3 ip=10.0.0.12"
+check "DPDK L3 app finished"    "APP: dpdk_l3 finished"
 
 SERIAL_LOG="$SERIAL_LOG_BACKUP"
 

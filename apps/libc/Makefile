@@ -29,7 +29,7 @@ LIBC_OBJS= stdio.o string.o nic_backend.o pktrace_adapter.o
 
 # Shared net objects compiled from ../../src/net/ into local .o files
 # (with net_ prefix to avoid clashing with kernel's own net/ objects)
-NET_OBJS= net_eth.o net_arp.o net_l2.o net_pktbuf.o net_pktrace.o
+NET_OBJS= net_eth.o net_arp.o net_l2.o net_ip.o net_icmp.o net_pktbuf.o net_pktrace.o
 
 OBJECTS= $(LIBC_OBJS) $(NET_OBJS)
 
@@ -52,6 +52,12 @@ net_arp.o:     ../../src/net/arp.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 net_l2.o:      ../../src/net/l2.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+net_ip.o:      ../../src/net/ip.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+net_icmp.o:    ../../src/net/icmp.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 net_pktbuf.o:  ../../src/net/pktbuf.c

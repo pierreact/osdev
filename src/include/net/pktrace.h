@@ -17,8 +17,15 @@ enum {
     PKT_L2_SEND_BUILT,      // Ethernet header constructed
     PKT_NIC_TX,             // frame handed to virtqueue
     PKT_NIC_TX_DONE,        // virtqueue TX completion
-    // Future: PKT_IP_PARSE, PKT_UDP_PARSE, PKT_TCP_PARSE,
-    //         PKT_APP_RECV, PKT_APP_SEND, PKT_FORWARD, etc.
+    // L3 layer
+    PKT_IP_PARSE,           // IPv4 header accepted (version, IHL, checksum)
+    PKT_IP_DELIVER,         // destination = us, handed to protocol handler
+    PKT_IP_FORWARD,         // destination != us, TTL decremented, forwarded
+    PKT_ICMP_ECHO_RX,       // ICMP Echo Request received
+    PKT_ICMP_ECHO_TX,       // ICMP Echo Reply sent
+    // Services
+    PKT_NET_SERVICE_TICK,   // BSP net_service drained one or more frames
+    // Future: PKT_UDP_PARSE, PKT_TCP_PARSE, PKT_APP_RECV, PKT_APP_SEND
     PKT_POINT_COUNT
 };
 

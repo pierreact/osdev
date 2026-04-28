@@ -30,7 +30,7 @@ static uint8 pool_memory[POOL_PAGES * 4096];
 // Forward declaration so _start can be first in source order. Flat
 // binary entry is offset 0 of .text; gcc emits functions in source
 // order, so _start must come first.
-static void print_stats(uint32 cpu, const L2Context *ctx,
+static void print_stats(uint32 cpu, const NetContext *ctx,
                         uint64 cyc_min, uint64 cyc_max,
                         uint64 cyc_sum, uint64 samples);
 
@@ -46,7 +46,7 @@ void _start(ThreadMeta *meta) {
         exit();
     }
 
-    L2Context ctx;
+    NetContext ctx;
     NetBackend be = nic_backend_make(meta);
     memset(pool_memory, 0, sizeof(pool_memory));
     l2_init(&ctx, be, (void *)meta, 0 /* no IP at L2 */,
@@ -105,11 +105,11 @@ void _start(ThreadMeta *meta) {
     exit();
 }
 
-static void print_stats(uint32 cpu, const L2Context *ctx,
+static void print_stats(uint32 cpu, const NetContext *ctx,
                         uint64 cyc_min, uint64 cyc_max,
                         uint64 cyc_sum, uint64 samples) {
     L2Stats st;
-    l2_get_stats((L2Context *)ctx, &st);
+    l2_get_stats((NetContext *)ctx, &st);
     puts("[dpdk_l2] cpu="); print_dec(cpu);
     puts(" rx=");  print_dec(st.rx_frames);
     puts(" tx=");  print_dec(st.tx_frames);

@@ -34,6 +34,79 @@ The common thread: the OS gets in the way.
 
 This is not a general-purpose OS. Not Linux. Not for running Docker containers, web servers, or desktop applications. There is no POSIX and no dynamic linking.
 
+## Hardware model
+
+```mermaid
+flowchart TB
+    subgraph N0["NUMA node 0"]
+        direction LR
+        DRAM0["DRAM<br/>(local)"]
+        subgraph S0["Socket 0"]
+            direction TB
+            BSP["CPU 0 -- BSP<br/>kernel + shell + IRQs"]
+            AP1["CPU 1 -- AP<br/>pinned ring-3 thread"]
+            AP2["CPU 2 -- AP<br/>pinned ring-3 thread"]
+        end
+        PCIe0["PCIe root 0"]
+        NIC0["NIC 0"]
+
+        DRAM0 --- S0
+        BSP --- PCIe0
+        AP1 --- PCIe0
+        AP2 --- PCIe0
+        PCIe0 --- NIC0
+    end
+    subgraph N1["NUMA node 1"]
+        direction LR
+        DRAM1["DRAM<br/>(local)"]
+        subgraph S1["Socket 1"]
+            direction TB
+            AP3["CPU 3 -- AP<br/>pinned ring-3 thread"]
+            AP4["CPU 4 -- AP<br/>pinned ring-3 thread"]
+            AP5["CPU 5 -- AP<br/>pinned ring-3 thread"]
+        end
+        PCIe1["PCIe root 1"]
+        NIC1["NIC 1"]
+
+        DRAM1 --- S1
+        AP3 --- PCIe1
+        AP4 --- PCIe1
+        AP5 --- PCIe1
+        PCIe1 --- NIC1
+    end
+    N0 -. "cross-NUMA -- higher latency" .- N1
+```
+
+Each socket sits between its local DRAM and its local PCIe root.
+The PCIe root is the gateway between the cores and external devices;
+the NIC sits one hop past the root, on the device side. Every core
+in a socket reads and writes its local DRAM and drives the local
+NIC through the local PCIe root. The dashed link between sockets is
+the only path to cross-NUMA memory or to a remote socket's NIC, and
+it pays the higher latency.
+
+**CPU 0 (the BSP) is the only core that runs the kernel, the shell,
+and handles interrupts -- it is also the only core that ever sees a
+syscall.** Every other core is an AP: exactly one pinned ring-3
+thread for its lifetime, no scheduling, no migration, no context
+switching, no kernel-mode work in the data path. Placement is the
+only scheduling decision.
+
+A single process spans multiple cores -- one thread per AP -- and
+in cluster mode spans multiple cores across multiple machines. Each
+thread reaches its memory and its NIC on its own locality: local
+DRAM through the on-die memory controller, local NIC through the
+local PCIe root. No cross-NUMA hop, no network round-trip, no
+syscall, no scheduler latency between the thread and the hardware
+it owns. That is the floor on which everything else is built.
+
+(Two sockets and three cores per socket above is illustrative; the
+model scales to N sockets and N cores per socket.) See
+[docs/research/overview.md section 7](docs/research/overview.md)
+for the execution model and
+[docs/developer/architecture.md](docs/developer/architecture.md)
+for the implementation.
+
 ## Design doctrine
 
 The kernel is meant to be **as small and basic as possible**, retaining maximum performance and minimum latency, yet with a very optimized design for the targeted tasks. Everything in the system is shaped around one principle: **eliminate categories of bug by construction rather than detect them at runtime.**

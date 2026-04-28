@@ -1,9 +1,11 @@
 #include <net/nic.h>
 #include <drivers/pci.h>
+#include <net/virtio.h>
 #include <net/virtio_net.h>
 #include <drivers/monitor.h>
 #include <kernel/cpu.h>
 #include <arch/acpi.h>
+#include <arch/apic.h>
 
 static NICSlot nics[MAX_NICS];
 static uint32 nic_count = 0;
@@ -256,4 +258,44 @@ void nic_assign(void) {
             }
         }
     }
+}
+
+int nic_enable_intx(uint32 idx, uint8 vector) {
+    if (idx >= MAX_NICS || !nics[idx].active) return -1;
+
+    VirtioNetDevice *vnet = (VirtioNetDevice *)nics[idx].dev;
+    if (!vnet) return -1;
+    const PCIDevice *pci = vnet->vdev.pci;
+    if (!pci) return -1;
+
+    uint8 gsi = pci_find_gsi(pci);
+    if (gsi == 0xFF) {
+        kprint("NIC: slot ");
+        kprint_dec(idx);
+        kprint(" no INTx GSI available (pin=0 or unrouted)\n");
+        return -1;
+    }
+
+    // Register this virtio device for the asm ISR's ack path. Today
+    // we route only the mgmt NIC (slot 0) so a single registration
+    // is fine. When a second consumer joins, this becomes a list.
+    virtio_isr_register(&vnet->vdev);
+
+    // Route the GSI: PCI INTx is conventionally active-low,
+    // level-triggered. ISO flags 0xA = polarity 0b10 (active-low) +
+    // trigger 0b10 (level). Documented in
+    // ai.rules / wakelat plan: real hardware MAY indicate different
+    // flags via MADT ISO entries; today we hardcode the PCI
+    // convention which matches QEMU.
+    ioapic_route_irq(gsi, vector, lapic_bsp_id(), 0xA);
+
+    kprint("NIC: slot ");
+    kprint_dec(idx);
+    kprint(" INTx GSI ");
+    kprint_dec(gsi);
+    kprint(" -> vector 0x");
+    if (vector >= 0x10) putc("0123456789ABCDEF"[vector >> 4]);
+    putc("0123456789ABCDEF"[vector & 0xF]);
+    kprint("\n");
+    return 0;
 }

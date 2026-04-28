@@ -1,5 +1,155 @@
 # Changelog
 
+## [2026-04-25] - Wake-up-latency infrastructure (PIT + virtio-net INTx)
+
+### Context
+
+Host -> guest ICMP under `compile_qemu.sh` showed 2-10 ms RTT with
+high jitter. tcpdump on tap0 with `-ttt` confirmed the latency was
+entirely in the guest reply path; tap0 itself adds <50 us. Two root
+causes: (1) the kernel never reprograms the PIT, so it ran at QEMU's
+default ~100 Hz (10 ms wake granularity); (2) no virtio-net IRQ was
+delivered, so the only thing waking the BSP between commands was the
+timer.
+
+### Added
+
+- `pit_init_periodic(uint32 hz)` in `src/arch/apic.c` (declared in
+  `src/include/arch/apic.h`). Channel 0, mode 3, divisor =
+  1193182/hz. Bounded to [50, 10000] Hz. NOT called from boot today
+  -- on QEMU q35 with HPET in legacy-replacement mode (the default),
+  HPET owns IRQ0 and the PIT writes are no-op. The helper is kept as
+  the LAPIC-timer migration anchor and for bare-metal use where HPET
+  legacy mode can be disabled.
+- `lapic_bsp_id()` getter in `src/arch/apic.c`.
+- `ioapic_route_irq` made non-static (declared in apic.h) so the net
+  stack can unmask GSIs after PCI device init.
+- `IRQ_VIRTIO_NET = 0x40` define in apic.h.
+- `irq_pin` field on `PCIDevice` (PCI config 0x3D) plus
+  `pci_find_gsi()` helper. The helper trusts PCI config 0x3C as the
+  resolved GSI, which works on QEMU q35 (firmware writes the actual
+  GSI). Real-hardware compatibility note in the helper's comment:
+  bare metal needs `_PRT` parsing; that lands as a future milestone
+  per the `Real-hardware compatibility check` doctrine in
+  `ai.rules`.
+- `nic_enable_intx(idx, vector)` in `src/net/nic.c`: looks up the
+  NIC slot's PCI device, finds its GSI, registers the underlying
+  virtio device for ISR ack via `virtio_isr_register`, and unmasks
+  the IOAPIC entry with PCI INTx convention flags
+  (level-triggered, active-low). Called from `l2_kern_init` for the
+  mgmt NIC.
+- `virtio_isr_register` / `virtio_net_isr_ack` in `src/net/virtio.c`:
+  the asm ISR calls the ack fn, which reads the device's ISR-status
+  byte to deassert INTx (legacy virtio convention).
+- IDT slot 0x40 + `asm64_isr_virtio_net_handler` in
+  `src/boot/asm64/asm64_setup_idt.inc`. Body: save GPRs, call
+  `virtio_net_isr_ack`, bump `net_service_isr_count`, send LAPIC
+  EOI, restore, iretq. Drain happens later in
+  `net_service_tick` from `sys_wait_input`.
+- `net_service_isr_count` (volatile uint64) bumped by the ISR;
+  exposed in `sys.net.stats` via `NetServiceStats.isr_count` so we
+  can observe whether IRQs are actually delivered.
+- PCI `INTERRUPT_DISABLE` bit cleared in `virtio_pci_init_device`.
+
+### QEMU result and real-hardware angle
+
+**Latency reduction in QEMU: zero.** `isr_count` stays 0 across runs.
+On QEMU q35 with `pxb-pcie` + `pcie-root-port`, virtio-net does not
+deliver INTx; the PCIe path is MSI-X. The full INTx infrastructure
+landed and is exercised at boot (banner: `NIC: slot 0 INTx GSI 10 ->
+vector 0x40`), but no interrupts arrive. This was anticipated as a
+risk in the `Real-hardware compatibility (Phase B)` plan section:
+"PCIe-native devices may not raise INTx on some real boards ... For
+real bare-metal we may need MSI-X support." That was stated for real
+hardware and turns out also to be the QEMU-q35 behaviour.
+
+This commit ships the **plumbing** (PCI INTx pin parse, GSI lookup,
+IDT slot, ISR shape, IOAPIC public route, INTERRUPT_DISABLE bit,
+ISR-ack registration). Most of it is reusable for the eventual MSI-X
+support; the ISR shape and `isr_count` regression sentinel come over
+unchanged. **No latency win is claimed for QEMU.** When MSI-X lands,
+expect sub-millisecond passive ping latency without further changes
+to the foundation.
+
+### Real-hardware compatibility (per `ai.rules`)
+
+- **PIT @ 1000 Hz**: would work on bare metal with HPET legacy mode
+  off. Not called today; needs `hpet_disable_legacy_mode()` (future)
+  before invocation. LAPIC timer is the better long-term answer.
+- **PCI 0x3C as GSI**: QEMU writes the resolved GSI. Real hardware
+  often writes 0xFF; the OS must walk `_PRT` (extend
+  `src/arch/aml.c`). Tagged in the `pci_find_gsi` comment so the
+  bare-metal bring-up grep can find it.
+- **PCI INTx polarity flags**: hardcoded to active-low / level
+  (PCI convention). Real boards may report different polarity via
+  MADT ISO entries; revisit when bare-metal data is available.
+- **MSI-X**: required for real bare-metal PCIe devices and for
+  QEMU q35 pcie-root-port. Followup milestone; the current INTx
+  shape provides the IDT slot, ISR pattern, and stats counter that
+  MSI-X will reuse.
+
+### ai.rules
+
+Added a permanent doctrine line at the top of `ai.rules`:
+"Real-hardware compatibility check" -- every plan and every
+implementation must explicitly assess QEMU vs bare-metal behaviour
+and call out the bare-metal mitigation. Saved to project memory so
+future sessions inherit the rule.
+
+## [2026-04-25] - BSP net_service foundation (passive packet servicing)
+
+### Added
+- New top-level `src/services/` tree: pluggable BSP services consuming the network stack. First and only inhabitant today is the foundation itself; future telnet daemon / Prometheus exporter / syslog receiver land here as siblings.
+- `src/services/net_service.{c,h}`: BSP cooperative polling foundation. `net_service_tick()` drains every BSP-owned `L2Context` (mgmt + inter-node) up to 16 frames per context per tick. `net_service_drain(ctx)` is the public single-context drain that replaces the old `static drain_mgmt_nic` in `shell_net.c`. `NetServiceStats` (`ticks`, `frames_processed`, `frames_per_tick_max`, `ticks_with_zero_frames`) lives kernel-wide in net_service.c.
+- Hook into `sys_handle_wait_input`'s hlt loop alongside `app_check_completion()`. The shell task's idle is the foundation's heartbeat; no new BSP task slot. Cooperative single-writer-per-`L2Context` invariant preserved.
+- `net_service_init` called from `kmain.s` boot sequence after `l2_kern_init`.
+- `src/services/README.md`: foundation contract, invariants, call-chain Mermaid diagram, future port -> handler shape sketch.
+- `docs/developer/architecture.md` "Services" subsection with Mermaid call-chain and directory-layout diagrams. Mermaid renders natively on GitHub.
+- pktrace point `PKT_NET_SERVICE_TICK` reserved for future per-tick traces (not stamped today; the existing per-frame stamps in `l2_poll` / `ip_rx` cover the work).
+
+### Changed
+- `shell_net.c`: deleted the static `drain_mgmt_nic`; the five call sites (`cmd_net_arp`, `cmd_net_stats`, plus the open-coded poll loops in `cmd_net_arping` / `cmd_net_ping`) now call `net_service_drain`.
+- `sys.net.stats` extended with the `net_service` block (ticks, frames, max/tick, idle ticks).
+- `compile_qemu.sh` (already on tap0 from the previous commit) now Just Works for host -> guest ping; no need to type sys.net.* in the guest. ARP and ICMP echo are answered passively.
+- Tests: dropped the 1 Hz background-drain hack from the host -> guest ping phase. Replaced with a passive `ping -c 3 10.0.2.15` while the guest sits at the idle prompt; expects 0% loss. Added `net_service_ticks > 0`, `net_service_frames > 0`, and `frames_per_tick_max <= 16` (batch-cap regression sentinel) assertions. 52 -> 55 green.
+
+### Out of scope (deferred, named for visibility)
+- L4 port -> handler dispatch table (lands with first consumer: telnet, first UDP service, or Prometheus exporter).
+- ARP table aging / TTL eviction; ARP probe (RFC 5227) handling; gratuitous ARP emission.
+- ICMP error emission (Time Exceeded on TTL=0 forward, Destination Unreachable, Frag Needed).
+- Promotion to a standalone BSP task slot. Revisit only if a long shell handler creates an unacceptable starvation gap; mitigation is to call `net_service_tick()` at the offender's loop boundary first.
+
+## [2026-04-24] - Parallel app_launch
+
+### Added
+- ap_dispatch_async() + ap_work_done() in src/kernel/cpu.c: fire-and-forget AP dispatch so multiple cores can run ring 3 simultaneously. ap_dispatch stays as the blocking wrapper.
+- app_check_completion() now scans active app slots, updates cores_done, and reaps the slot (clears core_to_app, releases nic_locked, prints "APP: <name> finished") once all cores have returned. Called from sys_wait_input's idle path so the shell reaps while waiting for input.
+- app_launch prints a one-line BSP-serialized banner "APP: <name> ip=..." when the manifest carries an IP, so tests/users see a clean config line that does not get interleaved with per-core ready banners.
+
+### Changed
+- app_launch: sequential "dispatch + block for each core" replaced with async dispatch of all cores in parallel. The call returns as soon as every AP has been signalled; the slot stays active=1 until app_check_completion reaps it. dpdk_l2 with cores 1/2/3 now runs ~3x faster wall-clock.
+- sys_handle_task_exit, sys_handle_nic_send, sys_handle_nic_recv, sys_handle_app_net_cfg: replaced "scan percpu for first in_usermode=1" with get_current_cpu(). The old pattern assumed one AP in ring 3 at a time; with parallel apps, multiple APs are in_usermode simultaneously and the wrong one got reaped on TASK_EXIT.
+- Tests: serial output from concurrent cores interleaves at byte granularity; per-core line checks replaced with BSP-serialized banners (APP: dispatching cores:, APP: <name> ip=..., APP: <name> finished). Test waits bumped to account for wall-clock ~= max-core time under parallel share of host CPU. 47 -> 49 green.
+
+## [2026-04-21] - IPv4 + ICMP Echo (OSI Layer 3)
+
+### Added
+- src/net/ip.c + src/include/net/ip.h: shared IPv4 parse/build/checksum/TTL/forward-or-deliver. RFC 1071 one's-complement checksum. Drops fragments (MF/offset) and IHL != 5. Same source compiles into both kernel.bin and libc.a.
+- src/net/icmp.c + src/include/net/icmp.h: ICMP Echo Request handling (auto-reply), Echo Request emission for sys.net.ping. Unsupported types drop with counters.
+- net/l2.h: IpStats (ipv4_rx/tx, dropped, oversize, ttl_expired, forwarded, icmp_echo_rx/tx) + mask/gw/mtu/forward fields on L2Context. L3 rides directly on L2 so both live in the per-NIC context.
+- pktrace: 5 new points PKT_IP_PARSE, PKT_IP_DELIVER, PKT_IP_FORWARD, PKT_ICMP_ECHO_RX, PKT_ICMP_ECHO_TX.
+- Kernel mgmt NIC L3 config: l2_kern_init seeds 10.0.2.15 / 255.255.255.0 / gw 10.0.2.2 / mtu 1500 matching the QEMU user netdev defaults.
+- Shell commands sys.net.ping <ip>, sys.net.ip, sys.net.route. sys.net.stats extended with IpStats block.
+- apps/dpdk_l3: per-AP L3 demo. Reads ip/mask/gw/mtu/forward from its INI manifest via the new SYS_APP_NET_CFG syscall, initialises an L2Context with L3 fields, dispatches ETH_TYPE_IPV4 frames to ip_rx. Bounded with MAX_ITERATIONS like dpdk_l2.
+- SYS_APP_NET_CFG (syscall 31) + libc wrapper app_net_cfg(): lets an app core retrieve its kernel-parsed manifest-supplied L3 config.
+- conf/dpdk_l3.ini manifest (cores=1,2,3, ip=10.0.0.10/24, gw=10.0.0.1, forward=0).
+- Tests: 10 new L3 cases (sys.net.ip, sys.net.route, sys.net.ping 10.0.2.2 round-trip, IP + ICMP stats tick, DPDK L3 app per-core ready banner + IP print). 47/47 green.
+
+### Changed
+- src/kernel/app.c: manifest_handler rewritten from first-char to full-string key matching (tiny local kstreq since libc isn't linked into the kernel). Old scheme would have collided on mask vs mtu.
+- AppManifest / AppSlot (src/include/kernel/app.h): carry AppNetConfig (ip/mask/gw/mtu/forward) parsed from INI.
+- apps/libc/Makefile: build shared net_ip.o and net_icmp.o from src/net into libc.a alongside the other shared net sources.
+
 ## [2026-04-21] - DPDK L2 reflector demo app
 
 ### Added

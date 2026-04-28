@@ -7,6 +7,7 @@
 #include <arch/acpi.h>
 #include <fs/vfs.h>
 #include <drivers/monitor.h>
+#include <net/nic.h>
 
 AppSlot app_table[MAX_APPS];
 uint8   core_to_app[16];   // MAX_CPUS, 0xFF = free
@@ -18,22 +19,65 @@ void app_init(void) {
         core_to_app[i] = 0xFF;
 }
 
-// INI parse callback: populate AppManifest
+// Tiny local strcmp - kernel does not link libc.
+static int kstreq(const char *a, const char *b) {
+    while (*a && *b) {
+        if (*a != *b) return 0;
+        a++; b++;
+    }
+    return *a == *b;
+}
+
+// Parse "10.0.2.15" in network byte order (first octet at MSB of
+// the memory representation after htonl-equivalent byte swap).
+// Stored byte-reversed from the `a << 24 | b << 16 | c << 8 | d`
+// visual representation so the on-wire layout is correct.
+// Returns 0 if the string is not a valid dotted quad.
+static uint32 kparse_ipv4_ne(const char *s) {
+    uint32 octets[4] = {0, 0, 0, 0};
+    int idx = 0;
+    while (*s && idx < 4) {
+        if (*s >= '0' && *s <= '9') {
+            octets[idx] = octets[idx] * 10 + (*s - '0');
+            if (octets[idx] > 255) return 0;
+        } else if (*s == '.') {
+            idx++;
+        } else {
+            return 0;
+        }
+        s++;
+    }
+    if (idx != 3) return 0;
+    // Pack in network byte order: octets[0] is at byte 0 of the
+    // uint32 when viewed as LE memory.
+    return (octets[3] << 24) | (octets[2] << 16)
+         | (octets[1] << 8)  |  octets[0];
+}
+
+static uint32 kparse_u32(const char *s) {
+    uint32 n = 0;
+    while (*s >= '0' && *s <= '9') {
+        n = n * 10 + (*s - '0');
+        s++;
+    }
+    return n;
+}
+
+// INI parse callback: populate AppManifest. Full-key matching
+// (strcmp) so L3 fields like `mask` and `mtu` coexist without the
+// old first-char collision.
 static void manifest_handler(const char *section, const char *key,
                              const char *value, void *user) {
     AppManifest *m = (AppManifest *)user;
     (void)section;
 
-    if (key[0] == 'n' && key[1] == 'a') {
-        // name
+    if (kstreq(key, "name")) {
         for (int i = 0; i < APP_NAME_LEN - 1 && value[i]; i++)
             m->name[i] = value[i];
-    } else if (key[0] == 'b') {
-        // binary
+    } else if (kstreq(key, "binary")) {
         for (int i = 0; i < APP_PATH_LEN - 1 && value[i]; i++)
             m->binary[i] = value[i];
-    } else if (key[0] == 'c') {
-        // cores=1,2,3
+    } else if (kstreq(key, "cores")) {
         m->core_count = 0;
         const char *p = value;
         while (*p && m->core_count < MAX_APP_CORES) {
@@ -46,6 +90,43 @@ static void manifest_handler(const char *section, const char *key,
                 m->cores[m->core_count++] = n;
             if (*p == ',') p++;
         }
+    } else if (kstreq(key, "ip")) {
+        // Legacy single-IP form. Refuse loudly so old manifests
+        // do not silently get the wrong (uniform) IP across cores.
+        // Caller-side flag: ip_count stays 0, app_launch will
+        // catch and report the migration error.
+        m->net.ip_count = 0xFF;   // sentinel: "legacy ip= seen"
+    } else if (kstreq(key, "ip_mode")) {
+        if (kstreq(value, "per-core"))
+            m->net.ip_mode = APP_IP_MODE_PER_CORE;
+        else if (kstreq(value, "per-numa"))
+            m->net.ip_mode = APP_IP_MODE_PER_NUMA;
+        else
+            m->net.ip_mode = 0xFF;   // sentinel: bad mode
+    } else if (kstreq(key, "ips")) {
+        m->net.ip_count = 0;
+        const char *p = value;
+        while (*p && m->net.ip_count < MAX_APP_CORES) {
+            // Skip leading whitespace
+            while (*p == ' ' || *p == '\t') p++;
+            // Take everything up to ',' or end of value
+            char buf[32];
+            int j = 0;
+            while (*p && *p != ',' && j < (int)sizeof(buf) - 1)
+                buf[j++] = *p++;
+            buf[j] = '\0';
+            uint32 ip = kparse_ipv4_ne(buf);
+            m->net.ips[m->net.ip_count++] = ip;
+            if (*p == ',') p++;
+        }
+    } else if (kstreq(key, "mask")) {
+        m->net.mask = kparse_ipv4_ne(value);
+    } else if (kstreq(key, "gw")) {
+        m->net.gw = kparse_ipv4_ne(value);
+    } else if (kstreq(key, "mtu")) {
+        m->net.mtu = (uint16)kparse_u32(value);
+    } else if (kstreq(key, "forward")) {
+        m->net.forward = (uint8)(kparse_u32(value) ? 1 : 0);
     }
 }
 
@@ -133,6 +214,82 @@ int app_launch(const char *manifest_path) {
         app->nic_locked[nic] = 1;
     }
 
+    // Validate IP configuration (per-core or per-numa).
+    // No IP keys at all -> non-network app (e.g. demo_app), skip.
+    if (manifest.net.ip_count == 0xFF) {
+        kprint("APP: legacy 'ip=' key in manifest, replace with "
+               "ip_mode= and ips=\n");
+        return -1;
+    }
+    int has_ip_config = (manifest.net.ip_mode != APP_IP_MODE_UNSET ||
+                         manifest.net.ip_count > 0);
+    if (has_ip_config) {
+    if (manifest.net.ip_mode != APP_IP_MODE_PER_CORE &&
+        manifest.net.ip_mode != APP_IP_MODE_PER_NUMA) {
+        kprint("APP: ip_mode missing or invalid (expected "
+               "per-core or per-numa)\n");
+        return -1;
+    }
+    NicAssignmentMode sys_mode = nic_get_mode();
+    uint8 expected = (sys_mode == NIC_MODE_PER_CORE)
+                        ? APP_IP_MODE_PER_CORE : APP_IP_MODE_PER_NUMA;
+    if (manifest.net.ip_mode != expected) {
+        kprint("APP: ip_mode mismatch with sys.nic.mode (manifest=");
+        kprint(manifest.net.ip_mode == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(", system=");
+        kprint(expected == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(")\n");
+        return -1;
+    }
+    if (manifest.net.ip_mode == APP_IP_MODE_PER_CORE) {
+        if (manifest.net.ip_count != manifest.core_count) {
+            kprint("APP: per-core mode needs ");
+            kprint_dec(manifest.core_count);
+            kprint(" IPs (got ");
+            kprint_dec(manifest.net.ip_count);
+            kprint(")\n");
+            return -1;
+        }
+        // ip_numa_nodes[] unused in per-core; leave zeroed.
+    } else {
+        // per-numa: collect distinct NUMA nodes from cores in
+        // first-seen order. ip_count must match that count, and
+        // ips[i] applies to ip_numa_nodes[i].
+        uint32 distinct[MAX_APP_CORES];
+        uint8 distinct_count = 0;
+        for (uint32 i = 0; i < manifest.core_count; i++) {
+            uint32 node = thread_meta[manifest.cores[i]].numa_node;
+            uint8 found = 0;
+            for (uint8 j = 0; j < distinct_count; j++) {
+                if (distinct[j] == node) { found = 1; break; }
+            }
+            if (!found && distinct_count < MAX_APP_CORES)
+                distinct[distinct_count++] = node;
+        }
+        if (manifest.net.ip_count != distinct_count) {
+            kprint("APP: per-numa mode needs ");
+            kprint_dec(distinct_count);
+            kprint(" IPs (got ");
+            kprint_dec(manifest.net.ip_count);
+            kprint(")\n");
+            return -1;
+        }
+        for (uint8 i = 0; i < distinct_count; i++)
+            manifest.net.ip_numa_nodes[i] = distinct[i];
+    }
+    // All IPs must be set
+    for (uint8 i = 0; i < manifest.net.ip_count; i++) {
+        if (manifest.net.ips[i] == 0) {
+            kprint("APP: ips[");
+            kprint_dec(i);
+            kprint("] is 0.0.0.0\n");
+            return -1;
+        }
+    }
+    }   // end of has_ip_config block
+
     // Load binary
     uint64 load_addr = APP_LOAD_BASE + (uint64)slot * APP_REGION_SIZE;
     uint32 file_size = vfs_file_size(manifest.binary);
@@ -158,6 +315,8 @@ int app_launch(const char *manifest_path) {
     app->cores_done = 0;
     for (uint32 i = 0; i < manifest.core_count; i++)
         app->cores[i] = manifest.cores[i];
+    app->net = manifest.net;
+    if (app->net.mtu == 0) app->net.mtu = 1500;
 
     // Mark cores in use
     for (uint32 i = 0; i < manifest.core_count; i++)
@@ -174,6 +333,56 @@ int app_launch(const char *manifest_path) {
     }
     putc('\n');
 
+    // Single-line L3 config banner (BSP-serialized, unlike per-core
+    // ready banners which interleave under parallel dispatch).
+    if (app->net.ip_count > 0) {
+        kprint("APP: ");
+        kprint(app->name);
+        kprint(" ip_mode=");
+        kprint(app->net.ip_mode == APP_IP_MODE_PER_CORE
+                   ? "per-core" : "per-numa");
+        kprint(" ips=");
+        for (uint8 i = 0; i < app->net.ip_count; i++) {
+            if (i > 0) putc(',');
+            uint8 *ip = (uint8 *)&app->net.ips[i];
+            kprint_dec(ip[0]); putc('.');
+            kprint_dec(ip[1]); putc('.');
+            kprint_dec(ip[2]); putc('.');
+            kprint_dec(ip[3]);
+        }
+        putc('\n');
+
+        // Per-core CPU -> IP mapping. BSP-serialized so the lines
+        // are deterministic; per-core ready banners from APs
+        // interleave at byte level and aren't reliable for tests.
+        for (uint32 i = 0; i < app->core_count; i++) {
+            uint32 cpu_idx = app->cores[i];
+            uint32 cpu_ip = 0;
+            if (app->net.ip_mode == APP_IP_MODE_PER_CORE) {
+                cpu_ip = app->net.ips[i];
+            } else {
+                uint32 node = thread_meta[cpu_idx].numa_node;
+                for (uint8 j = 0; j < app->net.ip_count; j++) {
+                    if (app->net.ip_numa_nodes[j] == node) {
+                        cpu_ip = app->net.ips[j];
+                        break;
+                    }
+                }
+            }
+            uint8 *ip = (uint8 *)&cpu_ip;
+            kprint("APP: ");
+            kprint(app->name);
+            kprint(" cpu=");
+            kprint_dec(cpu_idx);
+            kprint(" ip=");
+            kprint_dec(ip[0]); putc('.');
+            kprint_dec(ip[1]); putc('.');
+            kprint_dec(ip[2]); putc('.');
+            kprint_dec(ip[3]);
+            putc('\n');
+        }
+    }
+
     // Allocate user stacks and set entry addresses
     for (uint32 i = 0; i < manifest.core_count; i++) {
         uint32 c = manifest.cores[i];
@@ -181,38 +390,56 @@ int app_launch(const char *manifest_path) {
         ap_entry_addrs[c] = load_addr;
     }
 
-    // Setup ring 3 on each assigned core (sequential)
+    // Setup ring 3 on each assigned core (sequential, short init).
     for (uint32 i = 0; i < manifest.core_count; i++) {
         ap_dispatch(manifest.cores[i], ap_setup_ring3, manifest.cores[i]);
     }
 
-    // Dispatch ring 3 entry (blocking for now, each core completes before next)
+    // Mark the slot active BEFORE firing the cores so app_check_completion
+    // will see it and reap once all cores finish.
+    app->active = 1;
+
+    // Fire ring 3 entry on every assigned core in parallel. Each core
+    // runs independently; app_check_completion (called from the shell's
+    // idle path) reaps the slot once all cores have returned.
+    kprint("APP: dispatching cores:");
     for (uint32 i = 0; i < manifest.core_count; i++) {
         uint32 c = manifest.cores[i];
-        kprint("APP: dispatching to CPU ");
+        putc(' ');
         kprint_dec(c);
-        kprint("...\n");
-        ap_dispatch(c, ap_run_ring3, c);
-        kprint("APP: CPU ");
-        kprint_dec(c);
-        kprint(" done\n");
+        ap_dispatch_async(c, ap_run_ring3, c);
     }
+    putc('\n');
 
-    // All cores done, clean up
-    for (uint32 i = 0; i < manifest.core_count; i++)
-        core_to_app[manifest.cores[i]] = 0xFF;
-    memset(app->nic_locked, 0, sizeof(app->nic_locked));
-    app->active = 0;
-
-    kprint("APP: ");
-    kprint(app->name);
-    kprint(" finished\n");
     return 0;
 }
 
 int app_check_completion(void) {
-    // For future non-blocking dispatch
-    return 0;
+    int reaped = 0;
+    for (int s = 0; s < MAX_APPS; s++) {
+        AppSlot *app = &app_table[s];
+        if (!app->active) continue;
+
+        uint8 done_count = 0;
+        for (uint32 i = 0; i < app->core_count; i++) {
+            if (ap_work_done(app->cores[i])) done_count++;
+        }
+        app->cores_done = done_count;
+
+        if (done_count < app->core_count) continue;
+
+        // All cores done, reap the slot.
+        for (uint32 i = 0; i < app->core_count; i++)
+            core_to_app[app->cores[i]] = 0xFF;
+        memset(app->nic_locked, 0, sizeof(app->nic_locked));
+        app->active = 0;
+
+        kprint("APP: ");
+        kprint(app->name);
+        kprint(" finished\n");
+        reaped++;
+    }
+    return reaped;
 }
 
 void app_list(void) {

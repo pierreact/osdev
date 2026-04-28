@@ -52,6 +52,13 @@ void keyboard_driver() {
     if(kbscancode == 0xAA) kb_flags &= ~SHIFT; // Release Left Shift
     if(kbscancode == 0xB6) kb_flags &= ~SHIFT; // Release Right Shift
 
+    // Keys whose output does not depend on shift state. Handled once so
+    // backspace/tab/enter/space still work when Caps Lock latches SHIFT.
+    if(kbscancode == 0x0E) character = 0x08; // Backspace
+    if(kbscancode == 0x0F) character = 0x09; // Tab
+    if(kbscancode == 0x1C) character = 0x0A; // Enter
+    if(kbscancode == 0x39) character = ' ';
+
     if((kb_flags & SHIFT) == SHIFT) {
         if(kbscancode == 0x3A) kb_flags &= ~SHIFT; // Remove caps lock
         if(kbscancode == 0x02) character = '!';
@@ -162,10 +169,6 @@ void keyboard_driver() {
         if(kbscancode == 0x34) character = '.';
         if(kbscancode == 0x35) character = '/';
 
-        if(kbscancode == 0x0E) character = 0x08; // Backspace
-        if(kbscancode == 0x0F) character = 0x09; // Tab
-        if(kbscancode == 0x39) character = ' ';
-        if(kbscancode == 0x1C) character = 0x0A; // New line, return key.
     }
     if(character != 0x0) input_buf_push(character);
 }

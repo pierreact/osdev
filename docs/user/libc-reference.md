@@ -98,7 +98,7 @@ Network protocol library for direct device access (DPDK pattern). Located in `ap
 |--------|----------|
 | `net/eth.h` | Ethernet header struct, constants, byte-order helpers, frame parse/build |
 | `net/arp.h` | ARP packet struct, table, request/reply |
-| `net/l2.h` | NetBackend vtable, L2Context, l2_init/l2_poll/l2_send |
+| `net/l2.h` | NetBackend vtable, NetContext, l2_init/l2_poll/l2_send |
 | `net/pktrace.h` | PkTrace struct, TSC stamps, trace lifecycle |
 
 See [syscall-reference.md](syscall-reference.md) for the complete syscall table.

@@ -51,6 +51,17 @@ extern APWork ap_work[MAX_CPUS];
 // Returns the function's return value.
 uint64 ap_dispatch(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg);
 
+// Fire-and-forget: signal the AP and return immediately (no wait).
+// Returns 0 on success, -1 if cpu_idx is invalid or not running.
+// Caller is responsible for polling ap_work_done() to know when the
+// AP has returned from fn(arg). Used by app_launch for parallel
+// per-core dispatch.
+uint64 ap_dispatch_async(uint32 cpu_idx, uint64 (*fn)(uint64 arg), uint64 arg);
+
+// Non-blocking completion check: returns 1 if the AP's last dispatched
+// work has finished, 0 otherwise.
+int ap_work_done(uint32 cpu_idx);
+
 // Dispatch to all APs, wait for all to complete.
 void ap_dispatch_all(uint64 (*fn)(uint64 arg), uint64 arg);
 

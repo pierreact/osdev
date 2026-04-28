@@ -51,6 +51,7 @@ EXTERN map_mmio_region                                  ; Map APIC MMIO pages.
 EXTERN disable_pic                                      ; Disable 8259A PIC.
 EXTERN lapic_init                                       ; Initialize Local APIC on BSP.
 EXTERN ioapic_init                                      ; Initialize I/O APIC.
+EXTERN pit_init_periodic                                ; PIT helper. Inert in QEMU q35 (HPET intercepts IRQ0); kept for bare metal.
 EXTERN cpu_init                                         ; Initialize per-CPU structures.
 EXTERN tss_init                                         ; Initialize TSS and load TR.
 EXTERN percpu                                           ; Per-CPU state array (kernel/cpu.c).
@@ -65,6 +66,7 @@ EXTERN bootmedia_init                                   ; Discover and mount boo
 EXTERN pci_ids_init                                     ; Load PCI vendor/class names from ISO.
 EXTERN nic_init                                         ; Initialize NIC drivers.
 EXTERN l2_kern_init                                     ; Initialize L2 Ethernet on BSP NICs.
+EXTERN net_service_init                                 ; Initialize BSP net_service polling foundation.
 EXTERN app_init                                         ; Initialize application table.
                                                         ;
 jmp end_define_functions                                ; Including 16 bits functions
@@ -597,6 +599,7 @@ include_64bits_functions:                               ; /include
     call pci_ids_init                                   ; Load PCI vendor/class names from ISO.
     call nic_init                                       ; Initialize NIC drivers.
     call l2_kern_init                                   ; Initialize L2 Ethernet on BSP NICs.
+    call net_service_init                               ; Arm BSP net_service polling foundation.
     call app_init                                       ; Initialize application table.
 
 ;----------------------------------------------------------------------------------------------------------------------------------------

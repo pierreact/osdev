@@ -41,7 +41,7 @@ void arp_insert(ArpTable *t, uint32 ip, const uint8 *mac) {
 }
 
 int arp_process(void *l2ctx, ArpTable *t, uint8 *frame, uint32 frame_len) {
-    L2Context *ctx = (L2Context *)l2ctx;
+    NetContext *ctx = (NetContext *)l2ctx;
 
     if (frame_len < ETH_HDR_LEN + ARP_PKT_LEN)
         return -1;
@@ -86,7 +86,7 @@ int arp_process(void *l2ctx, ArpTable *t, uint8 *frame, uint32 frame_len) {
 }
 
 int arp_request(void *l2ctx, uint32 target_ip) {
-    L2Context *ctx = (L2Context *)l2ctx;
+    NetContext *ctx = (NetContext *)l2ctx;
     if (ctx->ip == 0)
         return -1;   // no IP configured, cannot ARP
 

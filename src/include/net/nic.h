@@ -7,7 +7,8 @@
 #define NIC_NONE 0xFFFFFFFFu
 
 // First N NICs (in enumeration order) are reserved as BSP NICs
-// (mgmt + inter-node) and excluded from the AP assignment pool.
+// (mgmt + inter-node) and excluded from the per-core NIC pool
+// available to application cores.
 #define BSP_NIC_COUNT 2
 
 typedef enum {
@@ -43,5 +44,16 @@ int         nic_find_for_node(uint32 node);
 void                nic_set_mode(NicAssignmentMode mode);
 NicAssignmentMode   nic_get_mode(void);
 void                nic_assign(void);   // (re)compute per-CPU assignment
+
+// Wire INTx delivery for the given NIC slot to the supplied vector,
+// destined to the BSP LAPIC. Looks up the slot's PCI device, asks
+// pci_find_gsi for the GSI, registers the underlying virtio device
+// for ISR-ack, and unmasks the IOAPIC entry. Returns 0 on success,
+// -1 if the slot is inactive or no GSI is available.
+//
+// Real-hardware caveat: relies on PCI config 0x3C carrying the
+// resolved GSI, which holds on QEMU q35 but not on bare metal --
+// see ai.rules "Real-hardware compatibility check".
+int nic_enable_intx(uint32 idx, uint8 vector);
 
 #endif

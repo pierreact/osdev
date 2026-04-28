@@ -12,6 +12,7 @@
 #define PCI_HEADER_TYPE     0x0E
 #define PCI_BAR0            0x10
 #define PCI_IRQ_LINE        0x3C
+#define PCI_IRQ_PIN         0x3D
 
 static PCIDevice pci_devices[MAX_PCI_DEVICES];
 static uint32 pci_count = 0;
@@ -123,6 +124,7 @@ static void enumerate_segment(uint32 seg_idx) {
                 volatile uint8  *hdr_ptr = ecam_addr(seg_idx, bus, dev, func, PCI_HEADER_TYPE);
                 volatile uint32 *cls_ptr = (volatile uint32 *)ecam_addr(seg_idx, bus, dev, func, PCI_CLASS_REVISION);
                 volatile uint8  *irq_ptr = ecam_addr(seg_idx, bus, dev, func, PCI_IRQ_LINE);
+                volatile uint8  *pin_ptr = ecam_addr(seg_idx, bus, dev, func, PCI_IRQ_PIN);
 
                 PCIDevice *d = &pci_devices[pci_count];
                 d->vendor_id = vid;
@@ -137,6 +139,7 @@ static void enumerate_segment(uint32 seg_idx) {
                 d->dev = dev;
                 d->func = func;
                 d->irq_line = *irq_ptr;
+                d->irq_pin  = *pin_ptr;
 
                 uint32 node = 0;
                 if (acpi_pci_to_node(seg_idx, bus, dev, func, &node))
@@ -214,4 +217,16 @@ const PCIDevice *pci_find_class(uint8 class_code, uint8 subclass) {
             return &pci_devices[i];
     }
     return NULL;
+}
+
+uint8 pci_find_gsi(const PCIDevice *dev) {
+    if (!dev) return 0xFF;
+    if (dev->irq_pin == 0) return 0xFF;   // device declares no INTx
+    // QEMU-specific shortcut: q35 firmware writes the resolved GSI
+    // into PCI config 0x3C. On real hardware this byte is the
+    // firmware's "hint" and is often 0xFF until the OS programs it
+    // after walking _PRT. Real-hardware mitigation is a followup
+    // milestone (extend src/arch/aml.c to parse _PRT). See
+    // ai.rules "Real-hardware compatibility check".
+    return dev->irq_line;
 }

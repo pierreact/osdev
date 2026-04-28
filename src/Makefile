@@ -39,9 +39,12 @@ OBJECTS=    boot/kmain.o \
             net/arp.o \
             net/pktbuf.o \
             net/l2.o \
+            net/ip.o \
+            net/icmp.o \
             net/pktrace.o \
             net/pktrace_kern.o \
             net/l2_kern.o \
+            services/net_service.o \
             fs/fat32.o \
             fs/iso9660.o \
             fs/vfs.o \

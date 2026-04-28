@@ -207,6 +207,13 @@ asm64_setup_idt:                                        ;
     call asm64_creategate_interrupt                     ; Create Interrupt gate.
                                                         ;
     ;-----------------------------                      ;--------------------------------------------------------------------------------
+                                                        ; Vector 0x40: virtio-net INTx (mgmt NIC)
+                                                        ; Wakes sys_wait_input from hlt on RX packet arrival.
+    mov rbx, IDT64_BASE + (0x40 * 16)                   ; Jump directly to vector 0x40 slot
+    mov rax, asm64_isr_virtio_net_handler               ;
+    call asm64_creategate_interrupt                     ;
+                                                        ;
+    ;-----------------------------                      ;--------------------------------------------------------------------------------
                                                         ; Vector 0xFF: LAPIC Spurious Interrupt Handler
                                                         ; Must be at vector 0xFF (set in LAPIC SVR)
     mov rbx, IDT64_BASE + (0xFF * 16)                  ; Jump directly to vector 0xFF slot
@@ -587,6 +594,60 @@ asm64_isr_timer_handler:                                ;
     pop rax
                                                         ;
 	iretq                                               ;
+
+;----------------------------------------------------------------------------------------------------------------------------------------
+; virtio-net INTx ISR (vector 0x40, mgmt NIC RX wake)
+;
+; Body: ack the device by reading its ISR-status byte (which deasserts
+; the INTx line on legacy virtio), bump a wake counter for diagnostic
+; purposes, send LAPIC EOI, return. The actual virtqueue drain happens
+; in the next iteration of sys_wait_input -> net_service_tick. This
+; keeps the ISR short and avoids reentrancy concerns.
+;----------------------------------------------------------------------------------------------------------------------------------------
+EXTERN virtio_net_isr_ack
+EXTERN net_service_isr_count
+asm64_isr_virtio_net_handler:
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    call virtio_net_isr_ack                             ; Read device ISR status to deassert INTx
+
+    mov rax, [net_service_isr_count]                    ; Bump wake counter for diagnostics
+    inc rax                                             ;
+    mov [net_service_isr_count], rax                    ;
+
+    call asm64_lapic_send_eoi                           ; Send EOI to Local APIC
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+
+    iretq
                                                         ;
 ;----------------------------------------------------------------------------------------------------------------------------------------
 asm64_isr_keyboard_handler:                             ;

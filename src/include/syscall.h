@@ -35,7 +35,8 @@
 #define SYS_NIC_RECV      28
 #define SYS_APP_LAUNCH    29
 #define SYS_APP_LIST      30
-#define SYS_NR_MAX        31
+#define SYS_APP_NET_CFG   31
+#define SYS_NR_MAX        32
 
 // SYSCALL clobbers: RCX (saved RIP), R11 (saved RFLAGS).
 // The kernel's syscall_entry also clobbers RDI, RSI, RDX, R8, R9, R10

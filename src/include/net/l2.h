@@ -18,7 +18,7 @@ typedef struct {
     int  (*recv_batch)(void *ctx, PktBuf **bufs, uint32 max_frames);
 } NetBackend;
 
-// Always-on counters (all traffic, not just traced)
+// Always-on L2 counters (all traffic, not just traced)
 typedef struct {
     uint64 rx_frames;
     uint64 tx_frames;
@@ -30,25 +30,47 @@ typedef struct {
     uint64 arp_replies_sent;
 } L2Stats;
 
-// Per-NIC L2 context. One per managed interface.
+// Always-on L3 counters. Lives inside NetContext because IP rides
+// directly on top of L2 for this project (one IP per interface,
+// per-NIC context owns both layers).
+typedef struct {
+    uint64 ipv4_rx;                 // IPv4 frames accepted past parse
+    uint64 ipv4_tx;                 // IPv4 frames emitted
+    uint64 ipv4_dropped;            // bad header / unknown proto / not for us w/o forward
+    uint64 ipv4_dropped_oversize;   // would-be TX > MTU and DF set (or no-frag policy)
+    uint64 ttl_expired;             // hit 0 on forward
+    uint64 forwarded;               // forwarded to next hop
+    uint64 icmp_echo_rx;            // echo requests received
+    uint64 icmp_echo_tx;            // echo replies sent
+} IpStats;
+
+// Per-NIC L2+L3 context. One per managed interface. Carries the L3
+// configuration (ip/mask/gw/mtu/forward) because L3 rides on top of
+// L2 and the two contexts are tightly paired in this design.
 typedef struct {
     NetBackend  backend;
     void       *backend_ctx;        // nic_index (kernel) or device ptr (DPDK)
     uint8       mac[ETH_ADDR_LEN];
     uint8       reserved[2];
     uint32      ip;                 // our IPv4 (network byte order), 0 = none
+    uint32      mask;               // netmask (network byte order), 0 = /0
+    uint32      gw;                 // default gateway (network byte order)
+    uint16      mtu;                // 0 means "use ETH_MTU"
+    uint8       forward;            // 1 = forward non-local IPv4, 0 = drop
+    uint8       reserved2[5];
     ArpTable    arp;
     L2Stats     stats;
+    IpStats     ip_stats;
     PktBufPool  pool;               // pre-allocated buffer pool (zero-copy IO)
     uint8       frame_buf[ETH_FRAME_MAX + 2];   // fallback RX buffer (when no pool)
-} L2Context;
+} NetContext;
 
 // Maximum frames returned by l2_poll_batch
 #define L2_BATCH_MAX 32
 
 // Initialize L2 context. Reads MAC from backend.
 // pool_pages: number of 4KB pages for the buffer pool (0 = no pool, use frame_buf fallback).
-void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
+void l2_init(NetContext *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
              uint32 pool_pages, uint8 *pool_memory);
 
 // Poll return codes
@@ -59,42 +81,42 @@ void l2_init(L2Context *ctx, NetBackend backend, void *backend_ctx, uint32 ip,
 // Poll: receive one frame, dispatch by ethertype.
 // ARP frames handled internally (updates table, sends replies).
 // trace may be NULL for untraced polling.
-int l2_poll(L2Context *ctx, uint16 *ethertype, uint8 **payload,
+int l2_poll(NetContext *ctx, uint16 *ethertype, uint8 **payload,
             uint32 *payload_len, PkTrace *trace);
 
 // Send a payload with Ethernet framing
-int l2_send(L2Context *ctx, const uint8 *dst_mac, uint16 ethertype,
+int l2_send(NetContext *ctx, const uint8 *dst_mac, uint16 ethertype,
             const uint8 *payload, uint32 payload_len, PkTrace *trace);
 
 // ARP-resolved send: look up dst IP in ARP table, send if resolved.
 // If not resolved, sends ARP request and returns -1 (caller retries later).
-int l2_send_ip(L2Context *ctx, uint32 dst_ip, uint16 ethertype,
+int l2_send_ip(NetContext *ctx, uint32 dst_ip, uint16 ethertype,
                const uint8 *payload, uint32 payload_len, PkTrace *trace);
 
 // Zero-copy send: caller provides a PktBuf with payload written at pktbuf_payload().
 // L2 writes the Ethernet header into the headroom in-place (no copy).
 // The buffer is NOT freed -- caller manages its lifetime.
-int l2_send_zc(L2Context *ctx, PktBuf *buf, const uint8 *dst_mac,
+int l2_send_zc(NetContext *ctx, PktBuf *buf, const uint8 *dst_mac,
                uint16 ethertype, uint32 payload_len, PkTrace *trace);
 
 // Batch receive: receive up to L2_BATCH_MAX frames into PktBuf slots from the pool.
 // ARP frames are handled internally and not returned.
 // Returns number of non-ARP frames placed in out_bufs[].
 // Caller must pktbuf_free each buffer when done processing.
-int l2_poll_batch(L2Context *ctx, PktBuf **out_bufs, uint16 *out_etypes,
+int l2_poll_batch(NetContext *ctx, PktBuf **out_bufs, uint16 *out_etypes,
                   uint32 max_frames, PkTrace *trace);
 
 // Allocate a TX buffer from the context's pool (convenience wrapper)
-static inline PktBuf *l2_alloc_buf(L2Context *ctx) {
+static inline PktBuf *l2_alloc_buf(NetContext *ctx) {
     return pktbuf_alloc(&ctx->pool);
 }
 
 // Return a buffer to the context's pool (convenience wrapper)
-static inline void l2_free_buf(L2Context *ctx, PktBuf *buf) {
+static inline void l2_free_buf(NetContext *ctx, PktBuf *buf) {
     pktbuf_free(&ctx->pool, buf);
 }
 
 // Get stats snapshot
-void l2_get_stats(L2Context *ctx, L2Stats *out);
+void l2_get_stats(NetContext *ctx, L2Stats *out);
 
 #endif
