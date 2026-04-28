@@ -7,7 +7,8 @@
 #define NIC_NONE 0xFFFFFFFFu
 
 // First N NICs (in enumeration order) are reserved as BSP NICs
-// (mgmt + inter-node) and excluded from the AP assignment pool.
+// (mgmt + inter-node) and excluded from the per-core NIC pool
+// available to application cores.
 #define BSP_NIC_COUNT 2
 
 typedef enum {

@@ -1,7 +1,7 @@
 # Glossary
 
 - **Affinity** - Placement constraint requesting that threads be co-located (same NUMA node, same machine) or separated (anti-affinity). Specified at thread creation, enforced by the scheduler.
-- **AP** - Application Processor. Any CPU other than CPU 0. Woken by the BSP during boot.
+- **AP** - Application Processor. **One CPU core** (not a socket, not a NUMA node). Any core other than CPU 0. Woken by the BSP during boot. "Per-AP" means "per-core". Sockets and NUMA nodes are higher-level groupings; spell those as "per-socket" or "per-NUMA" to avoid confusion.
 - **BSP** - Bootstrap Processor. CPU 0. Boots the system, runs the kernel and management services (SSH, telnet, Prometheus exporter).
 - **Cluster mode** - Isurus spanning multiple machines treated as one NUMA topology. A single process spans nodes; threads share a single address space via DSM with single-writer ownership per slice. Remote access pays the higher cross-NUMA latency. Suited to distributed in-memory workloads, large-scale graph processing, and shared aggregation. See README "Design doctrine" for the canonical definition.
 - **DSM** - Distributed Shared Memory. A memory model where multiple machines share a single logical address space. Remote pages are fetched transparently via page faults over the inter-node NIC.

@@ -133,7 +133,7 @@ The network stack is shared: one copy of the sources in `src/net/` compiles into
 
 ### L3 layer (IPv4)
 
-IPv4 rides directly on top of L2: the same `NetContext` carries the L3 configuration (`ip`, `mask`, `gw`, `mtu`, `forward`) and an `IpStats` block. There is no separate IpContext struct, because in this design there is exactly one IP per interface and per-AP threads own their own L2+L3 state end to end.
+IPv4 rides directly on top of L2: the same `NetContext` carries the L3 configuration (`ip`, `mask`, `gw`, `mtu`, `forward`) and an `IpStats` block. There is no separate IpContext struct, because in this design there is exactly one IP per interface and per-core threads own their own L2+L3 state end to end.
 
 `ip_rx` in `src/net/ip.c` validates version / IHL=5 / total_len / fragment bits / checksum. If the destination is our IP, it dispatches by protocol (today: ICMP only, via `icmp_rx`). Otherwise, if `forward` is set and TTL > 1, it decrements TTL, recomputes the checksum, resolves the next hop via the on-link / default-gateway decision, and hands the frame back to L2. All other cases drop with a counter.
 
@@ -143,11 +143,11 @@ ICMP in `src/net/icmp.c` handles Echo Request (auto-reply, copying the payload a
 
 Checksums are software-only (`ip_checksum` is a shared RFC 1071 one's-complement helper). The virtio-net driver negotiates no offload features.
 
-### BSP mgmt NIC vs. AP apps
+### BSP mgmt NIC vs. application-core apps
 
 The BSP management NIC (NIC 0) is initialised by `l2_kern_init` with hard-coded defaults matching the QEMU user netdev (`10.0.2.15/24`, gw `10.0.2.2`). The shell commands `sys.net.ping`, `sys.net.ip`, `sys.net.route`, and `sys.net.stats` drive it. `net_service_drain(ctx)` is called at the start of every `sys.net.*` handler and dispatches IPv4 frames to `ip_rx` inline.
 
-AP apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `NetContext`. Each AP polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
+Application-core apps (today: `apps/dpdk_l3`) read their manifest-supplied IP/mask/gw/mtu/forward from the kernel via `SYS_APP_NET_CFG` (the app does not parse INI itself) and stuff the values directly into their `NetContext`. Each core polls its own NIC and runs its own L3 - no cross-core coordination, no locks.
 
 ## Services
 

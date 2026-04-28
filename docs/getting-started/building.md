@@ -48,7 +48,7 @@ The ISO also contains `apps/demo_app/demo_app` (at `/bin/demo_app`) and `data/pc
 The QEMU scripts use Q35 machine type with:
 - 2GB RAM, 2 NUMA nodes (1GB each)
 - 4 CPUs (2 sockets, 2 cores)
-- 5 virtio-net-pci devices (2 BSP + 3 AP pool) on 6 pcie-root-port devices via 2 pxb-pcie host bridges
+- 5 virtio-net-pci devices (2 BSP + 3 in the per-core pool for application cores) on 6 pcie-root-port devices via 2 pxb-pcie host bridges
 - ISO boot (`-boot order=d`)
 
 ## Running tests
